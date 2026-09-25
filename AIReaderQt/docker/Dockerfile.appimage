@@ -1,0 +1,30 @@
+# The x86_64 AppImage, built on Ubuntu 22.04: its glibc (2.35) is old enough
+# that the result runs on Ubuntu 22.04 and later, Debian 12, Fedora 36 and
+# their peers.
+FROM ubuntu:22.04
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential cmake ninja-build pkg-config file ca-certificates curl \
+    qt6-base-dev qt6-base-dev-tools qt6-qpa-plugins libgl-dev \
+    libglib2.0-dev libpango1.0-dev libgdk-pixbuf-2.0-dev \
+    libsqlite3-dev zlib1g-dev libcurl4-openssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /work
+# Pango as Ubuntu 22.04 ships it (1.50.6) puts space inside the words of a
+# justified line; 1.50.14 does not. Built here, it is the one the app links
+# and the AppImage carries.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    meson xz-utils libharfbuzz-dev libfribidi-dev libcairo2-dev libfontconfig-dev libfreetype-dev libthai-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSL https://download.gnome.org/sources/pango/1.50/pango-1.50.14.tar.xz | tar -xJ -C /tmp \
+    && cd /tmp/pango-1.50.14 \
+    && meson setup build --prefix=/usr/local --buildtype=release -Dintrospection=disabled -Dxft=disabled \
+        -Dgtk_doc=false \
+    && ninja -C build install && ldconfig && rm -rf /tmp/pango-1.50.14
+
+# The packaging tools, run unpacked since a container has no FUSE.
+RUN mkdir -p /opt/linuxdeploy && cd /opt/linuxdeploy \
+    && curl -fsSL -o linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage \
+    && curl -fsSL -o linuxdeploy-plugin-qt https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage \
+    && chmod +x linuxdeploy linuxdeploy-plugin-qt
+ENV PATH=/opt/linuxdeploy:$PATH APPIMAGE_EXTRACT_AND_RUN=1 QMAKE=/usr/lib/qt6/bin/qmake

@@ -14,10 +14,11 @@ jobs:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
-      # The extension targets iOS 27, so the SDK must come from Xcode 27.
+      # Both targets deploy to iOS 26.6, so the newest Xcode the runner has
+      # will do; it moves to 27 once GitHub installs it.
       - uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "27.0"
+          xcode-version: latest-stable
       # Unsigned: signing needs the owner's certificate. AltStore, Sideloadly
       # and the like sign the .ipa with the installer's own Apple ID.
       - name: Archive

@@ -27,6 +27,8 @@ AIReaderKindle/subprojects/*/
 AIReaderQt/dist/
 AIReaderQt/squashfs-root/
 *.AppImage
+# git on macOS ignores case, so the line above would hide this one too
+!AIReaderQt/docker/Dockerfile.appimage
 *.kpkg
 
 # Browser extension — zips made for a store, and tools a store asks for
