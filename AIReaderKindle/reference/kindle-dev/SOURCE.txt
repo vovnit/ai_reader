@@ -1,0 +1,9 @@
+Contents of https://kindlemodding.org/kindle-dev (Kindle Modding Wiki)
+
+Source: https://github.com/KindleModding/kindlemodding.github.io
+Path in repo: content/kindle-dev
+Commit: 075700a (2026-09-02)
+Retrieved: 2026-09-12
+
+These are the original Hugo markdown sources for the section, plus the
+images they reference. Licensed per the repo's LICENSE file.

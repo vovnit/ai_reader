@@ -1,0 +1,2 @@
+option('kindle_app_id', type: 'string', value: 'org.aireader.kindle',
+       description: 'The ID the Kindle window manager sees in the window title')

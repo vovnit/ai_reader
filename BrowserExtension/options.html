@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>AIReader: Save as Book</title>
+  <style>
+    :root { color-scheme: light dark; font: 14px/1.5 system-ui, sans-serif; }
+    body { max-width: 32em; margin: 2em auto; padding: 0 16px; }
+    label { display: block; margin: 12px 0; }
+    input { box-sizing: border-box; display: block; width: 100%; margin-top: 2px; padding: 6px; font: inherit; }
+    button { padding: 6px 16px; font: inherit; }
+    .error { color: #c00; }
+  </style>
+  <script type="module" src="options.js"></script>
+</head>
+<body>
+  <h1>Save as Book</h1>
+  <p>
+    The same WebDAV folder as in AIReader’s <em>Settings → Sync</em>. Books are
+    saved to its <code>Books</code> folder, and the apps fetch them on their
+    next sync.
+  </p>
+  <form id="form">
+    <label>Folder <input id="url" type="url" placeholder="https://example.com/dav/AIReader" required></label>
+    <label>User name <input id="username" type="text" autocomplete="username"></label>
+    <label>Password <input id="password" type="password" autocomplete="current-password"></label>
+    <button type="submit">Save</button>
+  </form>
+  <p>
+    Saving asks for access to all sites: to reach your server, and to fetch a
+    page’s pictures wherever they are kept.
+  </p>
+  <p id="status" role="status"></p>
+</body>
+</html>

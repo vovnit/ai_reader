@@ -1,0 +1,11 @@
+Lexique4/**
+wikidict-ru/**
+*-extract.jsonl
+*-extract.jsonl.metadata.json
+.fr-extract-index.sqlite3
+.fr-extract-index.sqlite3.tmp
+.*-extract-*-index.sqlite3
+.*-extract-*-index.sqlite3.tmp
+.mobile-dictionary*.sqlite3
+.mobile-dictionary*.sqlite3.tmp
+__pycache__/

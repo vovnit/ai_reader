@@ -1,0 +1,8 @@
+# A Linux desktop build under Xvfb, for screenshots of the interface at a
+# Kindle's resolution (macOS cannot read GTK+ 2 windows back).
+FROM debian:bookworm
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential pkg-config meson ninja-build xvfb fonts-dejavu fonts-liberation xauth \
+    libgtk2.0-dev libpango1.0-dev libgdk-pixbuf-2.0-dev libsqlite3-dev zlib1g-dev libcurl4-openssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /work

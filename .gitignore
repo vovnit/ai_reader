@@ -1,0 +1,69 @@
+# macOS
+.DS_Store
+._*
+
+# Build output, wherever it lands: Xcode's derived data under build/, the
+# Kindle app's Meson trees, the Qt app's CMake trees
+build/
+build-*/
+DerivedData/
+
+# Xcode — user state
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+timeline.xctimeline
+playground.xcworkspace
+.swiftpm/
+*.moved-aside
+*.ipa
+*.dSYM
+*.dSYM.zip
+
+# Packages made for installing, and what unpacking one leaves
+AIReaderKindle/dist/
+AIReaderKindle/subprojects/packagecache/
+AIReaderKindle/subprojects/*/
+AIReaderQt/dist/
+AIReaderQt/squashfs-root/
+*.AppImage
+*.kpkg
+
+# Browser extension — zips made for a store, and tools a store asks for
+BrowserExtension/*.zip
+BrowserExtension/web-ext-artifacts/
+node_modules/
+
+# DictionaryTool — its source data and intermediates are gigabytes, and
+# download_dictionaries.py fetches them again
+DictionaryTool/Lexique4/
+DictionaryTool/wikidict-ru/
+DictionaryTool/*-extract.jsonl
+DictionaryTool/*-extract.jsonl.metadata.json
+DictionaryTool/.*-index.sqlite3
+DictionaryTool/.*-index.sqlite3.tmp
+DictionaryTool/.mobile-dictionary*.sqlite3
+DictionaryTool/.mobile-dictionary*.sqlite3.tmp
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# Examples read for orientation, not part of the project (see CLAUDE.md)
+References/
+
+# Editors and tools
+.vscode/
+.idea/
+*.swp
+*~
+.claude/settings.local.json
+
+# Secrets: tokens and passwords live in the keychain or the apps' settings,
+# never in the tree
+.env
+.env.*
+*.local
+settings.ini

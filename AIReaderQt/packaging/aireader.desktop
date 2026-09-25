@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=AIReader
+Comment=Read books in a language you are learning
+Exec=aireader-qt
+Icon=aireader
+Terminal=false
+Categories=Office;Education;Viewer;
+MimeType=application/epub+zip;

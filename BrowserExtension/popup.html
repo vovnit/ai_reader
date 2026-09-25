@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Save to AIReader</title>
+  <link rel="stylesheet" href="popup.css">
+  <script type="module" src="popup.js"></script>
+</head>
+<body>
+  <p id="setup" hidden>
+    Set the WebDAV folder first. <button id="open-settings" type="button">Settings</button>
+  </p>
+
+  <section>
+    <h1 id="page-title">This page</h1>
+    <button id="save-page" type="button" class="primary">Save as book</button>
+    <button id="add-page" type="button">Add to book in progress</button>
+  </section>
+
+  <section id="draft" hidden>
+    <h2>Book in progress</h2>
+    <label>Title <input id="draft-title" type="text"></label>
+    <ol id="draft-pages"></ol>
+    <div class="row">
+      <button id="save-draft" type="button" class="primary">Save book</button>
+      <button id="discard-draft" type="button">Discard</button>
+    </div>
+  </section>
+
+  <p id="status" role="status"></p>
+  <footer><a href="#" id="settings-link">Settings</a></footer>
+</body>
+</html>

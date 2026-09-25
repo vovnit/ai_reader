@@ -1,0 +1,92 @@
+# A walk through every screen against the mock, for ./build.sh script:
+#   ./build.sh script tools/smoke.txt path/to/book.epub
+# Snapshots land in build-docker/shots/. Written for the Le Petit Prince in
+# References/; the taps are on words of its chapter II at the default style.
+wait 1500
+snap build-docker/shots/01-library.png
+click Le Petit Prince
+wait 2500
+key PageDown
+key PageDown
+key PageDown
+wait 500
+snap build-docker/shots/02-reader.png
+tap 393 103
+wait 2500
+snap build-docker/shots/03-lookup.png
+click Dictionary entry
+wait 500
+snap build-docker/shots/04-entry.png
+key Escape
+click X-ray
+wait 3000
+snap build-docker/shots/05-xray.png
+click Ask AI
+wait 300
+type Qui est le narrateur ?
+key Return
+wait 3000
+snap build-docker/shots/06-chat.png
+key Escape
+key Escape
+key Escape
+tap 530 132
+wait 2000
+key Escape
+click Chapter
+wait 300
+snap build-docker/shots/07-menu.png
+click Contents
+wait 500
+snap build-docker/shots/08-contents.png
+click CHAPITRE V
+wait 800
+click Chapter
+click Search
+wait 300
+type mouton
+key Return
+wait 2000
+snap build-docker/shots/09-search.png
+key Escape
+click Chapter
+click Display
+wait 300
+click +
+wait 500
+snap build-docker/shots/10-display.png
+key Escape
+click Chapter
+click Lookups
+wait 500
+snap build-docker/shots/11-lookups.png
+click Practice
+wait 500
+click désert
+wait 300
+snap build-docker/shots/12-practice.png
+key Escape
+click Export for Anki
+wait 500
+snap build-docker/shots/13-anki.png
+click OK
+key Escape
+key Escape
+wait 800
+click Group
+wait 300
+click New group…
+wait 500
+type Saint-Exupéry
+key Return
+wait 800
+snap build-docker/shots/14-grouped.png
+click Settings
+wait 300
+click Load models
+wait 1500
+snap build-docker/shots/15-settings.png
+click Dictionaries…
+wait 800
+snap build-docker/shots/16-dictionaries.png
+quit

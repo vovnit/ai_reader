@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "AIReader: Save as Book",
+  "version": "1.0",
+  "description": "Saves the page you are reading, or a collection of pages, as an EPUB in your AIReader WebDAV folder.",
+  "action": {
+    "default_title": "Save to AIReader",
+    "default_popup": "popup.html"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "permissions": ["activeTab", "scripting", "storage", "unlimitedStorage"],
+  "host_permissions": ["<all_urls>"],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "save-as-book@aireader.nitochkin.dev",
+      "strict_min_version": "115.0",
+      "data_collection_permissions": { "required": ["none"] }
+    }
+  }
+}

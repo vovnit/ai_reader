@@ -1,0 +1,10 @@
+{
+  "manifest_version": 2,
+  "id": "aireader",
+  "name": "AIReader",
+  "author": "AIReader",
+  "description": "Read an EPUB in a language you are learning: tap a word for its meaning in that sentence.",
+  "version": [0, 1, 0],
+  "dependencies": [],
+  "supported_platforms": ["kindlehf"]
+}

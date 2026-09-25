@@ -1,0 +1,9 @@
+# Meson build trees (desktop, Linux-in-Docker, and each Kindle target)
+build/
+build-*/
+# The assembled package folder, the .kpkg, and KPM's helper script
+dist/
+# Meson wrap downloads, if any are ever added
+subprojects/packagecache/
+subprojects/*/
+.DS_Store

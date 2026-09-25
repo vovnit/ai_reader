@@ -1,0 +1,14 @@
+{
+  "manifest_version": 2,
+  "id": "example_package",
+  "name": "Example Package",
+  "author": "Hackerdude",
+  "description": "This is an example package.",
+  "version": [
+    1,
+    0,
+    0
+  ],
+  "dependencies": [],
+  "supported_platforms": null
+}
