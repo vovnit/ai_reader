@@ -14,7 +14,7 @@ WordExplanation explain(
 {
     DictionaryLookup lookup = DictionaryDatabase::shared().lookup(word, tools.packs);
     std::vector<ChatMessage> messages = {
-        ChatMessage::system(ExplanationPrompt::system),
+        ChatMessage::system(ExplanationPrompt::system(settings.language)),
         ChatMessage::user(ExplanationPrompt::question(word, sentence, lookup)),
     };
     ChatMessage reply = ToolRunner::converse(settings, messages, ExplanationPrompt::tools(), true, tools);

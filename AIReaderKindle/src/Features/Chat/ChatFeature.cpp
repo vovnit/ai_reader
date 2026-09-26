@@ -19,8 +19,8 @@ void ChatFeature::send(const std::string& question) {
         std::string text;
         std::string error;
     };
-    std::vector<ChatMessage> messages = ChatPrompt::messages(context_, turns_);
     AiSettings settings = env_.settings.ai();
+    std::vector<ChatMessage> messages = ChatPrompt::messages(context_, turns_, settings.language);
     ToolRunner::Tools tools{scope_, env_.packs.enabled(), env_.settings.webSearch()};
     Async::run<Reply>(
         [messages, settings, tools]() mutable {

@@ -38,6 +38,12 @@ void SettingsFeature::setModel(const std::string& model) {
     save();
 }
 
+void SettingsFeature::setLanguage(const std::string& language) {
+    if (language == settings_.language) return;
+    settings_.language = language;
+    save();
+}
+
 void SettingsFeature::loadModels() {
     if (isLoadingModels_) return;
     isLoadingModels_ = true;

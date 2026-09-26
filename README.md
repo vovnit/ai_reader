@@ -163,8 +163,8 @@ python3 process_dictionaries.py --target-language fr --definition-language en
 It downloads its sources (Lexique4, Wiktionary extracts) next to itself, several
 gigabytes that git ignores.
 
-The language the *answers* are written in is set by the prompt in
-`AI/ExplanationPrompt.swift`, not by the dictionary.
+The language the *answers* are written in is the one named under **Explain in**
+in Settings (Russian until changed), not the dictionary's.
 
 ## The model
 

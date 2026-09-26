@@ -17,14 +17,15 @@ struct ChatTurn {
 /// screen, a word just explained — goes in once, with the first question.
 namespace ChatPrompt {
 
-extern const char* const system;
+/// `language` is the one every answer is written in.
+std::string system(const std::string& language);
 
 /// What the conversation starts from, as the model reads it.
 std::string pageContext(const std::string& page);
 std::string wordContext(const std::string& word, const std::string& sentence, const WordExplanation& explanation);
 std::string xrayContext(const std::string& term, const std::string& answer);
 
-std::vector<ChatMessage> messages(const std::string& context, const std::vector<ChatTurn>& turns);
+std::vector<ChatMessage> messages(const std::string& context, const std::vector<ChatTurn>& turns, const std::string& language);
 /// The dictionary and the book search, both open to the model in a conversation.
 Json tools();
 

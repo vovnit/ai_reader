@@ -18,7 +18,7 @@ struct WordExplainer: Sendable {
 
     func explain(word: String, sentence: String) async throws -> WordExplanation {
         var messages: [ChatMessage] = [
-            .system(ExplanationPrompt.system),
+            .system(ExplanationPrompt.system(language: settings.language)),
             .user(
                 ExplanationPrompt.question(
                     word: word,

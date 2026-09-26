@@ -88,7 +88,7 @@ struct XRayFeature {
             var answer = ""
             var error: String?
             do {
-                var messages = XRayPrompt.messages(term: term, hits: passages, severalBooks: corpus.severalBooks)
+                var messages = XRayPrompt.messages(term: term, hits: passages, severalBooks: corpus.severalBooks, language: settings.language)
                 answer = try await ToolRunner.converse(
                     settings: settings,
                     messages: &messages,

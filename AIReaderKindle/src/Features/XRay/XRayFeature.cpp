@@ -30,7 +30,7 @@ void XRayFeature::start() {
             }
             result.passages = tools.scope.corpus->search(term, XRayPrompt::passageLimit, tools.scope.upTo);
             try {
-                std::vector<ChatMessage> messages = XRayPrompt::messages(term, result.passages, tools.scope.corpus->severalBooks());
+                std::vector<ChatMessage> messages = XRayPrompt::messages(term, result.passages, tools.scope.corpus->severalBooks(), settings.language);
                 Json offered = Json(std::vector<Json>{SearchTool::tool()});
                 result.answer = ToolRunner::converse(settings, messages, offered, false, tools).content.value_or("");
             } catch (const std::exception& failure) {

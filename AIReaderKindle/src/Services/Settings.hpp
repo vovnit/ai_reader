@@ -15,6 +15,9 @@ struct AiSettings {
     /// so switching between services does not mean retyping tokens.
     std::string openAIKey;
     std::string model;
+    /// The language explanations and answers are written in, as the model
+    /// is told it: a name such as "Russian" or "English".
+    std::string language = "Russian";
 
     /// The token to send to the current endpoint.
     std::string token() const;
@@ -32,7 +35,7 @@ struct AiSettings {
 
     bool operator==(const AiSettings& other) const {
         return endpoint == other.endpoint && apiKey == other.apiKey
-            && openAIKey == other.openAIKey && model == other.model;
+            && openAIKey == other.openAIKey && model == other.model && language == other.language;
     }
     bool operator!=(const AiSettings& other) const { return !(*this == other); }
 

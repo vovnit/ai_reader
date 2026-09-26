@@ -11,9 +11,11 @@ struct ChatTurn: Equatable, Identifiable, Sendable {
 /// screen, a word just explained, what the book says about a name — goes in
 /// once, with the first question.
 enum ChatPrompt {
-    static let system = """
+    /// `language` is the one every answer is written in.
+    static func system(language: String) -> String {
+        """
         Ты помогаешь читателю разобраться с книгой на иностранном языке. \
-        Отвечай по-русски, коротко и по делу. Можно объяснять грамматику, разбирать \
+        Отвечай на языке «\(language)», коротко и по делу. Можно объяснять грамматику, разбирать \
         предложения, пересказывать содержание и отвечать на вопросы о тексте.
 
         Инструмент search_book ищет слово или фразу в тексте книги — до места, до которого \
@@ -21,6 +23,7 @@ enum ChatPrompt {
         что было раньше: о персонаже, месте, событии, о том, где слово уже встречалось. \
         Не пересказывай того, чего читатель ещё не читал.
         """
+    }
 
     /// What the conversation starts from, as the model reads it.
     static func pageContext(_ page: String) -> String {
@@ -39,8 +42,8 @@ enum ChatPrompt {
         "Термин из книги: \(term)\nЧто о нём известно по книге: \(answer)"
     }
 
-    static func messages(context: String, turns: [ChatTurn]) -> [ChatMessage] {
-        var messages: [ChatMessage] = [.system(system)]
+    static func messages(context: String, turns: [ChatTurn], language: String) -> [ChatMessage] {
+        var messages: [ChatMessage] = [.system(system(language: language))]
         // The context goes in once, attached to the first question.
         for (index, turn) in turns.enumerated() {
             guard turn.isReader else {

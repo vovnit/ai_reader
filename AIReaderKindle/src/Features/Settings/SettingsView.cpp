@@ -86,6 +86,9 @@ void open(Env& env, Navigator& navigator) {
     gtk_box_pack_start(GTK_BOX(box), screen->load, FALSE, FALSE, 0);
     screen->status = Widgets::label("");
     gtk_box_pack_start(GTK_BOX(box), screen->status, FALSE, FALSE, 0);
+    GtkWidget* language = field(box, "Explain in (the language of explanations and answers, such as English)",
+                                Widgets::entry(screen->feature.settings().language));
+    Widgets::connect(language, "changed", [screen, language] { screen->feature.setLanguage(Widgets::entryText(language)); });
 
     gtk_box_pack_start(GTK_BOX(box), Widgets::separator(), FALSE, FALSE, Widgets::px(6));
     gtk_box_pack_start(GTK_BOX(box), Widgets::button("Dictionaries", [&env, &navigator] {

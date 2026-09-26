@@ -125,7 +125,10 @@ AiSettings SettingsStore::ai() const {
         file.string("ai", "token", defaults.apiKey),
         file.string("ai", "openai_token", defaults.openAIKey),
         file.string("ai", "model", defaults.model),
+        file.string("ai", "language", defaults.language),
     };
+    // A cleared field would leave the model no language to answer in.
+    if (Text::trim(settings.language).empty()) settings.language = defaults.language;
     if (!runEndpoint_.empty()) settings.endpoint = runEndpoint_;
     if (!runModel_.empty()) settings.model = runModel_;
     return settings;
@@ -139,6 +142,7 @@ void SettingsStore::saveAi(const AiSettings& settings) {
     g_key_file_set_string(file.file, "ai", "token", settings.apiKey.c_str());
     g_key_file_set_string(file.file, "ai", "openai_token", settings.openAIKey.c_str());
     if (runModel_.empty()) g_key_file_set_string(file.file, "ai", "model", settings.model.c_str());
+    g_key_file_set_string(file.file, "ai", "language", settings.language.c_str());
     file.save(path_);
 }
 

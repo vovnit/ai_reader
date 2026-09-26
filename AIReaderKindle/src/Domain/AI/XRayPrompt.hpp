@@ -10,11 +10,12 @@
 /// the passages where it has appeared so far are the only source.
 namespace XRayPrompt {
 
-extern const char* const system;
+/// `language` is the one the answer is written in.
+std::string system(const std::string& language);
 
 /// The passages gathered before asking; at most this many go in.
 constexpr int passageLimit = 12;
 
-std::vector<ChatMessage> messages(const std::string& term, const std::vector<SearchHit>& hits, bool severalBooks);
+std::vector<ChatMessage> messages(const std::string& term, const std::vector<SearchHit>& hits, bool severalBooks, const std::string& language);
 
 }  // namespace XRayPrompt

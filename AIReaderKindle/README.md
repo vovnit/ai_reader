@@ -171,8 +171,9 @@ Not carried over from iOS: hearing a word spoken — a Kindle has no speech.
 The language a book is written in is still read off its prose (metadata is
 often wrong); here it feeds the lookup records and Pango's line breaking.
 
-The explanations, like the iOS app's, are written in Russian; the language is
-set by the prompt in `src/Domain/AI/ExplanationPrompt.cpp`.
+The explanations and answers, like the iOS app's, are written in the language
+named under *Explain in* in Settings (`language` in `settings.ini`), Russian
+until changed.
 
 ## Layout
 
@@ -207,7 +208,7 @@ Everything is under `$AIREADER_HOME`: `/mnt/us/aireader` on the Kindle (set by
 | `books/` | Where `.epub` files go. Read in place; nothing is unpacked. |
 | `dictionaries/` | Added packs and word lists. |
 | `library.sqlite3` | Books, positions and groups, lookups and how each has fared in practice, the lookups deleted (kept by name so a sync deletes them elsewhere too), the dictionary list. |
-| `settings.ini` | Endpoint, model, `token`, `openai_token`, the web search (`[web]`: `monid_token`, `provider`, `endpoint`, `input`), the sync folder (`[sync]`: `url`, `user`, `password`), reading style and `turn_animation`. There is no keychain on a Kindle, so the tokens and the password sit here too. Editable from a computer; the token starts as the development one the iOS app also uses. |
+| `settings.ini` | Endpoint, model, `token`, `openai_token`, the answer `language`, the web search (`[web]`: `monid_token`, `provider`, `endpoint`, `input`), the sync folder (`[sync]`: `url`, `user`, `password`), reading style and `turn_animation`. There is no keychain on a Kindle, so the tokens and the password sit here too. Editable from a computer; the token starts as the development one the iOS app also uses. |
 | `anki-cards.txt` | The last export for Anki. |
 
 The bundled French → Russian dictionary is the iOS app's

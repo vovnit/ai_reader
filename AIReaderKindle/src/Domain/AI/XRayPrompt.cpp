@@ -4,7 +4,8 @@
 
 namespace XRayPrompt {
 
-const char* const system =
+std::string system(const std::string& language) {
+    return
     "Ты помогаешь читателю книги на иностранном языке. Тебе дают имя, название или слово "
     "и отрывки из книги, где оно встречается — только до того места, до которого читатель "
     "дочитал.\n"
@@ -17,12 +18,13 @@ const char* const system =
     "Если отрывков мало или они не дают ответа, вызови инструмент search_book с другой формой: "
     "другим падежом, фамилией вместо имени, без артикля. Инструмент можно вызывать несколько раз.\n"
     "\n"
-    "Отвечай по-русски, коротко: два–пять предложений, без вступления. Если по книге ничего "
+    "Отвечай на языке «" + language + "», коротко: два–пять предложений, без вступления. Если по книге ничего "
     "понять нельзя, так и скажи.";
+}
 
-std::vector<ChatMessage> messages(const std::string& term, const std::vector<SearchHit>& hits, bool severalBooks) {
+std::vector<ChatMessage> messages(const std::string& term, const std::vector<SearchHit>& hits, bool severalBooks, const std::string& language) {
     return {
-        ChatMessage::system(system),
+        ChatMessage::system(system(language)),
         ChatMessage::user("Термин: " + term + "\n\n" + SearchTool::summary(term, hits, severalBooks)),
     };
 }

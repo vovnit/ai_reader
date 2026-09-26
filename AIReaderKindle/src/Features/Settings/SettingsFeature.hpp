@@ -30,6 +30,7 @@ public:
     void setToken(const std::string& token);
     void setOpenAIToken(const std::string& token);
     void setModel(const std::string& model);
+    void setLanguage(const std::string& language);
     void loadModels();
     void setWebToken(const std::string& token);
     void setWebProvider(const std::string& provider);

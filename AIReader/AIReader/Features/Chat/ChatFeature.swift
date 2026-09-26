@@ -76,8 +76,8 @@ struct ChatFeature {
                 state.isAnswering = true
                 state.errorMessage = nil
 
-                var messages = ChatPrompt.messages(context: state.context, turns: state.turns)
                 let settings = aiSettings.load()
+                var messages = ChatPrompt.messages(context: state.context, turns: state.turns, language: settings.language)
                 let tools = ToolRunner.Tools(scope: state.scope, web: webSearchSettings.load())
                 return .run { send in
                     do {

@@ -237,7 +237,7 @@ static void checkDictionaryLookup() {
 
 static void checkMock() {
     std::vector<ChatMessage> messages = {
-        ChatMessage::system(ExplanationPrompt::system),
+        ChatMessage::system(ExplanationPrompt::system("Russian")),
         ChatMessage::user(ExplanationPrompt::question("maisons", "Les maisons étaient vieilles.", sampleLookup())),
     };
     ChatMessage reply = MockAI::reply(messages);
@@ -249,7 +249,7 @@ static void checkMock() {
     DictionaryLookup none;
     none.query = "zut";
     std::vector<ChatMessage> empty = {
-        ChatMessage::system(ExplanationPrompt::system),
+        ChatMessage::system(ExplanationPrompt::system("Russian")),
         ChatMessage::user(ExplanationPrompt::question("zut", "Zut alors.", none)),
     };
     ChatMessage call = MockAI::reply(empty);
@@ -299,7 +299,7 @@ static void checkWebSearch() {
     check("web search request falls back to English", Json::parse(settings.request("x", ""))->at("queryParams").at("language").string() == "en");
 
     // The mock searches the web when asked to, and answers from what came back.
-    auto asked = ChatPrompt::messages(ChatPrompt::pageContext("Page."), {{true, "Поищи Alain-Fournier"}});
+    auto asked = ChatPrompt::messages(ChatPrompt::pageContext("Page."), {{true, "Поищи Alain-Fournier"}}, "Russian");
     ChatMessage call = MockAI::reply(asked);
     check("mock chat calls search_web", call.toolCalls.size() == 1 && call.toolCalls[0].name == WebSearchTool::toolName
           && WebSearchTool::query(call.toolCalls[0].arguments) == "Alain-Fournier");
@@ -322,18 +322,20 @@ static void checkQuirks() {
 }
 
 static void checkChatPrompt() {
-    auto messages = ChatPrompt::messages(ChatPrompt::pageContext("Page text."), {{true, "Q1"}, {false, "A1"}, {true, "Q2"}});
+    auto messages = ChatPrompt::messages(ChatPrompt::pageContext("Page text."), {{true, "Q1"}, {false, "A1"}, {true, "Q2"}}, "Russian");
     check("chat sends the page once", messages.size() == 4 && Text::contains(*messages[1].content, "Page text.") && *messages[3].content == "Q2");
     check("chat keeps the model's turns", messages[2].role == "assistant" && *messages[2].content == "A1");
+    check("chat answers in the chosen language", Text::contains(*ChatPrompt::messages("", {{true, "Q"}}, "English")[0].content, "«English»")
+          && Text::contains(ExplanationPrompt::system("English"), "«English»") && !Text::contains(ExplanationPrompt::system("English"), "по-русски"));
     WordExplanation explanation{"maison", "мн. ч.", "дом", false, 0.9};
     std::string word = ChatPrompt::wordContext("maisons", "Les maisons.", explanation);
     check("a word seeds a conversation with its explanation", Text::contains(word, "Слово: maisons") && Text::contains(word, "Объяснение: дом"));
-    ChatMessage echo = MockAI::reply(ChatPrompt::messages(word, {{true, "Почему?"}}));
+    ChatMessage echo = MockAI::reply(ChatPrompt::messages(word, {{true, "Почему?"}}, "Russian"));
     check("mock tells a seeded conversation from a lookup", echo.toolCalls.empty() && Text::contains(echo.content.value_or(""), "«Почему?»"),
           echo.content.value_or("(tool call)"));
 
     // Asked to find something, the mock searches the book the way a model would.
-    auto asked = ChatPrompt::messages(ChatPrompt::pageContext("Page."), {{true, "Найди Meaulnes"}});
+    auto asked = ChatPrompt::messages(ChatPrompt::pageContext("Page."), {{true, "Найди Meaulnes"}}, "Russian");
     ChatMessage call = MockAI::reply(asked);
     check("mock chat calls search_book", call.toolCalls.size() == 1 && call.toolCalls[0].name == SearchTool::toolName
           && SearchTool::query(call.toolCalls[0].arguments) == "Meaulnes");
@@ -345,7 +347,7 @@ static void checkChatPrompt() {
     check("mock chat counts the passages", Text::contains(MockAI::reply(asked).content.value_or(""), "2 отрывков"));
 
     // Asked what a word means, the mock opens the dictionary and answers from the article.
-    auto meaning = ChatPrompt::messages(ChatPrompt::pageContext("Page."), {{true, "Что значит maison?"}});
+    auto meaning = ChatPrompt::messages(ChatPrompt::pageContext("Page."), {{true, "Что значит maison?"}}, "Russian");
     ChatMessage lookup = MockAI::reply(meaning);
     check("mock chat calls lookup_dictionary", lookup.toolCalls.size() == 1 && lookup.toolCalls[0].name == DictionaryTool::toolName
           && DictionaryTool::word(lookup.toolCalls[0].arguments) == "maison");
@@ -386,7 +388,7 @@ static void checkBookSearch() {
     check("tools carry the search", ExplanationPrompt::tools().size() == 2 && ExplanationPrompt::tools().at(1).at("function").at("name").string() == SearchTool::toolName);
 
     // The X-ray asks once more when it has nothing, then reports the count.
-    auto xray = XRayPrompt::messages("Meaulnes", {}, false);
+    auto xray = XRayPrompt::messages("Meaulnes", {}, false, "Russian");
     ChatMessage again = MockAI::reply(xray);
     check("mock x-ray searches when given no passages", again.toolCalls.size() == 1 && SearchTool::query(again.toolCalls[0].arguments) == "meaulnes");
     xray.push_back(again);
@@ -599,6 +601,9 @@ static void checkDatabase(const std::string& folder) {
     env.packs.setEnabled(packs[0].id, true);
 
     AiSettings ai{"mock://ai", "t1", "t2", "mock-medium"};
+    env.settings.saveAi(ai);
+    check("answer language defaults to Russian", ai.language == "Russian");
+    ai.language = "English";
     env.settings.saveAi(ai);
     check("settings round-trip", env.settings.ai() == ai);
     check("token follows the endpoint", ai.token() == "t1" && AiSettings{"https://api.openai.com/v1", "t1", "t2", "gpt"}.token() == "t2");
@@ -1049,11 +1054,11 @@ static void checkBundledDictionary() {
     check("corpus keeps the model to what was read", seen.size() == 1 && seen[0].offset == 0 && seen[0].bookTitle == "Tome 1");
 
     ToolRunner::Tools tools{{corpus, upTo}, {}, {}};
-    std::vector<ChatMessage> xray = XRayPrompt::messages("Nobody", corpus->search("Nobody", 5, upTo), true);
+    std::vector<ChatMessage> xray = XRayPrompt::messages("Nobody", corpus->search("Nobody", 5, upTo), true, "Russian");
     ChatMessage answer = ToolRunner::converse(mock, xray, Json(std::vector<Json>{SearchTool::tool()}), false, tools);
     check("tool runner answers a search call", xray.size() == 4 && xray[3].role == "tool" && Text::contains(*xray[3].content, "No passage")
           && Text::contains(answer.content.value_or(""), "не встречается"), answer.content.value_or(""));
-    std::vector<ChatMessage> found = XRayPrompt::messages("Meaulnes", corpus->search("Meaulnes", 5, upTo), true);
+    std::vector<ChatMessage> found = XRayPrompt::messages("Meaulnes", corpus->search("Meaulnes", 5, upTo), true, "Russian");
     ChatMessage known = ToolRunner::converse(mock, found, Json(std::vector<Json>{SearchTool::tool()}), false, tools);
     check("x-ray answers from the passages read so far", Text::contains(known.content.value_or(""), "1 отрывках"), known.content.value_or(""));
 }

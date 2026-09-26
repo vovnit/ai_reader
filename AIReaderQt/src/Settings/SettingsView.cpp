@@ -58,6 +58,8 @@ SettingsView::SettingsView(Env& env, Navigator& navigator)
     model->addRow("", load_);
     status_ = Ui::label("");
     model->addRow("", status_);
+    model->addRow("Explain in", field(this, ai.language, [this](const std::string& v) { feature_.setLanguage(v); }));
+    model->addRow(hint("The language of explanations and answers, such as English."));
 
     auto* dictionaries = new QPushButton("Dictionaries…");
     QObject::connect(dictionaries, &QPushButton::clicked, this, [this] { this->navigator.push(new DictionariesView(env_, this->navigator)); });

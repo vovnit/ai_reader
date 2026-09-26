@@ -46,6 +46,15 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    TextField("Language", text: $store.settings.language)
+                        .autocorrectionDisabled()
+                } header: {
+                    Text("Explain in")
+                } footer: {
+                    Text("The language of explanations and answers, such as English.")
+                }
+
+                Section {
                     Button("Dictionaries") { store.send(.dictionariesTapped) }
                 }
 

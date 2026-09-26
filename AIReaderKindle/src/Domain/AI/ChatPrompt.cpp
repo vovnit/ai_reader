@@ -5,9 +5,10 @@
 
 namespace ChatPrompt {
 
-const char* const system =
+std::string system(const std::string& language) {
+    return
     "Ты помогаешь читателю разобраться с книгой на иностранном языке. "
-    "Отвечай по-русски, коротко и по делу. Можно объяснять грамматику, разбирать "
+    "Отвечай на языке «" + language + "», коротко и по делу. Можно объяснять грамматику, разбирать "
     "предложения, пересказывать содержание и отвечать на вопросы о тексте.\n"
     "\n"
     "Инструмент lookup_dictionary ищет слово в офлайн-словаре читателя. Пользуйся им, когда "
@@ -19,6 +20,7 @@ const char* const system =
     "читатель дочитал, — и в других книгах той же серии. Пользуйся им, когда вопрос о том, "
     "что было раньше: о персонаже, месте, событии, о том, где слово уже встречалось. "
     "Не пересказывай того, чего читатель ещё не читал.";
+}
 
 std::string pageContext(const std::string& page) {
     return "Страница:\n" + page;
@@ -37,8 +39,8 @@ std::string xrayContext(const std::string& term, const std::string& answer) {
     return "Термин из книги: " + term + "\nЧто о нём известно по книге: " + answer;
 }
 
-std::vector<ChatMessage> messages(const std::string& context, const std::vector<ChatTurn>& turns) {
-    std::vector<ChatMessage> result = {ChatMessage::system(system)};
+std::vector<ChatMessage> messages(const std::string& context, const std::vector<ChatTurn>& turns, const std::string& language) {
+    std::vector<ChatMessage> result = {ChatMessage::system(system(language))};
     // The context goes in once, attached to the first question.
     for (size_t index = 0; index < turns.size(); ++index) {
         const ChatTurn& turn = turns[index];

@@ -6,7 +6,9 @@ enum XRayPrompt {
     /// The passages gathered before asking; at most this many go in.
     static let passageLimit = 12
 
-    static let system = """
+    /// `language` is the one the answer is written in.
+    static func system(language: String) -> String {
+        """
         Ты помогаешь читателю книги на иностранном языке. Тебе дают имя, название или слово \
         и отрывки из книги, где оно встречается — только до того места, до которого читатель \
         дочитал.
@@ -19,13 +21,14 @@ enum XRayPrompt {
         Если отрывков мало или они не дают ответа, вызови инструмент search_book с другой формой: \
         другим падежом, фамилией вместо имени, без артикля. Инструмент можно вызывать несколько раз.
 
-        Отвечай по-русски, коротко: два–пять предложений, без вступления. Если по книге ничего \
+        Отвечай на языке «\(language)», коротко: два–пять предложений, без вступления. Если по книге ничего \
         понять нельзя, так и скажи.
         """
+    }
 
-    static func messages(term: String, hits: [SearchHit], severalBooks: Bool) -> [ChatMessage] {
+    static func messages(term: String, hits: [SearchHit], severalBooks: Bool, language: String) -> [ChatMessage] {
         [
-            .system(system),
+            .system(system(language: language)),
             .user("Термин: \(term)\n\n" + SearchTool.summary(query: term, hits: hits, severalBooks: severalBooks))
         ]
     }

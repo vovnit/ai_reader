@@ -8,6 +8,9 @@ struct AISettings: Equatable, Sendable {
     var endpoint: String
     var apiKey: String
     var model: String
+    /// The language explanations and answers are written in, as the model
+    /// is told it: a name such as "Russian" or "English".
+    var language: String
 
     /// Not a real address. Pointing the app here answers lookups from
     /// `MockAI` instead of the network, which is how the app is tested
@@ -17,7 +20,8 @@ struct AISettings: Equatable, Sendable {
     static let `default` = Self(
         endpoint: "https://api.mistral.ai/v1",
         apiKey: "",
-        model: "mistral-medium-3.5"
+        model: "mistral-medium-3.5",
+        language: "Russian"
     )
 
     var usesMock: Bool {
@@ -34,7 +38,7 @@ struct AISettings: Equatable, Sendable {
     }
 }
 
-/// Reads and writes the endpoint, token and model.
+/// Reads and writes the endpoint, token, model and answer language.
 @DependencyClient
 struct AISettingsClient: Sendable {
     var load: @Sendable () -> AISettings = { .default }
@@ -46,6 +50,7 @@ extension AISettingsClient: DependencyKey {
         static let endpoint = "aiEndpoint"
         static let apiKey = "aiAPIKey"
         static let model = "aiModel"
+        static let language = "aiLanguage"
     }
 
     static let liveValue = Self(
@@ -54,13 +59,16 @@ extension AISettingsClient: DependencyKey {
             return AISettings(
                 endpoint: stored(Key.endpoint) ?? AISettings.default.endpoint,
                 apiKey: token(),
-                model: stored(Key.model) ?? AISettings.default.model
+                model: stored(Key.model) ?? AISettings.default.model,
+                // A cleared field would leave the model no language to answer in.
+                language: stored(Key.language) ?? AISettings.default.language
             )
         },
         save: { settings in
             let defaults = AppGroup.defaults
             defaults.set(settings.endpoint, forKey: Key.endpoint)
             defaults.set(settings.model, forKey: Key.model)
+            defaults.set(settings.language, forKey: Key.language)
             // The token is the one secret here, so it lives in the keychain
             // rather than in preferences.
             Keychain.set(settings.apiKey, forKey: Key.apiKey)
