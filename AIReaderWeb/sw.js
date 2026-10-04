@@ -96,6 +96,7 @@ const files = [
   "./src/Services/LibrarySync.js",
   "./src/Services/LibraryStore.js",
   "./src/Services/LookupCache.js",
+  "./src/Services/Relay.js",
   "./src/Services/Schema.js",
   "./src/Services/Settings.js",
   "./src/Services/Speech.js",
@@ -154,6 +155,7 @@ async function kept(request) {
 
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
-  if (event.request.method !== "GET" || url.origin !== location.origin) return;
+  // What the site relays is the reader's own data, never kept here.
+  if (event.request.method !== "GET" || url.origin !== location.origin || url.pathname.endsWith("/relay")) return;
   event.respondWith(url.pathname.endsWith("/dictionary.sqlite3") ? kept(event.request) : fresh(event.request));
 });

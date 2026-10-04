@@ -23,6 +23,12 @@ body {
 
 #main { flex: 1; min-width: 0; height: 100%; }
 
+/* Installed on an iPhone, the app gets a blur under the status bar reaching
+   about 40pt into the page, unless a fixed element with a background covers
+   the top edge; iOS then shows that element's colour instead. This one is
+   the page's own colour, and only as tall as the status bar. */
+#top-edge { position: fixed; top: 0; left: 0; right: 0; height: max(1px, env(safe-area-inset-top)); background: Canvas; z-index: 1; }
+
 /* The panel sits beside the page; on a narrow window it covers it. */
 #panel { display: none; width: 26rem; height: 100%; border-left: 1px solid var(--rule); }
 body.panel-open #panel { display: block; }

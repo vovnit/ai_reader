@@ -230,8 +230,10 @@ text selected); sharing from the selection's own menu delivers the bare text.
   missing from the list is missing offline, and `AIReaderWeb/build.sh check`
   fails on it.
 - A web page reaches only services that allow its origin (CORS). Mistral,
-  OpenAI and OpenRouter do; Monid does not, so web search fails in the web
-  app, and a WebDAV server must be told.
+  OpenAI and OpenRouter do; Nextcloud's WebDAV and Monid do not. Hosted on
+  Cloudflare, `AIReaderWeb/relay.js` relays the hosts named in the Worker's
+  `RELAY_HOSTS` variable; served anywhere else, a server must allow the
+  page's origin itself.
 - Chrome refuses to inject a script containing the characters U+FFFE or U+FFFF,
   reporting that it "isn't UTF-8 encoded". Keep `BrowserExtension/*.js` ASCII,
   with `\u` escapes in regular expressions.

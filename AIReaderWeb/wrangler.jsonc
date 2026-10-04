@@ -1,10 +1,15 @@
-// The web app on Cloudflare Workers: no script, only the files that
-// `build.sh site` gathers into dist/site, served as they are. The name must
-// be the Worker's name in the Cloudflare dashboard. How to deploy: README.md,
-// "Hosting on Cloudflare".
+// The web app on Cloudflare Workers: the files that `build.sh site` gathers
+// into dist/site, served as they are, and `relay.js` for the servers that do
+// not answer web pages, such as Nextcloud. The name must be the Worker's name
+// in the Cloudflare dashboard. How to deploy: README.md, "Hosting on
+// Cloudflare".
 {
   "name": "aireader",
+  "main": "./relay.js",
   "compatibility_date": "2026-10-01",
+  // RELAY_HOSTS is set in the dashboard, so the servers stay out of the
+  // repository; without this, every deploy would clear it.
+  "keep_vars": true,
   "assets": {
     "directory": "./dist/site"
   }

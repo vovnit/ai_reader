@@ -56,10 +56,11 @@ served by nginx.
 
 ## Hosting on Cloudflare
 
-`wrangler.jsonc` describes a Worker with no script that serves the files
-`./build.sh site` gathers into `dist/site` (the real dictionary in place of
-the link). Static assets are served free; the dictionary, 17 MB, is under the
-25 MiB limit per file. Cloudflare builds it from the repository on every push:
+`wrangler.jsonc` describes a Worker that serves the files `./build.sh site`
+gathers into `dist/site` (the real dictionary in place of the link), and runs
+`relay.js` for servers that do not answer pages (below). Static assets are
+served free; the dictionary, 17 MB, is under the 25 MiB limit per file.
+Cloudflare builds it from the repository on every push:
 
 1. Commit and push `AIReaderWeb/` to GitHub.
 2. In the Cloudflare dashboard: **Workers & Pages → Create → Workers →
@@ -72,25 +73,42 @@ the link). Static assets are served free; the dictionary, 17 MB, is under the
 4. **Deploy.** The app is at `https://aireader.<your-subdomain>.workers.dev`;
    a domain of your own goes under the Worker's **Settings → Domains &
    Routes**. Each push to the production branch deploys again.
+5. For a WebDAV server that does not answer pages, such as Nextcloud: under
+   the Worker's **Settings → Variables and Secrets → Add**, a variable named
+   `RELAY_HOSTS` holding the server's host name (`cloud.example.com`; several
+   a comma apart). It stays out of the repository, and `keep_vars` in
+   `wrangler.jsonc` keeps it across deploys.
 
 By hand instead: `sh build.sh site && npx wrangler deploy` from this folder,
 after `npx wrangler login`.
 
 The hosted app is a new address, so its library starts empty; sync brings it
-over. A WebDAV server must allow the new origin (for rclone,
-`--allow-origin https://aireader.<your-subdomain>.workers.dev`).
+over.
 
 ## Talking to services from a page
 
 A page reaches a service only when the service answers requests from other
 origins (CORS). Mistral, OpenAI and OpenRouter do. A local model server needs
-telling: Ollama with `OLLAMA_ORIGINS`, LM Studio with its CORS switch. A
-WebDAV server too: `rclone serve webdav --allow-origin https://your.host`,
-or the CORS settings of Apache or nginx in front of it (allow `Authorization`,
-`Depth` and `Content-Type`, and the methods `PROPFIND`, `MKCOL`, `PUT`,
-`GET`). Monid, which brokers the web search, does not answer pages at
-present, so `search_web` fails in the browser — the model is told and
-answers without it.
+telling: Ollama with `OLLAMA_ORIGINS`, LM Studio with its CORS switch.
+
+Most WebDAV servers do not answer pages — Nextcloud and hosted services
+among them — and neither does Monid, which brokers the web search. Hosted on
+Cloudflare, the app sends the requests for every host named in `RELAY_HOSTS`
+through its own site instead: `relay.js` makes them there and hands back the
+answers, so the page only ever talks to itself. It carries the password and
+the WebDAV headers over and nothing else, and reaches no host that is not
+listed. The server must be reachable from the internet, not only from home.
+Served elsewhere, a server must allow the page's origin itself:
+`rclone serve webdav --allow-origin https://your.host`, or the CORS settings
+of Apache or nginx in front of it (allow `Authorization`, `Depth` and
+`Content-Type`, and the methods `PROPFIND`, `MKCOL`, `PUT`, `GET`). Without
+either, `search_web` fails in the browser — the model is told and answers
+without it.
+
+For Nextcloud the WebDAV folder is
+`https://cloud.example.com/remote.php/dav/files/<user name>/<folder>`, and an
+app password (**Personal settings → Security**) is better kept here than the
+account's own.
 
 ## What is stored where
 
@@ -120,6 +138,7 @@ everything below runs under Node, which is how it is checked.
 | `src/Services` | The stores over IndexedDB, settings, the dictionaries, the EPUB loader, the corpus, the chat API and the tool-calling loop, web search, speech, WebDAV and sync. |
 | `src/Features` | One folder per screen: a feature holding its state and actions, and a view that renders it. |
 | `src/App` | `main.js`, which opens the library and the shelf, and `Env.js`, which makes the stores. |
+| `relay.js` | The Cloudflare Worker's script: relays requests to the hosts in `RELAY_HOSTS`. Not served; Cloudflare runs it. |
 | `tools` | `check.mjs` and the checks it runs; `MemoryDatabase.js` answers the IndexedDB calls from memory for them. |
 
 There is no SQLite and no ZIP library. The dictionary packs are read by

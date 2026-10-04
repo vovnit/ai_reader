@@ -7,7 +7,7 @@ import { SettingsFeature } from "./SettingsFeature.js";
 
 const syncNote = "Books go to its Books folder, and reading places, groups and looked-up words to one file beside it, "
   + "shared with the iOS, Kindle and Linux apps. Syncs when the app opens and when a book is closed. "
-  + "The server must accept requests from this page (CORS) — for rclone, start it with --allow-origin.";
+  + "The server must accept requests from this page (CORS), or the site serving the app must relay it — see the web app's README.";
 
 export class SettingsView extends Screen {
   constructor(env, navigator) {

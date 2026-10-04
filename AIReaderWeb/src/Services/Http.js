@@ -1,11 +1,14 @@
 // One HTTP request, its failures told in words a reader can act on. A page
-// can reach only services that accept requests from it (CORS); the
-// browser reports a refusal no differently from a server that is down.
+// can reach only services that accept requests from it (CORS), or that the
+// site it is served from relays; the browser reports a refusal no
+// differently from a server that is down.
+import { routed } from "./Relay.js";
 
 /** The response, whatever its status; throws when nothing came back. */
 export async function fetchResponse(url, { method = "GET", headers = {}, body, seconds = 45 } = {}) {
   try {
-    return await fetch(url, { method, headers, body, credentials: "omit", signal: AbortSignal.timeout(seconds * 1000) });
+    const target = await routed(url);
+    return await fetch(target, { method, headers, body, credentials: "omit", signal: AbortSignal.timeout(seconds * 1000) });
   } catch (error) {
     const host = URL.canParse(url) ? new URL(url).host : url;
     if (error?.name === "TimeoutError") throw new Error(`${host} did not answer in time.`);
