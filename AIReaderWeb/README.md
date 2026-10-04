@@ -74,10 +74,13 @@ Cloudflare builds it from the repository on every push:
    a domain of your own goes under the Worker's **Settings → Domains &
    Routes**. Each push to the production branch deploys again.
 5. For a WebDAV server that does not answer pages, such as Nextcloud: under
-   the Worker's **Settings → Variables and Secrets → Add**, a variable named
-   `RELAY_HOSTS` holding the server's host name (`cloud.example.com`; several
-   a comma apart). It stays out of the repository, and `keep_vars` in
-   `wrangler.jsonc` keeps it across deploys.
+   the Worker's **Settings → Variables and Secrets → Add** (not the build's
+   variables, which the running Worker never sees), a variable named
+   `RELAY_HOSTS` holding the server's host name alone — `cloud.example.com`,
+   no `https://` or path; several a comma apart. It stays out of the
+   repository, and `keep_vars` in `wrangler.jsonc` keeps it across deploys.
+   `https://<your site>/relay?host=cloud.example.com` answers 204 once it is
+   relayed.
 
 By hand instead: `sh build.sh site && npx wrangler deploy` from this folder,
 after `npx wrangler login`.

@@ -37,6 +37,9 @@ async function start() {
   bundledDictionary().catch((error) => console.warn(error.message));
 }
 
+// iOS pinch-zooms whatever the viewport says; a Mac's trackpad stays free.
+if (navigator.maxTouchPoints > 0) document.addEventListener("gesturestart", (event) => event.preventDefault());
+
 start().catch((error) => {
   document.getElementById("main").textContent = `AIReader could not start: ${error.message}`;
 });

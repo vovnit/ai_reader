@@ -2,7 +2,7 @@
 // can reach only services that accept requests from it (CORS), or that the
 // site it is served from relays; the browser reports a refusal no
 // differently from a server that is down.
-import { routed } from "./Relay.js";
+import { routed, unlisted } from "./Relay.js";
 
 /** The response, whatever its status; throws when nothing came back. */
 export async function fetchResponse(url, { method = "GET", headers = {}, body, seconds = 45 } = {}) {
@@ -12,6 +12,7 @@ export async function fetchResponse(url, { method = "GET", headers = {}, body, s
   } catch (error) {
     const host = URL.canParse(url) ? new URL(url).host : url;
     if (error?.name === "TimeoutError") throw new Error(`${host} did not answer in time.`);
+    if (await unlisted(url)) throw new Error(`${host} does not accept requests from a web page (CORS), and this site does not relay it: add ${new URL(url).hostname} to RELAY_HOSTS in the site's Cloudflare settings.`);
     throw new Error(`${host} could not be reached. It may be offline, or it may not accept requests from a web page (CORS).`);
   }
 }

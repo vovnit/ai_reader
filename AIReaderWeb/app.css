@@ -19,6 +19,11 @@ html, body { height: 100%; margin: 0; }
    own, so the body's is the body's and not the page canvas's. */
 html { background: Canvas; }
 
+/* On a phone the app is not zoomed: the reading style sets the text's size.
+   This stops double-tap zoom (and taps answer at once); the viewport stops
+   pinching, and main.js stops it on iOS, which ignores the viewport. */
+html { touch-action: manipulation; }
+
 body {
   position: fixed;
   inset: 0;
