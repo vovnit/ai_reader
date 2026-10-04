@@ -155,6 +155,12 @@ Wiktionary entries remain first and the database schema is unchanged.
 Use `--data-dir PATH` for another destination or `--force` to replace valid
 existing files. Downloads are staged, validated, and atomically installed.
 
+## Licenses
+
+Lexique 4 and the Wiktionary extracts are licensed CC BY-SA 4.0, and a pack
+built from them is too: whatever ships one names its sources and that license,
+as the apps' Dictionaries screens do for the bundled pack. Wikidict is CC0.
+
 ## Tests
 
 ```bash

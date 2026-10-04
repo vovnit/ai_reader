@@ -18,7 +18,11 @@ struct DictionariesView: View {
                     }
                 }
             } footer: {
-                Text("Add a dictionary as an AIReader pack, StarDict, XDXF, Lingvo DSL, or a tab- or comma-separated word list. StarDict needs its .ifo, .idx and .dict files picked together. Disabled dictionaries are not searched.")
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Add a dictionary as an AIReader pack, StarDict, XDXF, Lingvo DSL, or a tab- or comma-separated word list. StarDict needs its .ifo, .idx and .dict files picked together. Disabled dictionaries are not searched.")
+                    // The bundled dictionary's sources ask to be named, and their license with them.
+                    Text(verbatim: "The dictionary that ships with the app is selected and converted from Lexique 4, by Boris New, Christophe Pallier and others (lexique.org), and from the Russian Wiktionary, by its contributors (ru.wiktionary.org, by way of kaikki.org). Both are licensed CC BY-SA 4.0 (creativecommons.org/licenses/by-sa/4.0), and so is this dictionary.")
+                }
             }
         }
         .navigationTitle("Dictionaries")

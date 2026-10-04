@@ -23,6 +23,10 @@ element("form").addEventListener("submit", async (event) => {
     show("Saved, but without access to sites nothing can be sent. Save again to allow it.", true);
     return;
   }
+  if (!settings.url) {
+    show("Saved. Without a folder, books can only be downloaded.");
+    return;
+  }
   show("Saved. Checking the folder…");
   try {
     const exists = await checkFolder(settings);

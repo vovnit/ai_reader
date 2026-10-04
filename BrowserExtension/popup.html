@@ -8,12 +8,15 @@
 </head>
 <body>
   <p id="setup" hidden>
-    Set the WebDAV folder first. <button id="open-settings" type="button">Settings</button>
+    Set the WebDAV folder to save books there. <button id="open-settings" type="button">Settings</button>
   </p>
 
   <section>
     <h1 id="page-title">This page</h1>
-    <button id="save-page" type="button" class="primary">Save as book</button>
+    <div class="row">
+      <button id="save-page" type="button" class="primary">Save as book</button>
+      <button id="download-page" type="button">Download</button>
+    </div>
     <button id="add-page" type="button">Add to book in progress</button>
   </section>
 
@@ -23,6 +26,7 @@
     <ol id="draft-pages"></ol>
     <div class="row">
       <button id="save-draft" type="button" class="primary">Save book</button>
+      <button id="download-draft" type="button">Download</button>
       <button id="discard-draft" type="button">Discard</button>
     </div>
   </section>

@@ -67,6 +67,12 @@ void open(Env& env, Navigator& navigator) {
             "(<tt>.tsv</tt>, <tt>.csv</tt>: one headword and its meaning per line), Lingvo DSL, StarDict or XDXF. "
             "Or copy files into\n<tt>" + Widgets::escape(Paths::dictionaries()) + "</tt>\n"
             "and tap “Scan folder”.")), FALSE, FALSE, 0);
+        // The bundled dictionary's sources ask to be named, and their license with them.
+        gtk_box_pack_start(GTK_BOX(list), Widgets::markup(Widgets::small(
+            "The dictionary that ships with the app is selected and converted from Lexique 4, by Boris New, "
+            "Christophe Pallier and others (lexique.org), and from the Russian Wiktionary, by its contributors "
+            "(ru.wiktionary.org, by way of kaikki.org). Both are licensed CC BY-SA 4.0 "
+            "(creativecommons.org/licenses/by-sa/4.0), and so is this dictionary.")), FALSE, FALSE, 0);
         gtk_widget_show_all(list);
     };
     feature->onChange = render;

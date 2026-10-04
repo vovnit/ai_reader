@@ -39,16 +39,38 @@
     return links / text;
   }
 
+  // Some sites wrap every paragraph in blocks of its own; a paragraph
+  // counts for the block that holds it together with its neighbours.
+  function holder(element) {
+    let parent = element.parentElement;
+    while (parent && parent !== document.body && parent.children.length === 1) parent = parent.parentElement;
+    return parent;
+  }
+
+  /** The score of the paragraphs in `element` that would be kept: a quiz's form or an aside is not. */
+  function prose(element, paragraphs) {
+    const skipped = [...dropped].join(",");
+    let sum = 0;
+    for (const [paragraph, score] of paragraphs) {
+      const blocker = paragraph.closest(skipped);
+      if (element.contains(paragraph) && !(blocker && element.contains(blocker))) sum += score;
+    }
+    return sum;
+  }
+
   /** The element holding most of the page's prose. */
   function mainContent() {
     const scores = new Map();
+    const paragraphs = new Map();
     const add = (element, score) => element && scores.set(element, (scores.get(element) || 0) + score);
     for (const paragraph of document.body.querySelectorAll("p, pre, td, blockquote")) {
       const text = paragraph.textContent.trim();
       if (text.length < 25) continue;
       const score = 1 + text.split(/[,\u060C\uFF0C]/).length + Math.min(text.length / 100, 3);
-      add(paragraph.parentElement, score);
-      add(paragraph.parentElement?.parentElement, score / 2);
+      paragraphs.set(paragraph, score);
+      const parent = holder(paragraph);
+      add(parent, score);
+      add(parent && holder(parent), score / 2);
     }
     let best = null;
     let bestScore = 0;
@@ -62,9 +84,11 @@
       }
     }
     // An article's paragraphs often sit in several sibling blocks; the
-    // article around them is the better choice when it has them all.
+    // article around them is the better choice when it holds prose the best
+    // block lacks. A heading, a level badge or a list of links is not
+    // reason enough.
     const article = best?.closest("article, [itemprop=articleBody]");
-    return article && article.textContent.length < best.textContent.length * 3 ? article : best || document.body;
+    return article && prose(article, paragraphs) > prose(best, paragraphs) * 1.25 ? article : best || document.body;
   }
 
   function imageSource(image) {

@@ -7,6 +7,12 @@ import { Screen } from "../Common/Screen.js";
 import { button, h, note } from "../Common/Ui.js";
 import { DictionariesFeature } from "./DictionariesFeature.js";
 
+// The bundled dictionary's sources ask to be named, and their license with them.
+const credits = "The dictionary that ships with the app is selected and converted from Lexique 4, by Boris New, "
+  + "Christophe Pallier and others (lexique.org), and from the Russian Wiktionary, by its contributors "
+  + "(ru.wiktionary.org, by way of kaikki.org). Both are licensed CC BY-SA 4.0 "
+  + "(creativecommons.org/licenses/by-sa/4.0), and so is this dictionary.";
+
 const accept = ".sqlite3,.sqlite,.db,.tsv,.csv,.txt,.dsl,.dz,.gz,.ifo,.idx,.dict,.xdxf,.xml";
 
 export class DictionariesView extends Screen {
@@ -38,6 +44,7 @@ export class DictionariesView extends Screen {
       note(`Add a dictionary: a pack (.sqlite3), a word list (.tsv, .csv: one word and its meaning per line), `
         + `or ${[formatLabels.dsl, formatLabels.xdxf].join(", ")} and ${formatLabels.stardict} — pick the .ifo, .idx and .dict together. `
         + "Every dictionary switched on is searched, and their answers merged."),
+      note(credits),
     );
   }
 }

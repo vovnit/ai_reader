@@ -4,6 +4,8 @@ A Chrome and Firefox extension that turns the page you are reading into an
 EPUB for [AIReader](../README.md) — the article alone, without menus, share
 buttons, comments or ads — and puts it in the WebDAV folder the apps sync
 through. The apps — iOS, Kindle, Linux and web — fetch it on their next sync.
+*Download* beside either save keeps the book on this computer instead, among
+the browser's downloads.
 
 **Save as book.** One page, one book, saved at once. The title is the page's
 heading, the author its byline or the site's name, and the language the one
@@ -12,9 +14,9 @@ the page declares, so lookups in the app know what they are reading.
 **Book in progress.** *Add to book in progress* keeps the page aside instead;
 add as many as you like, from as many sites, over as many days. Each page
 becomes a chapter, in the order added. Give the book a title, remove a page
-with `✕`, and *Save book* when it is complete. Until then the pages live in
-the extension's own storage, with their pictures, so a page that later
-changes or disappears is kept as it was.
+with `✕`, and *Save book* or *Download* when it is complete. Until then the
+pages live in the extension's own storage, with their pictures, so a page
+that later changes or disappears is kept as it was.
 
 With some text selected, either action takes the selection instead of
 guessing where the article is.
@@ -38,7 +40,8 @@ Load it unpacked:
 Then open the extension's settings (*Settings* in its popup) and enter the
 same WebDAV folder, user name and password as in the app's *Settings → Sync*.
 Saving asks for access to all sites: to reach the server, and to fetch a
-page's pictures wherever they are kept.
+page's pictures wherever they are kept. To only download books, leave the
+folder empty and save all the same, for the pictures.
 
 The password is kept in the extension's local storage, which the browser does
 not encrypt. A WebDAV account used only for AIReader is the sensible choice.
@@ -51,6 +54,9 @@ treat that folder as the shared library: a book added to either app goes
 there too, and removing a book in an app removes it from that device only.
 To delete a book for good, delete its file from the server.
 
+A downloaded book has the same name, in the browser's downloads folder, with
+a number added by the browser if the name is taken.
+
 ## Layout
 
 No build step and no dependencies; the manifest serves both browsers.
@@ -62,6 +68,6 @@ No build step and no dependencies; the manifest serves both browsers.
 | `lib/epub.js`, `lib/zip.js` | Bind pages into an EPUB 3 (with an EPUB 2 table of contents too). |
 | `lib/names.js` | The file-name rule, the same as the apps' `RemoteBookName`. |
 | `lib/webdav.js` | Lists the books folder and stores a book, making folders as needed. |
-| `lib/books.js` | The two ways a page becomes a book. |
+| `lib/books.js` | The two ways a page becomes a book, and the two places it goes. |
 | `lib/storage.js` | Settings and the book in progress. |
 | `popup.*`, `options.*` | The toolbar popup and the settings page. |

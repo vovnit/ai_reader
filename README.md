@@ -149,7 +149,12 @@ A dictionary is a read-only `.sqlite3` pack from the [`DictionaryTool/`](Diction
 holds one zlib-compressed JSON article per lemma, and `metadata` states the
 schema version and the language pair.
 
-One pack ships inside the app — **French words with Russian definitions**. More
+One pack ships inside the app — **French words with Russian definitions**,
+selected and converted from [Lexique 4](http://www.lexique.org) (Boris New,
+Christophe Pallier and others) and the [Russian Wiktionary](https://ru.wiktionary.org)
+(its contributors, by way of [kaikki.org](https://kaikki.org)). Both are
+licensed [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), and
+so is the pack; every app names them on its Dictionaries screen. More
 can be added under *Settings → Dictionaries*: pick a `.sqlite3` file and it is
 copied in, its metadata read, and its languages shown. A pack whose
 `schema_version` is not `2` is rejected rather than half-imported. Every enabled

@@ -30,6 +30,12 @@ void DictionariesView::render() {
         "Add a dictionary from anywhere: a pack (<tt>.sqlite3</tt>), a word list (<tt>.tsv</tt>, <tt>.csv</tt>: one "
         "headword and its meaning per line), Lingvo DSL, StarDict or XDXF. Or copy files into<br><tt>"
         + Ui::escape(Paths::dictionaries()) + "</tt><br>and choose Scan folder."));
+    // The bundled dictionary's sources ask to be named, and their license with them.
+    list_->addWidget(Ui::note(
+        "The dictionary that ships with the app is selected and converted from Lexique 4, by Boris New, "
+        "Christophe Pallier and others (lexique.org), and from the Russian Wiktionary, by its contributors "
+        "(ru.wiktionary.org, by way of kaikki.org). Both are licensed CC BY-SA 4.0 "
+        "(creativecommons.org/licenses/by-sa/4.0), and so is this dictionary."));
 }
 
 QWidget* DictionariesView::row(const DictionaryPack& pack) {

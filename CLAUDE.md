@@ -94,6 +94,9 @@ these, open every copy:
   parent makes `MKCOL` answer 409) and on escaping names.
 - **User-visible descriptions of sync**, in each app's Settings screen and
   README.
+- **The bundled dictionary's credits** — its sources and their license, which
+  the license requires be shown — on each app's Dictionaries screen and in the
+  top-level README. A pack built from other sources changes all of them.
 
 ## Layout
 

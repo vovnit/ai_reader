@@ -1,4 +1,4 @@
-import { addPage, removePage, renameDraft, saveComposed, savePage } from "./lib/books.js";
+import { addPage, removePage, renameDraft, saveComposed, savePage, toDownloads, toFolder } from "./lib/books.js";
 import { clearDraft, ext, loadDraft, loadSettings } from "./lib/storage.js";
 
 const element = (id) => document.getElementById(id);
@@ -14,10 +14,14 @@ async function extract() {
 }
 
 function render() {
+  // Pictures are fetched from wherever they are kept, whichever way the
+  // book goes.
   const ready = Boolean(settings.url.trim()) && hasAccess;
   element("setup").hidden = ready;
   element("save-page").disabled = !ready;
   element("save-draft").disabled = !ready;
+  element("download-page").disabled = !hasAccess;
+  element("download-draft").disabled = !hasAccess;
 
   element("draft").hidden = draft.pages.length === 0;
   element("add-page").textContent = draft.pages.length === 0 ? "Start a book with this page" : "Add to book in progress";
@@ -64,9 +68,14 @@ async function run(work, pending = "") {
 }
 
 const saved = (name) => `Saved “${name}”. It arrives on the next sync.`;
+const downloaded = (name) => `Downloaded “${name}”.`;
 
 element("save-page").addEventListener("click", () =>
-  run(async () => saved(await savePage(await extract(), settings)), "Saving…")
+  run(async () => saved(await savePage(await extract(), toFolder(settings))), "Saving…")
+);
+
+element("download-page").addEventListener("click", () =>
+  run(async () => downloaded(await savePage(await extract(), toDownloads)), "Saving…")
 );
 
 element("add-page").addEventListener("click", () =>
@@ -78,9 +87,17 @@ element("add-page").addEventListener("click", () =>
 
 element("save-draft").addEventListener("click", () =>
   run(async () => {
-    const name = await saveComposed(settings);
+    const name = await saveComposed(toFolder(settings));
     draft = await loadDraft();
     return saved(name);
+  }, "Saving…")
+);
+
+element("download-draft").addEventListener("click", () =>
+  run(async () => {
+    const name = await saveComposed(toDownloads);
+    draft = await loadDraft();
+    return downloaded(name);
   }, "Saving…")
 );
 
