@@ -12,7 +12,16 @@
 
 html, body { height: 100%; margin: 0; }
 
+/* Installed on an iPhone, the app gets a blur under the status bar reaching
+   about 40pt into the page, unless the top edge lies in a fixed box with a
+   background, wide and taller than a few pixels; iOS then shows that box's
+   colour instead. The body is that box. The root has a background of its
+   own, so the body's is the body's and not the page canvas's. */
+html { background: Canvas; }
+
 body {
+  position: fixed;
+  inset: 0;
   display: flex;
   overflow: hidden;
   background: Canvas;
@@ -22,12 +31,6 @@ body {
 }
 
 #main { flex: 1; min-width: 0; height: 100%; }
-
-/* Installed on an iPhone, the app gets a blur under the status bar reaching
-   about 40pt into the page, unless a fixed element with a background covers
-   the top edge; iOS then shows that element's colour instead. This one is
-   the page's own colour, and only as tall as the status bar. */
-#top-edge { position: fixed; top: 0; left: 0; right: 0; height: max(1px, env(safe-area-inset-top)); background: Canvas; z-index: 1; }
 
 /* The panel sits beside the page; on a narrow window it covers it. */
 #panel { display: none; width: 26rem; height: 100%; border-left: 1px solid var(--rule); }
