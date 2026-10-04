@@ -1,0 +1,11 @@
+// The web app on Cloudflare Workers: no script, only the files that
+// `build.sh site` gathers into dist/site, served as they are. The name must
+// be the Worker's name in the Cloudflare dashboard. How to deploy: README.md,
+// "Hosting on Cloudflare".
+{
+  "name": "aireader",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist/site"
+  }
+}

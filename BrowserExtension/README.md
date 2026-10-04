@@ -3,7 +3,7 @@
 A Chrome and Firefox extension that turns the page you are reading into an
 EPUB for [AIReader](../README.md) — the article alone, without menus, share
 buttons, comments or ads — and puts it in the WebDAV folder the apps sync
-through. The iOS and Kindle apps fetch it on their next sync.
+through. The apps — iOS, Kindle, Linux and web — fetch it on their next sync.
 
 **Save as book.** One page, one book, saved at once. The title is the page's
 heading, the author its byline or the site's name, and the language the one

@@ -9,21 +9,22 @@ that serves comprehension and retention — not the one that adds a feature.
 **Simple language, simple code.** Prefer the plain solution, and change what
 the task needs: a fix does not bring a refactor along, and nothing gets
 configuration nobody asked for. Comments explain *why*, not what the line
-already says. The code is maintained by one person across four apps, so every
-extra idea costs four times.
+already says. The code is maintained by one person across five apps, so every
+extra idea costs five times.
 
 **Minimal design, from system parts.** The reader is concentrating on a
 foreign text; the interface should not compete with it. Use SwiftUI's own
 components (`List`, `Form`, toolbars, sheets, SF Symbols) with system colors
 and fonts. Avoid custom colors, gradients, shadows, animations and decorative
 icons; the reading style is the only place the app picks a typeface. Anything
-that would need explaining is too much. The Kindle, Qt and browser-extension
-interfaces follow the same rule with their own toolkits' plain widgets.
+that would need explaining is too much. The Kindle, Qt, web and
+browser-extension interfaces follow the same rule with their own toolkits'
+plain widgets — on the web, plain HTML elements and the system's colors.
 
 **Keep logic away from the UI.** Views render state and send actions, nothing
 else. Parsing, lookup, pagination, sync and networking live below the view
-layer, because the same logic runs on iOS, Kindle and Linux, and anything
-written into a view has to be written again for each.
+layer, because the same logic runs on iOS, Kindle, Linux and the web, and
+anything written into a view has to be written again for each.
 
 **Keep files small.** One idea per file, and under about 250 lines. When a
 file starts covering two ideas, split it: small named pieces are what make
@@ -35,13 +36,14 @@ inventing a parallel mechanism, so that their documentation stays the
 documentation for this code.
 
 **Test against the mock, not the wallet.** The endpoint `mock://ai` answers
-from `Domain/AI/MockAI.swift` (and `MockAI.cpp` on Kindle and Qt). Use it for
+from `Domain/AI/MockAI.swift` (`MockAI.cpp` on Kindle and Qt, `MockAI.js` on
+the web). Use it for
 every routine run. Real API calls cost the owner money: when one is genuinely
 needed, keep it minimal and say what it cost.
 
 **No secrets in the tree.** Tokens and passwords come from the person using
 the app — Settings, stored in the keychain (iOS) or the settings file (Kindle,
-Qt, extension storage) — or, for development, from `MISTRAL_API_KEY` in the
+Qt, extension storage, the web app's browser storage) — or, for development, from `MISTRAL_API_KEY` in the
 environment. A key once written into source ends up in every build and package
 made from it, so it has to be revoked, not just deleted.
 
@@ -56,29 +58,39 @@ then breaks sync or the file format between devices. Before editing any of
 these, open every copy:
 
 - **A feature's logic.** The Kindle app's `*Feature.cpp` is also the Qt app's
-  (compiled unchanged, globbed). The iOS app has its own reducer. Change
-  behaviour in both the iOS reducer and the Kindle feature; the Qt view only
-  renders.
+  (compiled unchanged, globbed). The iOS app has its own reducer, the web app
+  its own `AIReaderWeb/src/Features/*/*Feature.js`. Change behaviour in all
+  three; the Qt view only renders.
+- **What the model is asked, and how a chapter becomes text.** The prompts,
+  tool descriptions and the mock are word for word alike in
+  `AIReader/AIReader/Domain/AI`, `AIReaderKindle/src/Domain/AI` and
+  `AIReaderWeb/src/Domain/AI`. `HtmlText` decides which chapters are kept, so
+  chapter numbers agree between devices: `HtmlText.cpp`, `HtmlText.js`, and
+  the iOS loader.
 - **The database schema.** iOS migrations in `App/AppDatabase.swift`, Kindle
   and Qt in `AIReaderKindle/src/Services/Migrations.cpp`. Migrations are
   additive: an existing library must survive an update. The Kindle check
   rewinds a library to version 1 and migrates it forward, so a new migration
-  must also teach that check what to drop.
+  must also teach that check what to drop. The web app keeps the same records
+  in IndexedDB (`AIReaderWeb/src/Services/Schema.js`), additive the same way.
 - **The sync document.** Reading, writing and merging exist only in
   `Core/Sources/AIReaderCore/Domain/Sync/SyncDocument.cpp`, compiled by both
   apps. `Domain/Sync/SyncDocument.swift` is its Swift face and
   `SyncDocument+Core.swift` the only place that converts; keep C++ types out
-  of other Swift files.
+  of other Swift files. The web app cannot compile C++, so
+  `AIReaderWeb/src/Domain/Sync/SyncDocument.js` is a port: change it with the
+  C++, and `AIReaderWeb/build.sh check` repeats the C++ check's cases.
 - **The book key** (title and author, normalized), which matches a book across
-  devices: `Domain/Books/BookKey.swift` and
-  `AIReaderKindle/src/Domain/Books/BookKey.cpp`. It needs Unicode lowercasing,
+  devices: `Domain/Books/BookKey.swift`,
+  `AIReaderKindle/src/Domain/Books/BookKey.cpp` and
+  `AIReaderWeb/src/Domain/Books/BookKey.js`. It needs Unicode lowercasing,
   which `Core/` cannot do without a library.
 - **Shared books.** The file-name rule for the sync folder's `Books`:
-  `RemoteBookName.swift`, `RemoteBookName.cpp` and
-  `BrowserExtension/lib/names.js`. The exchange itself: `LibrarySync.swift`
-  and `LibrarySync.cpp`.
-- **WebDAV.** `Services/Sync/WebDAV.swift`, `AIReaderKindle/src/Services/WebDav.cpp`
-  and `BrowserExtension/lib/webdav.js` must agree on folder creation (a missing
+  `RemoteBookName.swift`, `RemoteBookName.cpp`, `RemoteBookName.js` (web) and
+  `BrowserExtension/lib/names.js`. The exchange itself: `LibrarySync.swift`,
+  `LibrarySync.cpp` and `LibrarySync.js` (web).
+- **WebDAV.** `Services/Sync/WebDAV.swift`, `AIReaderKindle/src/Services/WebDav.cpp`,
+  `AIReaderWeb/src/Services/WebDav.js` and `BrowserExtension/lib/webdav.js` must agree on folder creation (a missing
   parent makes `MKCOL` answer 409) and on escaping names.
 - **User-visible descriptions of sync**, in each app's Settings screen and
   README.
@@ -92,6 +104,7 @@ The top level has one folder per thing that is built:
 | `AIReader/` | The iOS app, and `LookupExtension/`, the Explain action extension. |
 | `AIReaderKindle/` | The Kindle app: C++17, GTK+ 2, Meson. |
 | `AIReaderQt/` | The Linux desktop app: Qt 6 Widgets views over the Kindle app's code. |
+| `AIReaderWeb/` | The web app, a PWA: plain HTML, CSS and JavaScript modules, no build step. |
 | `Core/` | C++ both the iOS and Kindle apps compile: the sync document and JSON. |
 | `BrowserExtension/` | Chrome and Firefox: saves web pages as EPUBs into the sync folder. |
 | `DictionaryTool/` | Python: builds the bundled `dictionary.sqlite3` and other packs. |
@@ -126,6 +139,14 @@ files there on launch. Books and reading style stay in the app's own container.
 It relies on Qt running a GLib event loop on Linux, which
 `Support/Async.hpp` posts results through.
 
+**Web.** The same five layers under `AIReaderWeb/src`; only `*View.js`,
+`Features/Common` and `App/main.js` touch the page, so everything below runs
+under Node and is checked there. Records live in IndexedDB, settings in
+`localStorage`. Dictionary packs are read by `Support/SqliteFile.js`, a
+read-only reader of the SQLite file format, and pages are laid out by the
+browser in CSS columns, every text node knowing its chapter offset.
+`dictionary.sqlite3` there is a link to the iOS app's copy.
+
 **AI endpoints.** The apps talk to any OpenAI-compatible endpoint. Do not
 special-case a provider; if a service rejects a parameter, negotiate from the
 error it returns (`Domain/AI/RequestQuirks.swift`).
@@ -146,6 +167,8 @@ conclusive than driving a UI, and cost nothing.
 | Qt views | `AIReaderQt/build.sh` (Docker); `AIReaderQt/build.sh script tools/smoke.txt <book.epub>` (written for the Le Petit Prince in `References/`) walks every screen against the mock and saves snapshots. |
 | The Qt AppImage | `AIReaderQt/build.sh appimage`; test it in a clean container of another distribution, which needs `shared-mime-info` and a desktop's X/GL libraries (see `AIReaderQt/README.md`). |
 | The browser extension | Load it unpacked in Chrome, or in Playwright's Chromium with `--load-extension`, against a local WebDAV server and page. `lib/zip.js`, `lib/epub.js` and `lib/names.js` also run under Node; the rest need a browser. |
+| Web logic (`AIReaderWeb/src` below the views) | `AIReaderWeb/build.sh check [book.epub]` (Node 22.12+); with `AIREADER_SYNC_URL` set, against a WebDAV server too. |
+| Web views | `AIReaderWeb/build.sh serve`, then `http://localhost:8080/?aiEndpoint=mock://ai&aiModel=mock-medium` in a browser. Sync from a page needs the server to allow its origin: `rclone serve webdav <dir> --addr 127.0.0.1:8765 --allow-origin http://localhost:8080`. |
 | `DictionaryTool/` | `python3 -m unittest discover -s tests -t .` from that folder. |
 
 Build the iOS app:
@@ -203,6 +226,12 @@ text selected); sharing from the selection's own menu delivers the bare text.
   expired. Anything that must be recorded whatever the screen does — what a
   sync sent or fetched — runs under a guard that never expires, or the next
   run repeats the work.
+- The web app's `sw.js` lists every file it keeps for offline use; a new file
+  missing from the list is missing offline, and `AIReaderWeb/build.sh check`
+  fails on it.
+- A web page reaches only services that allow its origin (CORS). Mistral,
+  OpenAI and OpenRouter do; Monid does not, so web search fails in the web
+  app, and a WebDAV server must be told.
 - Chrome refuses to inject a script containing the characters U+FFFE or U+FFFF,
   reporting that it "isn't UTF-8 encoded". Keep `BrowserExtension/*.js` ASCII,
   with `\u` escapes in regular expressions.

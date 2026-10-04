@@ -26,6 +26,7 @@ AIReaderKindle/subprojects/packagecache/
 AIReaderKindle/subprojects/*/
 AIReaderQt/dist/
 AIReaderQt/squashfs-root/
+AIReaderWeb/dist/
 *.AppImage
 # git on macOS ignores case, so the line above would hide this one too
 !AIReaderQt/docker/Dockerfile.appimage

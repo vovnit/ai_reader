@@ -78,9 +78,27 @@ jobs:
           name: browser-extension
           path: AIReader-extension.zip
 
+  web:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Everything below the views, then the folder to put on a web server,
+      # the bundled dictionary in it.
+      - name: Check
+        run: AIReaderWeb/build.sh check
+      - name: Zip
+        run: AIReaderWeb/build.sh dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: AIReaderWeb/dist/AIReader-web.zip
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [ios, kindle, qt, extension]
+    needs: [ios, kindle, qt, extension, web]
     runs-on: ubuntu-24.04
     permissions:
       contents: write

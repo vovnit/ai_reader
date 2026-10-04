@@ -7,7 +7,9 @@ dictionary form, how the form in front of you relates to it, and a translation
 of the sentence as a whole.
 
 SwiftUI, with Point-Free's [Composable Architecture][tca] and
-[sqlite-data][sqlite-data].
+[sqlite-data][sqlite-data]. The same reader runs on a
+[Kindle](AIReaderKindle/README.md), on [Linux](AIReaderQt/README.md), and in a
+browser as an [installable web app](AIReaderWeb/README.md) that works offline.
 
 [tca]: https://github.com/pointfreeco/swift-composable-architecture
 [sqlite-data]: https://github.com/pointfreeco/sqlite-data
@@ -105,7 +107,8 @@ from one book's lookups — and hands it to the Files app to save.
 **Sync.** *Settings → Sync* takes a WebDAV folder and an account. From then
 on, reading positions, groups, looked-up words and how each has fared in
 practice are shared through one file in that folder — with the [Kindle
-app](AIReaderKindle/README.md), which reads and writes the same file. The app
+app](AIReaderKindle/README.md), the [Linux app](AIReaderQt/README.md) and the
+[web app](AIReaderWeb/README.md), which read and write the same file. The app
 syncs when it opens and when a book is closed, and on *Sync now*. Books are
 matched by title and author, since neither the file nor the row is the same on
 two devices; a position travels as the chapter, how far into it, and the words

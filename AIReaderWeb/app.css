@@ -1,0 +1,119 @@
+/* The system's colours and fonts throughout; the reading style is the only
+   place the app picks a typeface. */
+
+:root {
+  color-scheme: light dark;
+  font: 15px/1.45 system-ui, sans-serif;
+  --rule: color-mix(in srgb, currentColor 15%, transparent);
+  --muted: color-mix(in srgb, currentColor 60%, transparent);
+}
+
+[hidden] { display: none !important; }
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  display: flex;
+  overflow: hidden;
+  background: Canvas;
+  color: CanvasText;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  box-sizing: border-box;
+}
+
+#main { flex: 1; min-width: 0; height: 100%; }
+
+/* The panel sits beside the page; on a narrow window it covers it. */
+#panel { display: none; width: 26rem; height: 100%; border-left: 1px solid var(--rule); }
+body.panel-open #panel { display: block; }
+@media (max-width: 52rem) {
+  body.panel-open #panel { position: fixed; inset: 0; width: auto; border: 0; background: Canvas; padding: inherit; }
+}
+
+.screen { display: flex; flex-direction: column; height: 100%; }
+.screen > header { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--rule); }
+.screen > header h1 { flex: 1; margin: 0; font-size: 1.05rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.screen > header .actions { display: flex; gap: 0.4rem; }
+.screen > .body { flex: 1; overflow: auto; padding: 1rem; }
+
+h2 { font-size: 1rem; margin: 1.2rem 0 0.4rem; }
+button, input, select, textarea { font: inherit; }
+ul, ol { padding: 0; list-style: none; margin: 0; }
+small { color: var(--muted); }
+.note { color: var(--muted); }
+.message { white-space: pre-line; }
+.error { color: color-mix(in srgb, red 70%, currentColor); }
+.buttons { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.6rem 0; }
+button.link { background: none; border: 0; padding: 0.2rem; color: LinkText; cursor: pointer; }
+dialog form h2 { margin-top: 0; }
+dialog menu { display: flex; flex-direction: row-reverse; gap: 0.5rem; padding: 0; margin: 1rem 0 0; }
+
+/* Rows that open something: plain text, the whole row a button. */
+button.open, .hits button, .contents button, .choices button {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.15rem; width: 100%;
+  background: none; border: 0; padding: 0.45rem 0.3rem; color: inherit; text-align: start; cursor: pointer;
+}
+button.open:hover, .hits button:hover, .contents button:hover, .choices button:hover { background: var(--rule); }
+[aria-current="true"], [aria-pressed="true"] { font-weight: 600; }
+
+/* The shelf. */
+.books li { display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--rule); }
+.books button.open { flex-direction: row; align-items: center; gap: 0.75rem; flex: 1; min-width: 0; }
+.books button.open > span { display: flex; flex-direction: column; min-width: 0; }
+.books img, .no-cover { width: 2.6rem; height: 3.8rem; object-fit: cover; flex: none; background: var(--rule); }
+.row-actions { display: flex; gap: 0.3rem; flex: none; }
+h2 button.link { font-weight: normal; font-size: 0.9rem; }
+
+/* The reader. */
+.body.reader { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+.reader-status:empty { display: none; }
+.reader-status { padding: 1rem; }
+.reader-area { flex: 1; min-height: 0; display: flex; justify-content: center; overflow: hidden; cursor: default; }
+.reader-footer { padding: 0.3rem; text-align: center; font-size: 0.8rem; color: var(--muted); white-space: pre; }
+.page-window { overflow: hidden; flex: none; }
+.flow { column-fill: auto; hyphens: auto; overflow-wrap: break-word; }
+.flow p { margin: 0; text-indent: 1.5em; text-align: justify; white-space: pre-wrap; }
+.flow p.heading { text-indent: 0; text-align: start; font-weight: bold; font-size: 1.3em; break-after: avoid; }
+.flow p.blank::before { content: "\00a0"; }
+.flow p.picture { text-indent: 0; text-align: center; break-inside: avoid; }
+.flow p.picture img { max-width: 100%; max-height: var(--picture-height); vertical-align: top; }
+::highlight(lookup) { background-color: Mark; color: MarkText; }
+
+/* Screens in the panel. */
+.menu { display: flex; flex-direction: column; gap: 0.5rem; }
+.menu button { padding: 0.6rem; }
+.meaning { font-size: 1.35rem; margin: 0 0 0.6rem; }
+.lemma { display: flex; flex-direction: column; margin: 0; }
+.sentence p { margin: 0.2rem 0; }
+hr { border: 0; border-top: 1px solid var(--rule); margin: 0.9rem 0; }
+.article ol { list-style: decimal; padding-left: 1.6rem; }
+.hits li, .words li { border-bottom: 1px solid var(--rule); }
+.words li { display: flex; align-items: flex-start; }
+.words i, .hits span { color: var(--muted); }
+.hits mark { color: MarkText; }
+.contents li button { padding-left: calc(0.3rem + var(--depth, 0) * 1.2rem); }
+form.ask { display: flex; gap: 0.4rem; margin-bottom: 0.6rem; }
+form.ask input, form.ask textarea { flex: 1; min-width: 0; }
+.body.chat { display: flex; flex-direction: column; }
+.turns { flex: 1; overflow: auto; }
+.turn.reader { font-weight: 600; margin: 1rem 0 0.4rem; white-space: pre-wrap; }
+.turn.model p { margin: 0.15rem 0; white-space: pre-wrap; }
+.turn.model pre { margin: 0; white-space: pre-wrap; }
+.match { display: grid; grid-template-columns: 1fr 1.6fr; gap: 0.6rem; }
+.match li { margin-bottom: 0.4rem; }
+.match button { width: 100%; min-height: 3rem; text-align: start; display: flex; flex-direction: column; gap: 0.2rem; }
+.match button:disabled { opacity: 0.35; }
+.match button.missed { outline: 2px solid color-mix(in srgb, red 70%, currentColor); }
+.stepper { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
+.stepper span { flex: 1; }
+.stepper output { min-width: 3.5rem; text-align: center; }
+.sample { font-size: 1.2rem; margin-top: 1rem; }
+.packs li { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--rule); padding: 0.4rem 0; }
+.packs label { display: flex; align-items: center; gap: 0.6rem; }
+.packs label span { display: flex; flex-direction: column; }
+
+/* Forms. */
+fieldset { border: 0; padding: 0; margin: 0 0 1.2rem; }
+legend { font-weight: 600; padding: 0; margin-bottom: 0.3rem; }
+label.field { display: flex; flex-direction: column; gap: 0.2rem; margin: 0.5rem 0; }
+label.field input, label.field select, label.field textarea { box-sizing: border-box; width: 100%; }
