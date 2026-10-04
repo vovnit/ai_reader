@@ -52,6 +52,8 @@ body.panel-open #panel { display: block; }
 
 h2 { font-size: 1rem; margin: 1.2rem 0 0.4rem; }
 button, input, select, textarea { font: inherit; }
+/* iOS zooms into a field whose text is smaller than 16px as it is focused. */
+@media (pointer: coarse) { input, select, textarea { font-size: max(1em, 16px); } }
 ul, ol { padding: 0; list-style: none; margin: 0; }
 small { color: var(--muted); }
 .note { color: var(--muted); }
