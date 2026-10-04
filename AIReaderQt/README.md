@@ -28,7 +28,7 @@ density, so a page breaks the same way on both.
   (X-ray), and to a conversation about it.
 - **Words** — every word looked up, the practice game, and export for Anki.
 - **Settings** — the OpenAI-compatible endpoint and model, web search, and
-  WebDAV sync with the iOS and Kindle apps; **Dictionaries** adds packs, word
+  WebDAV sync with the iOS, Kindle and web apps; **Dictionaries** adds packs, word
   lists, Lingvo DSL, StarDict and XDXF.
 
 Everything lives in `~/.aireader` (or `$AIREADER_HOME`), the same place as

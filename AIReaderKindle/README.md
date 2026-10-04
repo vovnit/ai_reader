@@ -130,7 +130,8 @@ nothing else, so it is not used.
 **Sync.** *Settings* takes a WebDAV folder and an account. From then on,
 reading positions, groups, looked-up words and how each has fared in practice
 are shared through one file in that folder — with the [iOS app](../README.md),
-which reads and writes the same file. The app syncs quietly when it opens and
+the [Linux app](../AIReaderQt/README.md) and the [web app](../AIReaderWeb/README.md),
+which read and write the same file. The app syncs quietly when it opens and
 when a book is closed, and *Sync now* in Settings says what came and went.
 Books are matched by title and author, since neither the file nor the row is
 the same on two devices; a position travels as the chapter, how far into it,

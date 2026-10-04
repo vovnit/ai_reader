@@ -27,6 +27,8 @@ AIReaderKindle/subprojects/*/
 AIReaderQt/dist/
 AIReaderQt/squashfs-root/
 AIReaderWeb/dist/
+# What `wrangler dev` keeps between runs
+.wrangler/
 *.AppImage
 # git on macOS ignores case, so the line above would hide this one too
 !AIReaderQt/docker/Dockerfile.appimage

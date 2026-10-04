@@ -109,7 +109,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Sync")
                 } footer: {
-                    Text(store.syncMessage ?? "Books go to its Books folder, and reading positions, groups and looked-up words to one file beside it, shared with the Kindle app. Syncs when the app opens and when a book is closed.")
+                    Text(store.syncMessage ?? "Books go to its Books folder, and reading positions, groups and looked-up words to one file beside it, shared with the Kindle, Linux and web apps. Syncs when the app opens and when a book is closed.")
                 }
 
                 if let message = store.errorMessage {

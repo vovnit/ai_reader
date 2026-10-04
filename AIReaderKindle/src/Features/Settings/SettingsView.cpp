@@ -108,7 +108,7 @@ void open(Env& env, Navigator& navigator) {
     Widgets::connect(webInput, "changed", [screen, webInput] { screen->feature.setWebInput(Widgets::entryText(webInput)); });
 
     gtk_box_pack_start(GTK_BOX(box), Widgets::separator(), FALSE, FALSE, Widgets::px(6));
-    GtkWidget* syncUrl = field(box, "WebDAV folder (books, reading places, groups and words are shared with the iOS app)",
+    GtkWidget* syncUrl = field(box, "WebDAV folder (books, reading places, groups and words are shared with the iOS, Linux and web apps)",
                                Widgets::entry(screen->feature.sync().url));
     Widgets::connect(syncUrl, "changed", [screen, syncUrl] { screen->feature.setSyncUrl(Widgets::entryText(syncUrl)); });
     GtkWidget* syncUser = field(box, "User name", Widgets::entry(screen->feature.sync().username));
