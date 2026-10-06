@@ -5,6 +5,7 @@
 //   AIREADER_DATA_DIR=../AIReader/AIReader/Resources ./aireader-check [book.epub [page.png [chapter [page]]]]
 
 #include "../src/Domain/AI/ChatPrompt.hpp"
+#include "../src/Domain/AI/ContextTool.hpp"
 #include "../src/Domain/AI/DictionaryTool.hpp"
 #include "../src/Domain/AI/ExplanationPrompt.hpp"
 #include "../src/Domain/AI/MockAI.hpp"
@@ -46,12 +47,14 @@
 #include "../src/Services/LookupCache.hpp"
 #include "../src/Services/Migrations.hpp"
 #include "../src/Services/Paths.hpp"
+#include "../src/Services/PdfImporter.hpp"
 #include "../src/Services/Sync.hpp"
 #include "../src/Services/SyncStore.hpp"
 #include "../src/Services/ToolRunner.hpp"
 #include "../src/Services/WebDav.hpp"
 #include "../src/Services/WordExplainer.hpp"
 #include "../src/Support/Files.hpp"
+#include "../src/Support/PdfPageText.hpp"
 #include "Support/Json.hpp"
 #include "../src/Support/Text.hpp"
 
@@ -354,7 +357,7 @@ static void checkChatPrompt() {
     meaning.push_back(lookup);
     meaning.push_back(ChatMessage::toolResult("Dictionary results for “maison”:\n- maison [noun]: дом, здание; семья", lookup.toolCalls[0].id));
     check("mock chat answers from the article", Text::contains(MockAI::reply(meaning).content.value_or(""), "«maison» — дом, здание"));
-    check("chat offers the dictionary and the search", ChatPrompt::tools().size() == 2);
+    check("chat offers the dictionary, the search and the text around", ChatPrompt::tools().size() == 3);
 }
 
 static void checkBookSearch() {
@@ -385,7 +388,9 @@ static void checkBookSearch() {
     std::string summary = SearchTool::summary("vint", {hit}, true);
     check("search summary names book and chapter", Text::contains(summary, "1. [Tome 2, chapter 5] Il vint."), summary);
     check("empty search summary", Text::contains(SearchTool::summary("x", {}, false), "No passage"));
-    check("tools carry the search", ExplanationPrompt::tools().size() == 2 && ExplanationPrompt::tools().at(1).at("function").at("name").string() == SearchTool::toolName);
+    check("tools carry the search and the text around", ExplanationPrompt::tools().size() == 3
+          && ExplanationPrompt::tools().at(1).at("function").at("name").string() == SearchTool::toolName
+          && ExplanationPrompt::tools().at(2).at("function").at("name").string() == ContextTool::toolName);
 
     // The X-ray asks once more when it has nothing, then reports the count.
     auto xray = XRayPrompt::messages("Meaulnes", {}, false, "Russian");
@@ -396,12 +401,193 @@ static void checkBookSearch() {
     check("mock x-ray answers from the passages", Text::contains(MockAI::reply(xray).content.value_or(""), "3 отрывках"));
 }
 
+static void checkContextTool() {
+    std::string chapter;
+    for (int i = 0; i < 60; ++i) chapter += "Phrase " + std::to_string(i) + " dit une chose assez longue pour compter. ";
+    int start = static_cast<int>(chapter.find("Phrase 30 "));
+    int end = static_cast<int>(chapter.find("Phrase 31 "));
+    BookPassage window{1, 0, start, end};
+    std::string before = ContextTool::read(ContextTool::Direction::Before, chapter, window);
+    check("context reads back from a sentence's start", Text::startsWith(before, "Before it in the book:\nPhrase ")
+          && Text::endsWith(before, "Phrase 29 dit une chose assez longue pour compter.")
+          && window.start < start && start - window.start <= BookSearch::step + BookSearch::reach, before);
+    std::string after = ContextTool::read(ContextTool::Direction::After, chapter, window);
+    check("context reads on to a sentence's end", Text::startsWith(after, "After it in the book:\nPhrase 31 ")
+          && Text::endsWith(after, "compter.") && window.end > end, after);
+    int reached = window.start;
+    ContextTool::read(ContextTool::Direction::Before, chapter, window);
+    check("each call reads further", window.start < reached);
+    std::string last;
+    for (int i = 0; i < 4; ++i) last = ContextTool::read(ContextTool::Direction::Before, chapter, window);
+    check("context stops at the chapter's start", window.start == 0 && last == "Nothing comes before it: the chapter begins there.", last);
+    BookPassage early{1, 0, static_cast<int>(chapter.find("Phrase 2 ")), static_cast<int>(chapter.find("Phrase 3 "))};
+    std::string first = ContextTool::read(ContextTool::Direction::Before, chapter, early);
+    check("context says when it reached the start", Text::startsWith(first, "Before it in the book:\nPhrase 0 ")
+          && Text::endsWith(first, "(The chapter begins here.)"), first);
+    std::string unbroken(3000, 'x');
+    BookPassage middle{1, 0, 1500, 1510};
+    ContextTool::read(ContextTool::Direction::After, unbroken, middle);
+    check("a text with no sentences is still read a step at a time", middle.end > 1510 && middle.end <= 1510 + BookSearch::step);
+    BookPassage nearEnd{1, 0, 2000, 2100};
+    check("a step near the end takes the rest", Text::endsWith(ContextTool::read(ContextTool::Direction::After, unbroken, nearEnd), "(The chapter ends here.)")
+          && nearEnd.end == 3000);
+
+    check("context tool takes a direction", ContextTool::direction(R"({"direction":"after"})") == ContextTool::Direction::After
+          && !ContextTool::direction(R"({"direction":"later"})")
+          && ContextTool::tool().at("function").at("parameters").at("properties").at("direction").at("enum").size() == 2);
+
+    // Asked what came before, the mock reads around the page, and the runner
+    // answers from the passage the reader is on.
+    Book book;
+    book.id = 1;
+    auto corpus = std::make_shared<BookCorpus>(std::vector<Book>{book});
+    corpus->provide(1, {"Intro.", chapter});
+    ReadingScope scope{corpus, BookPosition{1, 1, end}, BookPassage{1, 1, start, end}};
+    AiSettings mock{"mock://ai", "", "", "mock-medium"};
+    auto asked = ChatPrompt::messages(ChatPrompt::pageContext("Page."), {{true, "Раньше что было?"}}, "Russian");
+    ChatMessage answer = ToolRunner::converse(mock, asked, ChatPrompt::tools(), false, {scope, {}, {}});
+    check("mock chat reads before the passage", asked.size() == 4 && asked[2].toolCalls.size() == 1
+          && asked[2].toolCalls[0].name == ContextTool::toolName && Text::startsWith(*asked[3].content, "Before it in the book:")
+          && Text::contains(answer.content.value_or(""), "перед этим местом в книге — «Phrase"), answer.content.value_or(""));
+    auto later = ChatPrompt::messages(ChatPrompt::pageContext("Page."), {{true, "Дальше?"}}, "Russian");
+    ToolRunner::converse(mock, later, ChatPrompt::tools(), false, {ReadingScope{corpus, std::nullopt, std::nullopt}, {}, {}});
+    check("without a passage there is nothing around", later.size() == 4 && *later[3].content == ContextTool::nothingAround);
+}
+
+static std::string pdfStream(const std::string& dictionary, const std::string& data) {
+    return "<< " + dictionary + " /Length " + std::to_string(data.size()) + " >>\nstream\n" + data + "\nendstream";
+}
+
+static std::string zlibbed(const std::string& data) {
+    uLongf size = compressBound(data.size());
+    std::string out(size, '\0');
+    compress(reinterpret_cast<Bytef*>(&out[0]), &size, reinterpret_cast<const Bytef*>(data.data()), data.size());
+    out.resize(size);
+    return out;
+}
+
+/// A PDF of its objects' bodies, with no cross-reference table: the reader
+/// finds objects by scanning, so it should not need one.
+static std::string pdfFile(const std::map<int, std::string>& objects, const std::string& trailer) {
+    std::string out = "%PDF-1.5\n%\xE2\xE3\xCF\xD3\n";
+    for (const auto& object : objects) out += std::to_string(object.first) + " 0 obj\n" + object.second + "\nendobj\n";
+    return out + "trailer\n" + trailer + "\n%%EOF\n";
+}
+
+/// Four pages with what a printed book's PDF has: running heads, page
+/// numbers, a heading, first-line indents, a word hyphenated at a line's
+/// end, a paragraph cut by a page break, and two bookmarks.
+static std::string samplePdf() {
+    std::map<int, std::string> objects;
+    objects[1] = "<< /Type /Catalog /Pages 2 0 R /Outlines 20 0 R /Lang (fr-FR) /Names << /Dests << /Names [(suite) [4 0 R /Fit]] >> >> >>";
+    // Resources and the media box are inherited from the page tree.
+    objects[2] = "<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R 6 0 R] /Count 4 /MediaBox [0 0 612 792] "
+                 "/Resources << /Font << /F1 10 0 R /F2 11 0 R >> /XObject << /X1 15 0 R >> >> >>";
+    objects[3] = "<< /Type /Page /Parent 2 0 R /Contents 7 0 R >>";
+    objects[4] = "<< /Type /Page /Parent 2 0 R /Contents 8 0 R >>";
+    objects[5] = "<< /Type /Page /Parent 2 0 R /Contents [9 0 R] >>";
+    objects[6] = "<< /Type /Page /Parent 2 0 R /Contents 16 0 R >>";
+    const std::string head = "BT /F1 9 Tf 1 0 0 1 72 770 Tm (Mon Livre) Tj ET\n";
+    auto folio = [](const std::string& number) { return "BT /F1 9 Tf 1 0 0 1 300 40 Tm (" + number + ") Tj ET\n"; };
+    objects[7] = pdfStream("/Filter /FlateDecode", zlibbed(head + R"(BT /F1 20 Tf 1 0 0 1 72 740 Tm (Chapitre premier) Tj ET
+BT /F1 12 Tf 1 0 0 1 90 700 Tm (Il \351tait une fois un chat qui ai-) Tj
+1 0 0 1 72 686 Tm (mait les livres et la musique.) Tj
+1 0 0 1 90 672 Tm (Le chat lisait chaque soir, \340 la lumi\350re d\222une) Tj
+-18 -14 Td (bougie, des histoires de) Tj ET
+)" + folio("1")));
+    // A word split by a little kerning stays whole; a wide gap is a space.
+    objects[8] = pdfStream("", head + R"(BT /F1 12 Tf 1 0 0 1 72 740 Tm (pirates et de magiciens. Ses amis le trouvaient raf\001n\351.) Tj
+1 0 0 1 90 726 Tm [(Un) -280 (jour,) -280 (le) -280 (ch) -20 (at) -280 (partit.)] TJ
+/F2 12 Tf 1 0 0 1 90 712 Tm <0001000200030004> Tj ET
+)" + folio("2"));
+    // An inline image whose bytes would show an X if read as content.
+    objects[9] = pdfStream("", head + "q /X1 Do Q\nBI /W 6 /H 1 /BPC 8 /CS /G ID (X) Tj EI\n"
+                           "BT /F1 12 Tf 1 0 0 1 90 726 Tm (Fin du livre.) Tj ET\n" + folio("3"));
+    objects[16] = pdfStream("", head + "BT /F1 12 Tf 1 0 0 1 90 740 Tm (Derni\\350re page.) Tj ET\n" + folio("iv"));
+    objects[11] = "<< /Type /Font /Subtype /Type0 /BaseFont /Sample /Encoding /Identity-H /DescendantFonts [12 0 R] /ToUnicode 14 0 R >>";
+    objects[12] = "<< /Type /Font /Subtype /CIDFontType2 /BaseFont /Sample /W [1 [600 600 600 500]] >>";
+    objects[14] = pdfStream("", "/CIDInit /ProcSet findresource begin 12 dict begin begincmap\n"
+                                "1 begincodespacerange <0000> <FFFF> endcodespacerange\n"
+                                "1 beginbfrange <0001> <0003> <0041> endbfrange\n"
+                                "1 beginbfchar <0004> <00E9> endbfchar\nendcmap end end");
+    objects[15] = pdfStream("/Type /XObject /Subtype /Form /BBox [0 0 612 792] /Matrix [1 0 0 1 72 740]",
+                            "BT /F1 12 Tf 0 0 Td (Texte dans une forme.) Tj ET");
+    objects[20] = "<< /Type /Outlines /First 21 0 R /Last 22 0 R /Count 2 >>";
+    objects[21] = "<< /Title (D\\351but) /Parent 20 0 R /Next 22 0 R /Dest [3 0 R /XYZ 0 792 0] >>";
+    objects[22] = "<< /Title <FEFF00530075006900740065> /Parent 20 0 R /Prev 21 0 R /Dest (suite) >>";
+    // The simple font and its encoding live in an object stream.
+    std::string font = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding 13 0 R >>";
+    std::string encoding = "<< /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences [1 /fi] >>";
+    std::string index = "10 0 13 " + std::to_string(font.size() + 1) + " ";
+    objects[30] = pdfStream("/Type /ObjStm /N 2 /First " + std::to_string(index.size()) + " /Filter /FlateDecode",
+                            zlibbed(index + font + " " + encoding));
+    objects[40] = "<< /Title <FEFF004D006F006E0020004C0069007600720065> /Author (Jean Dupont) >>";
+    return pdfFile(objects, "<< /Root 1 0 R /Info 40 0 R /Size 41 >>");
+}
+
+static void checkPdf(const std::string& folder) {
+    std::string pdf = samplePdf();
+    PdfDocument document(pdf);
+    check("pdf pages come from the page tree", document.pages().size() == 4);
+    check("pdf information reads UTF-16 and PDFDocEncoding", document.info("Title") == "Mon Livre" && document.info("Author") == "Jean Dupont");
+    auto outline = document.outline();
+    check("pdf bookmarks, direct and named, find their pages", outline.size() == 2 && outline[0].title == "Début" && outline[0].page == 0
+          && outline[1].title == "Suite" && outline[1].page == 1);
+    PdfPageText::FontCache fonts;
+    auto second = PdfPageText::lines(document, document.pages()[1], fonts);
+    check("pdf text: encodings, a ligature, kerning and a two-byte font", second.size() == 5
+          && second[1].text == "pirates et de magiciens. Ses amis le trouvaient raffiné."
+          && second[2].text == "Un jour, le chat partit." && second[3].text == "ABCé",
+          second.size() > 3 ? second[1].text + " | " + second[2].text + " | " + second[3].text : std::to_string(second.size()));
+    check("pdf lines know where they are", second.size() == 5 && std::abs(second[2].left - 90) < 0.01 && std::abs(second[2].y - 66) < 0.01
+          && std::abs(second[2].size - 12) < 0.01);
+
+    std::string epub = Files::join(folder, "sample.epub");
+    Files::ensureDirectory(folder);
+    Files::write(epub, PdfImporter::epub(pdf, "fallback"));
+    std::string error;
+    auto metadata = EpubLoader::metadata(epub, &error);
+    check("pdf epub names the book and its language", metadata && metadata->title == "Mon Livre" && metadata->author == "Jean Dupont"
+          && metadata->language == "fr", error);
+    auto book = EpubLoader::load(epub, &error, false);
+    bool loaded = book && book->chapters.size() == 2;
+    check("pdf epub has a chapter per bookmark", loaded && book->contents.size() == 2 && book->contents[0].title == "Début"
+          && book->contents[1].title == "Suite", book ? std::to_string(book->chapters.size()) : error);
+    std::string first = loaded ? book->chapters[0].text : "";
+    std::string rest = loaded ? book->chapters[1].text : "";
+    check("pdf paragraphs: heads and folios dropped, a hyphenated word mended, a page break undone",
+          first == "Chapitre premier\nIl était une fois un chat qui aimait les livres et la musique.\n"
+                   "Le chat lisait chaque soir, à la lumière d’une bougie, des histoires de pirates et de magiciens. "
+                   "Ses amis le trouvaient raffiné.", first);
+    check("pdf text in a form is read, an inline image is not", rest == "Un jour, le chat partit.\nABCé\nTexte dans une forme.\nFin du livre.\nDernière page.", rest);
+    check("pdf heading stays a heading", loaded && !book->chapters[0].spans.empty() && book->chapters[0].spans[0].kind == TextSpan::Kind::Heading);
+
+    auto refused = [](const std::string& data) {
+        try {
+            PdfImporter::epub(data, "x");
+        } catch (const std::exception& failure) {
+            return std::string(failure.what());
+        }
+        return std::string();
+    };
+    check("not a pdf", Text::contains(refused("hello"), "not a PDF"));
+    check("an encrypted pdf is refused", Text::contains(refused(pdfFile({{1, "<< /Type /Catalog /Pages 2 0 R >>"},
+        {2, "<< /Type /Pages /Kids [3 0 R] >>"}, {3, "<< /Type /Page >>"}, {4, "<< /Filter /Standard >>"}},
+        "<< /Root 1 0 R /Encrypt 4 0 R >>")), "encrypted"));
+    std::string scan = refused(pdfFile({{1, "<< /Type /Catalog /Pages 2 0 R >>"}, {2, "<< /Type /Pages /Kids [3 0 R] >>"},
+                                        {3, "<< /Type /Page /Contents 4 0 R >>"}, {4, pdfStream("", "q 100 0 0 100 0 0 cm /Im1 Do Q")}},
+                                       "<< /Root 1 0 R >>"));
+    check("a scan without text is sent to ScanTool", Text::contains(scan, "ScanTool"), scan);
+}
+
 static void checkWordContext() {
     std::string text = "Les maisons étaient vieilles. Il pleuvait fort.\nNouveau paragraphe ici.";
     WordContext context(text, "fr");
     auto selection = context.selectionAt(static_cast<int>(text.find("aisons")));
     check("tap resolves the word", selection && selection->word == "maisons", selection ? selection->word : "(none)");
     check("tap resolves the sentence", selection && selection->sentence == "Les maisons étaient vieilles.", selection ? selection->sentence : "(none)");
+    check("the sentence's place is known", selection && selection->sentenceStart == 0
+          && Text::trim(text.substr(selection->sentenceStart, selection->sentenceEnd - selection->sentenceStart)) == selection->sentence);
     auto second = context.selectionAt(static_cast<int>(text.find("pleuvait")));
     check("second sentence", second && second->sentence == "Il pleuvait fort.", second ? second->sentence : "(none)");
     auto gap = context.selectionAt(static_cast<int>(text.find(" étaient")));
@@ -1053,7 +1239,7 @@ static void checkBundledDictionary() {
     auto seen = corpus->search("meaulnes", 10, upTo);
     check("corpus keeps the model to what was read", seen.size() == 1 && seen[0].offset == 0 && seen[0].bookTitle == "Tome 1");
 
-    ToolRunner::Tools tools{{corpus, upTo}, {}, {}};
+    ToolRunner::Tools tools{{corpus, upTo, std::nullopt}, {}, {}};
     std::vector<ChatMessage> xray = XRayPrompt::messages("Nobody", corpus->search("Nobody", 5, upTo), true, "Russian");
     ChatMessage answer = ToolRunner::converse(mock, xray, Json(std::vector<Json>{SearchTool::tool()}), false, tools);
     check("tool runner answers a search call", xray.size() == 4 && xray[3].role == "tool" && Text::contains(*xray[3].content, "No passage")
@@ -1061,6 +1247,23 @@ static void checkBundledDictionary() {
     std::vector<ChatMessage> found = XRayPrompt::messages("Meaulnes", corpus->search("Meaulnes", 5, upTo), true, "Russian");
     ChatMessage known = ToolRunner::converse(mock, found, Json(std::vector<Json>{SearchTool::tool()}), false, tools);
     check("x-ray answers from the passages read so far", Text::contains(known.content.value_or(""), "1 отрывках"), known.content.value_or(""));
+}
+
+/// Makes an EPUB of a PDF given on the command line, shows what came of it,
+/// and hands back the EPUB for the checks an EPUB gets.
+static std::string checkPdfFile(const std::string& path, const std::string& folder) {
+    Files::ensureDirectory(folder);
+    std::string error;
+    std::string epub = PdfImporter::convert(path, folder, &error);
+    check("pdf becomes an epub", !epub.empty(), error.empty() ? epub : error);
+    if (epub.empty()) return path;
+    auto document = EpubLoader::load(epub, &error, false);
+    if (!document) return epub;
+    for (size_t i = 0; i < document->chapters.size() && i < 3; ++i) {
+        std::string text = document->chapters[i].text;
+        std::printf("      chapter %zu: %s\n", i + 1, text.substr(0, 600).c_str());
+    }
+    return epub;
 }
 
 /// Draws the first page of the first chapter the way the reader does, so the
@@ -1141,6 +1344,7 @@ int main(int argc, char** argv) {
     checkChatPrompt();
     checkWebSearch();
     checkBookSearch();
+    checkContextTool();
     checkWordContext();
     checkCards();
     checkPaginator();
@@ -1157,10 +1361,14 @@ int main(int argc, char** argv) {
     checkWordLists(Files::join(scratch, "home"));
     checkConverters(Files::join(scratch, "home"));
     checkAddFile(Files::join(scratch, "home"));
+    checkPdf(Files::join(scratch, "pdf-sample"));
     checkBundledDictionary();
-    if (argc > 1) checkLibraryServer(Files::join(scratch, "library"), argv[1]);
-    if (argc > 1) checkEpub(argv[1]);
-    if (argc > 2) renderPage(argv[1], argv[2], argc > 3 ? std::atoi(argv[3]) : 0, argc > 4 ? std::atoi(argv[4]) : 0);
+    // A PDF is checked as the EPUB the library makes of it.
+    std::string book = argc > 1 ? argv[1] : "";
+    if (Files::extension(book) == "pdf") book = checkPdfFile(book, Files::join(scratch, "pdf"));
+    if (argc > 1) checkLibraryServer(Files::join(scratch, "library"), book);
+    if (argc > 1) checkEpub(book);
+    if (argc > 2) renderPage(book, argv[2], argc > 3 ? std::atoi(argv[3]) : 0, argc > 4 ? std::atoi(argv[4]) : 0);
 
     std::printf("%s\n", failures ? "FAILED" : "all checks passed");
     return failures ? 1 : 0;

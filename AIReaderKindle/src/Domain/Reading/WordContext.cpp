@@ -47,6 +47,7 @@ std::optional<WordContext::Selection> WordContext::selectionAt(int byteOffset) c
 
     int start = characterOffsets_[wordStart];
     int end = characterOffsets_[wordEnd];
-    std::string sentence = text_.substr(characterOffsets_[sentenceStart], characterOffsets_[sentenceEnd] - characterOffsets_[sentenceStart]);
-    return Selection{text_.substr(start, end - start), Text::trim(sentence), start, end};
+    int from = characterOffsets_[sentenceStart];
+    int to = characterOffsets_[sentenceEnd];
+    return Selection{text_.substr(start, end - start), Text::trim(text_.substr(from, to - from)), start, end, from, to};
 }

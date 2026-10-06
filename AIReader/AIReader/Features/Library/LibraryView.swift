@@ -15,7 +15,7 @@ struct LibraryView: View {
                     ContentUnavailableView(
                         "No books yet",
                         systemImage: "books.vertical",
-                        description: Text("Add an EPUB to start reading.")
+                        description: Text("Add an EPUB or a PDF to start reading.")
                     )
                 } else {
                     shelf
@@ -37,7 +37,7 @@ struct LibraryView: View {
             }
             .fileImporter(
                 isPresented: $store.isImporterPresented,
-                allowedContentTypes: [.epub],
+                allowedContentTypes: [.epub, .pdf],
                 allowsMultipleSelection: true
             ) { store.send(.filesPicked($0)) }
             .alert($store.scope(state: \.alert, action: \.alert))

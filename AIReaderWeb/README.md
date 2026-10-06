@@ -16,7 +16,8 @@ apps do, and syncs with them and the iOS app through the same WebDAV folder.
 ## Screens
 
 - **Library** — the shelf, each group under its name. *Add…* picks `.epub`
-  files, or drop them on the window. *Group…* puts a book in a group (books
+  files, or drop them on the window; a `.pdf` is made into an EPUB as it is
+  added, the same way the other apps make one. *Group…* puts a book in a group (books
   in one are searched together); *Remove* takes it off this device.
 - **Reader** — click a word to look it up, blank space to turn the page; the
   arrow keys, Page Up/Down, Space, the wheel and a swipe turn pages too,
@@ -156,13 +157,15 @@ other apps.
 
 ```sh
 ./build.sh check ["../References/Reader/Reader/Le Petit Prince (Saint-Exupéry, Antoine de).epub"]
+./build.sh check book.pdf
 ```
 
 runs the Kindle check's cases against this code under Node 22.12 or later —
 the HTML reduction, places, search, the mock, the prompts, cards, the sync
 document and its merge, the stores, the dictionary converters, the bundled
-dictionary through the SQLite reader, an EPUB through the loader — and
-fails if the service worker's file list misses a file. With a WebDAV
+dictionary through the SQLite reader, an EPUB through the loader, a PDF
+made into an EPUB, given or put together by the check — and fails if the
+service worker's file list misses a file. With a WebDAV
 server named:
 
 ```sh

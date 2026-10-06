@@ -158,7 +158,10 @@ gboolean pressed(GtkWidget*, GdkEventButton* event, gpointer data) {
             tap.selection.word, tap.selection.sentence,
             screen->feature.language(), screen->feature.book().id,
         };
-        LookupView::open(screen->env, screen->navigator, context, link(screen->env, screen->navigator, screen->feature));
+        // The model may read around the word's sentence rather than the page.
+        ReaderLink around = link(screen->env, screen->navigator, screen->feature);
+        around.scope = screen->feature.scope(tap.selection);
+        LookupView::open(screen->env, screen->navigator, context, around);
     }
     return TRUE;
 }

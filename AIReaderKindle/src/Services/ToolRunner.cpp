@@ -1,5 +1,6 @@
 #include "ToolRunner.hpp"
 
+#include "../Domain/AI/ContextTool.hpp"
 #include "../Domain/AI/DictionaryTool.hpp"
 #include "../Domain/AI/MockAI.hpp"
 #include "../Domain/AI/SearchTool.hpp"
@@ -21,7 +22,10 @@ Json offered(const Json& tools, const AiSettings& settings, const Tools& availab
     return all;
 }
 
-std::string answer(const ChatMessage::ToolCall& call, const AiSettings& settings, const Tools& available) {
+/// `window` is how much of the book around the passage the model has read
+/// so far, widened by each `expand_context` call.
+std::string answer(const ChatMessage::ToolCall& call, const AiSettings& settings, const Tools& available,
+                   std::optional<BookPassage>& window) {
     if (call.name == DictionaryTool::toolName) {
         std::string word = DictionaryTool::word(call.arguments);
         return DictionaryDatabase::shared().lookup(word, available.packs).summary();
@@ -32,6 +36,14 @@ std::string answer(const ChatMessage::ToolCall& call, const AiSettings& settings
         if (!scope.corpus || query.empty()) return SearchTool::summary(query, {}, false);
         auto hits = scope.corpus->search(query, SearchTool::passageLimit, scope.upTo);
         return SearchTool::summary(query, hits, scope.corpus->severalBooks());
+    }
+    if (call.name == ContextTool::toolName) {
+        auto direction = ContextTool::direction(call.arguments);
+        if (!direction) return ContextTool::unknownDirection;
+        if (!window || !available.scope.corpus) return ContextTool::nothingAround;
+        std::string chapter = available.scope.corpus->chapterText(window->bookId, window->chapter);
+        if (chapter.empty()) return ContextTool::nothingAround;
+        return ContextTool::read(*direction, chapter, *window);
     }
     if (call.name == WebSearchTool::toolName) {
         std::string query = WebSearchTool::query(call.arguments);
@@ -61,12 +73,13 @@ ChatMessage converse(
     const Tools& available)
 {
     Json all = offered(tools, settings, available);
+    std::optional<BookPassage> window = available.scope.passage;
     for (int round = 0; round <= budget; ++round) {
         ChatMessage reply = ChatApi::chat(settings, messages, all, jsonMode);
         if (reply.toolCalls.empty()) return reply;
         messages.push_back(reply);
         for (const auto& call : reply.toolCalls) {
-            messages.push_back(ChatMessage::toolResult(answer(call, settings, available), call.id));
+            messages.push_back(ChatMessage::toolResult(answer(call, settings, available, window), call.id));
         }
     }
     throw ChatApi::Error("The model kept searching without answering.");

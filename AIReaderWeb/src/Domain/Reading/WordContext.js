@@ -11,7 +11,10 @@ function segmenter(language, granularity) {
   }
 }
 
-/** `{ word, sentence, start, end }` for the word at `offset`, or null when the tap was not on one. */
+/**
+ * `{ word, sentence, start, end, sentenceStart, sentenceEnd }` for the word
+ * at `offset`, or null when the tap was not on one.
+ */
 export function selectionAt(text, offset, language) {
   if (offset < 0 || offset >= text.length || text[offset] === "\n") return null;
   const paragraphStart = text.lastIndexOf("\n", offset - 1) + 1;
@@ -21,11 +24,13 @@ export function selectionAt(text, offset, language) {
 
   const word = segmenter(language, "word").segment(paragraph).containing(offset - paragraphStart);
   if (!word || !word.isWordLike) return null;
-  const sentence = segmenter(language, "sentence").segment(paragraph).containing(word.index);
+  const sentence = segmenter(language, "sentence").segment(paragraph).containing(word.index) ?? word;
   return {
     word: word.segment,
-    sentence: (sentence?.segment ?? word.segment).trim(),
+    sentence: sentence.segment.trim(),
     start: paragraphStart + word.index,
     end: paragraphStart + word.index + word.segment.length,
+    sentenceStart: paragraphStart + sentence.index,
+    sentenceEnd: paragraphStart + sentence.index + sentence.segment.length,
   };
 }

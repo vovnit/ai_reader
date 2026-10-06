@@ -1,6 +1,6 @@
 // The instructions and tools that drive a word explanation. The wording is
 // the other apps', word for word, so a model answers the same everywhere.
-import { dictionaryTool, searchTool } from "./Tools.js";
+import { contextTool, dictionaryTool, searchTool } from "./Tools.js";
 
 /** `language` is the one the explanation is written in. */
 export function explanationSystem(language) {
@@ -19,6 +19,10 @@ export function explanationSystem(language) {
     + "инструмент search_book: он находит отрывки книги, где слово уже встречалось, и по ним "
     + "видно, кто или что это в этой книге.\n"
     + "\n"
+    + "Если по одному предложению не понять, в каком значении стоит слово, — к кому относится "
+    + "местоимение, кто говорит, о чём речь, — вызови инструмент expand_context: он возвращает "
+    + "текст книги перед предложением или после него.\n"
+    + "\n"
     + "Если значение так и не нашлось, догадайся сам по контексту и честно отметь это.\n"
     + "\n"
     + `Ответ — только JSON-объект, без пояснений вокруг; form_note и meaning — на языке «${language}»:\n`
@@ -36,4 +40,4 @@ export function explanationQuestion(word, sentence, summary) {
   return `Слово: ${word}\nПредложение: ${sentence}\n\n${summary}`;
 }
 
-export const explanationTools = [dictionaryTool, searchTool];
+export const explanationTools = [dictionaryTool, searchTool, contextTool];

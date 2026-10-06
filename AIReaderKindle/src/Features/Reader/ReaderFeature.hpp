@@ -64,8 +64,11 @@ public:
     BookPosition position() const;
     /// This book and the others in its group, searchable from any thread.
     const std::shared_ptr<BookCorpus>& corpus() const { return corpus_; }
-    /// The corpus with the position: what lookups and conversations search.
-    ReadingScope scope() const { return {corpus_, position()}; }
+    /// The corpus with the position: what lookups and conversations search,
+    /// around the page on screen.
+    ReadingScope scope() const;
+    /// The same, around the sentence of a word looked up.
+    ReadingScope scope(const WordContext::Selection& word) const;
     /// The group the book is in, if any.
     std::optional<BookGroup> group() const;
 

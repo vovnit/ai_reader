@@ -26,7 +26,8 @@ std::string wordContext(const std::string& word, const std::string& sentence, co
 std::string xrayContext(const std::string& term, const std::string& answer);
 
 std::vector<ChatMessage> messages(const std::string& context, const std::vector<ChatTurn>& turns, const std::string& language);
-/// The dictionary and the book search, both open to the model in a conversation.
+/// The dictionary, the book search and the text around the passage, all
+/// open to the model in a conversation.
 Json tools();
 
 }  // namespace ChatPrompt

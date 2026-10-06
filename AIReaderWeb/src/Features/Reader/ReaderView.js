@@ -142,7 +142,9 @@ export class ReaderView extends Screen {
 
   #lookUp(word) {
     this.navigator.popTo(this);
-    this.navigator.push(new LookupView(this.env, this.navigator, word, this.link));
+    // The model may read around the word's sentence rather than the page.
+    const link = { ...this.link, scope: this.feature.scopeAround(word) };
+    this.navigator.push(new LookupView(this.env, this.navigator, word, link));
     this.#marked = { start: word.start, end: word.end };
     this.#mark();
   }

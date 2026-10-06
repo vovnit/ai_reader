@@ -51,21 +51,31 @@ actor BookCorpus {
         return hits
     }
 
+    /// One book of the corpus, read if it has not been yet; nil when it
+    /// cannot be.
+    func document(for bookID: Book.ID) async -> BookDocument? {
+        if let book = books.first(where: { $0.id == bookID }) { await load(book) }
+        return documents[bookID]
+    }
+
     /// Why a book could not be read, if one could not; checked after a search.
     var errors: [String] {
         books.compactMap { failures[$0.id] }
     }
 
     private func loadMissing() async {
-        for book in books where documents[book.id] == nil && failures[book.id] == nil {
-            do {
-                documents[book.id] = try await BookDocumentLoader.load(
-                    folder: book.folder,
-                    packagePath: book.packagePath
-                )
-            } catch {
-                failures[book.id] = "\(book.title): \(error.localizedDescription)"
-            }
+        for book in books { await load(book) }
+    }
+
+    private func load(_ book: Book) async {
+        guard documents[book.id] == nil, failures[book.id] == nil else { return }
+        do {
+            documents[book.id] = try await BookDocumentLoader.load(
+                folder: book.folder,
+                packagePath: book.packagePath
+            )
+        } catch {
+            failures[book.id] = "\(book.title): \(error.localizedDescription)"
         }
     }
 }
@@ -77,10 +87,13 @@ extension BookCorpus: Equatable {
 }
 
 /// What is open in front of the reader, as a lookup, an X-ray or a
-/// conversation sees it: the books to search, and how far they have read.
+/// conversation sees it: the books to search, how far they have been read,
+/// and the passage in front of the reader — the sentence of a lookup, the
+/// page of a chat — which the model may read around.
 struct ReadingScope: Equatable, Sendable {
     var corpus: BookCorpus?
     var upTo: BookPosition?
+    var passage: BookPassage?
 
     static let none = ReadingScope()
 }

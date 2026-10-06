@@ -122,6 +122,19 @@ BookPosition ReaderFeature::position() const {
     return {book_.id, chapter_, current ? current->end : book_.readingOffset};
 }
 
+ReadingScope ReaderFeature::scope() const {
+    const Page* current = page();
+    ReadingScope scope{corpus_, position(), std::nullopt};
+    if (current) scope.passage = BookPassage{book_.id, chapter_, current->start, current->end};
+    return scope;
+}
+
+ReadingScope ReaderFeature::scope(const WordContext::Selection& word) const {
+    ReadingScope scope{corpus_, position(), std::nullopt};
+    scope.passage = BookPassage{book_.id, chapter_, word.sentenceStart, word.sentenceEnd};
+    return scope;
+}
+
 std::optional<BookGroup> ReaderFeature::group() const {
     return book_.groupId ? env_.groups.find(book_.groupId) : std::nullopt;
 }

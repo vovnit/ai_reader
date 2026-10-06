@@ -7,6 +7,9 @@ struct WordContext: @unchecked Sendable {
     struct Selection: Equatable, Sendable {
         let word: String
         let sentence: String
+        /// Where the sentence sits in the text, in UTF-16 units, when it
+        /// came from there.
+        var sentenceRange: NSRange?
     }
 
     let text: String
@@ -24,7 +27,14 @@ struct WordContext: @unchecked Sendable {
         guard offset >= 0, offset <= text.utf16.count else { return nil }
         let position = String.Index(utf16Offset: offset, in: text)
         guard let word = words.first(where: { $0.contains(position) }) else { return nil }
-        return Selection(word: String(text[word]), sentence: sentence(containing: word))
+        guard let range = sentences.first(where: { $0.contains(word.lowerBound) }) else {
+            return Selection(word: String(text[word]), sentence: String(text[word]))
+        }
+        return Selection(
+            word: String(text[word]),
+            sentence: String(text[range]).trimmingCharacters(in: .whitespacesAndNewlines),
+            sentenceRange: NSRange(range, in: text)
+        )
     }
 
     /// A whitespace-separated piece of the text and the position of its first
@@ -70,13 +80,6 @@ struct WordContext: @unchecked Sendable {
         else { return nil }
         return String(text[sentences[first].lowerBound..<sentences[end].upperBound])
             .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private func sentence(containing word: Range<String.Index>) -> String {
-        guard let range = sentences.first(where: { $0.contains(word.lowerBound) }) else {
-            return String(text[word])
-        }
-        return String(text[range]).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func tokens(in text: String, unit: NLTokenUnit) -> [Range<String.Index>] {

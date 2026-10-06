@@ -88,9 +88,19 @@ export class ReaderFeature extends Feature {
     return { bookId: this.book.id, chapter: this.chapter, offset: this.pageEnd };
   }
 
-  /** The corpus with the position: what lookups and conversations search. */
+  /** The corpus with the position: what lookups and conversations search, around the page on screen. */
   get scope() {
-    return { corpus: this.corpus, upTo: this.position };
+    return this.#scopeAround(this.pageStart, this.pageEnd);
+  }
+
+  /** The same, around the sentence of a word looked up. */
+  scopeAround(word) {
+    return this.#scopeAround(word.sentenceStart, word.sentenceEnd);
+  }
+
+  #scopeAround(start, end) {
+    const passage = { bookId: this.book.id, chapter: this.chapter, start, end };
+    return { corpus: this.corpus, upTo: this.position, passage };
   }
 
   /** The entry of the table of contents the page falls under, or -1. */

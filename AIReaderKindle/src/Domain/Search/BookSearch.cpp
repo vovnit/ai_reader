@@ -2,6 +2,8 @@
 
 #include <glib.h>
 
+#include <algorithm>
+
 namespace BookSearch {
 
 namespace {
@@ -150,6 +152,34 @@ SearchHit excerpt(const std::string& text, int start, int end, int reach) {
     }
     while (!hit.excerpt.empty() && hit.excerpt.back() == ' ') hit.excerpt.pop_back();
     return hit;
+}
+
+int stepBack(const std::string& text, int start) {
+    int target = std::max(0, start - step);
+    if (target == 0) return 0;
+    int floor = std::max(0, target - reach);
+    int from = sentenceStart(text, target, floor);
+    // The chapter starting within reach is a boundary of its own.
+    if (from > floor || floor == 0) return from;
+    // A sentence longer than `reach` is entered at a word; a text without
+    // spaces, at a character.
+    from = cutForward(text, floor, start);
+    if (from < start) return from;
+    while (target < start && (static_cast<unsigned char>(text[target]) & 0xC0) == 0x80) ++target;
+    return target;
+}
+
+int stepForward(const std::string& text, int end) {
+    int size = static_cast<int>(text.size());
+    int target = std::min(size, end + step);
+    if (target == size) return size;
+    int ceiling = std::min(size, target + reach);
+    int to = sentenceEnd(text, target, ceiling);
+    if (to < ceiling || ceiling == size) return to;
+    to = cutBackward(text, ceiling, end);
+    if (to > end) return to;
+    while (target > end && (static_cast<unsigned char>(text[target]) & 0xC0) == 0x80) --target;
+    return target;
 }
 
 }  // namespace BookSearch

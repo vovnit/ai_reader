@@ -5,7 +5,8 @@ import SQLiteData
 /// Adding, removing and updating books in the library.
 @DependencyClient
 struct LibraryClient: Sendable {
-    var add: @Sendable (_ epub: URL) async throws -> Void
+    /// Shelves an `.epub`, or a `.pdf` made into one.
+    var add: @Sendable (_ file: URL) async throws -> Void
     var delete: @Sendable (_ book: Book) async throws -> Void
     /// Where the reader is, as an offset for this device and as a place any
     /// device can find again.
@@ -25,7 +26,9 @@ extension LibraryClient: DependencyKey {
                 let scoped = url.startAccessingSecurityScopedResource()
                 defer { if scoped { url.stopAccessingSecurityScopedResource() } }
 
-                let unpacked = try EPUBImporter.unpack(epubAt: url)
+                let unpacked = url.pathExtension.lowercased() == "pdf"
+                    ? try PDFImporter.importPDF(at: url)
+                    : try EPUBImporter.unpack(epubAt: url)
                 try await database.write { db in
                     try Book.insert {
                         Book.Draft(

@@ -27,7 +27,7 @@ struct ReaderView: View {
                     startingOffset: store.book.readingOffset,
                     jump: store.jump,
                     onPageChanged: { store.send(.pageChanged(offset: $0, text: $1)) },
-                    onWordTapped: { store.send(.wordTapped(word: $0.word, sentence: $0.sentence)) }
+                    onWordTapped: { store.send(.wordTapped($0)) }
                 )
             }
         }

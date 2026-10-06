@@ -24,7 +24,8 @@ public:
     /// Takes the book off the shelf and deletes its file.
     void remove(const Book& book);
     /// Copies an `.epub` from anywhere on disk into the books folder and puts
-    /// it on the shelf. Returns what went wrong, or nothing.
+    /// it on the shelf; a `.pdf` is made into an EPUB there first. Returns
+    /// what went wrong, or nothing.
     std::string add(const std::string& path);
 
     /// Puts the book in a group; 0 takes it out.

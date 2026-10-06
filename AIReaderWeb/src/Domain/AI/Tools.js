@@ -3,9 +3,13 @@
 
 export const dictionaryToolName = "lookup_dictionary";
 export const searchToolName = "search_book";
+export const contextToolName = "expand_context";
 export const webSearchToolName = "search_web";
 
-function tool(name, description, argument, argumentDescription) {
+/** `choices`, when given, are the only values the argument may take. */
+function tool(name, description, argument, argumentDescription, choices = []) {
+  const property = { type: "string", description: argumentDescription };
+  if (choices.length) property.enum = choices;
   return {
     type: "function",
     function: {
@@ -13,7 +17,7 @@ function tool(name, description, argument, argumentDescription) {
       description,
       parameters: {
         type: "object",
-        properties: { [argument]: { type: "string", description: argumentDescription } },
+        properties: { [argument]: property },
         required: [argument],
       },
     },
@@ -45,6 +49,18 @@ export const searchTool = tool(
     + "и возвращает отрывки, где она встречается, — только до места, до которого читатель дочитал.",
   "query",
   "Слово или короткая фраза, которую нужно найти в книге.",
+);
+
+/** Reads the book just before the passage a conversation is about, or just after it. */
+export const contextTool = tool(
+  contextToolName,
+  "Возвращает текст книги, который идёт прямо перед тем местом, о котором речь (предложением "
+    + "или страницей), или сразу после него. Каждый следующий вызов в ту же сторону читает дальше. "
+    + "Используй, когда для понимания не хватает соседнего текста: к кому относится местоимение, "
+    + "кто говорит, о чём шла речь абзацем выше.",
+  "direction",
+  "\"before\" — текст перед этим местом, \"after\" — текст после него.",
+  ["before", "after"],
 );
 
 /** Finds pages about a name, a place, an event or an expression. */

@@ -16,6 +16,9 @@ public:
         /// Byte range of the word in the chapter text.
         int start = 0;
         int end = 0;
+        /// Byte range of the sentence in the chapter text.
+        int sentenceStart = 0;
+        int sentenceEnd = 0;
     };
 
     WordContext() = default;

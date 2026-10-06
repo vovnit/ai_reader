@@ -46,13 +46,23 @@ struct ReaderFeature {
 
         var id: Int { book.id }
 
-        /// The corpus with the position: what lookups and conversations search.
+        /// The corpus with the position: what lookups and conversations search,
+        /// around the page on screen.
         var scope: ReadingScope {
-            var chapter = 0
-            if case let .loaded(document) = document { chapter = document.chapter(containing: pageEnd) }
+            scope(around: NSRange(location: pageEnd - (pageText as NSString).length, length: (pageText as NSString).length))
+        }
+
+        /// The same, around a stretch of the book: the sentence of a word
+        /// looked up.
+        func scope(around passage: NSRange) -> ReadingScope {
+            guard case let .loaded(document) = document else {
+                return ReadingScope(corpus: corpus, upTo: BookPosition(bookID: book.id, chapter: 0, offset: pageEnd))
+            }
+            let chapter = document.chapter(containing: passage.location)
             return ReadingScope(
                 corpus: corpus,
-                upTo: BookPosition(bookID: book.id, chapter: chapter, offset: pageEnd)
+                upTo: BookPosition(bookID: book.id, chapter: document.chapter(containing: pageEnd), offset: pageEnd),
+                passage: BookPassage(bookID: book.id, chapter: chapter, start: passage.location, end: NSMaxRange(passage))
             )
         }
 
@@ -70,7 +80,7 @@ struct ReaderFeature {
         case menuTapped
         case menu(PresentationAction<ReaderMenuFeature.Action>)
         case pageChanged(offset: Int, text: String)
-        case wordTapped(word: String, sentence: String)
+        case wordTapped(WordContext.Selection)
         case lookupDismissed
         case lookup(PresentationAction<LookupFeature.Action>)
         case delegate(Delegate)
@@ -191,16 +201,17 @@ struct ReaderFeature {
                 state.lookup = nil
                 return jump(to: position, &state)
 
-            case let .wordTapped(word, sentence):
+            case let .wordTapped(selection):
                 state.lookup = LookupFeature.State(
                     id: uuid(),
                     context: LookupContext(
-                        word: word,
-                        sentence: sentence,
+                        word: selection.word,
+                        sentence: selection.sentence,
                         language: state.language,
                         bookID: state.book.id
                     ),
-                    scope: state.scope
+                    // The model may read around the word's sentence rather than the page.
+                    scope: selection.sentenceRange.map(state.scope(around:)) ?? state.scope
                 )
                 return .none
 

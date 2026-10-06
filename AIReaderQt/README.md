@@ -15,7 +15,8 @@ density, so a page breaks the same way on both.
 ## Screens
 
 - **Library** — the shelf, each group under its name. *Add…* copies an
-  `.epub` into `~/.aireader/books`; files copied there appear on *Refresh*.
+  `.epub` into `~/.aireader/books`, or makes an EPUB there of a `.pdf`;
+  files copied there appear on *Refresh*.
   *Group* puts a book in a group (books in one are searched together); `✕`
   removes a book or dissolves a group.
 - **Reader** — click a word to look it up, blank space to turn the page; the

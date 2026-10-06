@@ -8,7 +8,7 @@ import { markdownLines } from "../../src/Domain/AI/ChatMarkdown.js";
 import { mockReply } from "../../src/Domain/AI/MockAI.js";
 import { completionTokens, defaultTemperature, learnQuirk, noReasoning, quirkNamed, quirksFor } from "../../src/Domain/AI/RequestQuirks.js";
 import { passagesSummary, webHits, webSummary } from "../../src/Domain/AI/SearchSummary.js";
-import { argument, dictionaryToolName, searchToolName, webSearchToolName } from "../../src/Domain/AI/Tools.js";
+import { argument, contextToolName, dictionaryToolName, searchToolName, webSearchToolName } from "../../src/Domain/AI/Tools.js";
 import { decodeExplanation } from "../../src/Domain/AI/WordExplanation.js";
 import { xrayMessages } from "../../src/Domain/AI/XRayPrompt.js";
 import { lookupSummary } from "../../src/Domain/Dictionary/DictionaryLookup.js";
@@ -97,7 +97,8 @@ export async function checkAi() {
   check("mock chat calls lookup_dictionary", lookupCall.toolCalls[0]?.name === dictionaryToolName && argument(lookupCall.toolCalls[0].arguments, "word") === "maison");
   meaning.push(lookupCall, toolResult("Dictionary results for “maison”:\n- maison [noun]: дом, здание; семья", lookupCall.toolCalls[0].id));
   check("mock chat answers from the article", mockReply(meaning).content.includes("«maison» — дом, здание"));
-  check("chat offers the dictionary and the search", chatTools.length === 2 && explanationTools[1].function.name === searchToolName);
+  check("chat offers the dictionary, the search and the text around", chatTools.length === 3 && explanationTools[1].function.name === searchToolName
+    && explanationTools[2].function.name === contextToolName);
 
   const text = "Le grand Meaulnes arriva un dimanche. Il pleuvait.\nMeaulnes, lui, ne dit rien! Puis il partit.";
   const found = findInText(text, "meaulnes", 3, 10);
@@ -124,6 +125,8 @@ export async function checkAi() {
   const selection = selectionAt(sentenceText, sentenceText.indexOf("aisons"), "fr");
   check("tap resolves the word", selection?.word === "maisons", selection?.word);
   check("tap resolves the sentence", selection?.sentence === "Les maisons étaient vieilles.", selection?.sentence);
+  check("the sentence's place is known", selection?.sentenceStart === 0
+    && sentenceText.slice(selection.sentenceStart, selection.sentenceEnd).trim() === selection.sentence);
   check("second sentence", selectionAt(sentenceText, sentenceText.indexOf("pleuvait"), "fr")?.sentence === "Il pleuvait fort.");
   check("a tap on a space is not a word", !selectionAt(sentenceText, sentenceText.indexOf(" étaient"), "fr"));
   check("paragraph break ends the sentence", selectionAt(sentenceText, sentenceText.indexOf("paragraphe"), "fr")?.sentence === "Nouveau paragraphe ici.");

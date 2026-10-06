@@ -26,17 +26,26 @@ export class BookCorpus {
   }
 
   async #loadMissing() {
-    for (const book of this.books) {
-      if (this.#chapters.has(book.id) || this.#errors.has(book.id)) continue;
-      try {
-        const file = await this.#library.file(book.id);
-        if (!file) throw new Error("its file is missing.");
-        const document = await loadDocument(file, { withImages: false });
-        this.#chapters.set(book.id, document.chapters.map((chapter) => chapter.text));
-      } catch (error) {
-        this.#errors.set(book.id, `${book.title}: ${error.message}`);
-      }
+    for (const book of this.books) await this.#load(book);
+  }
+
+  async #load(book) {
+    if (this.#chapters.has(book.id) || this.#errors.has(book.id)) return;
+    try {
+      const file = await this.#library.file(book.id);
+      if (!file) throw new Error("its file is missing.");
+      const document = await loadDocument(file, { withImages: false });
+      this.#chapters.set(book.id, document.chapters.map((chapter) => chapter.text));
+    } catch (error) {
+      this.#errors.set(book.id, `${book.title}: ${error.message}`);
     }
+  }
+
+  /** One chapter's text, or "" when the book cannot be read. */
+  async chapterText(bookId, chapter) {
+    const book = this.books.find((candidate) => candidate.id === bookId);
+    if (book) await this.#load(book);
+    return this.#chapters.get(bookId)?.[chapter] ?? "";
   }
 
   /**

@@ -159,7 +159,7 @@ void LibraryView::pickGroup(const Book& book, QWidget* anchor) {
 }
 
 void LibraryView::addBook() {
-    QString path = QFileDialog::getOpenFileName(this, "Add a book", Ui::q(Paths::browseRoot()), "EPUB books (*.epub)");
+    QString path = QFileDialog::getOpenFileName(this, "Add a book", Ui::q(Paths::browseRoot()), "Books (*.epub *.pdf)");
     if (path.isEmpty()) return;
     std::string error = feature_.add(Ui::s(path));
     if (!error.empty()) Ui::alert(this, "Couldn’t add the book", error);

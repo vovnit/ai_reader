@@ -41,7 +41,7 @@ export class LibraryView extends Screen {
   }
 
   async #pick() {
-    const files = await pickFiles({ accept: ".epub,application/epub+zip" });
+    const files = await pickFiles({ accept: ".epub,application/epub+zip,.pdf,application/pdf" });
     if (files.length) await this.feature.add(files);
   }
 
@@ -49,7 +49,7 @@ export class LibraryView extends Screen {
     this.element.addEventListener("dragover", (event) => event.preventDefault());
     this.element.addEventListener("drop", (event) => {
       event.preventDefault();
-      const files = [...event.dataTransfer.files].filter((file) => file.name.toLowerCase().endsWith(".epub"));
+      const files = [...event.dataTransfer.files].filter((file) => /\.(epub|pdf)$/i.test(file.name));
       if (files.length) this.feature.add(files);
     });
   }
@@ -103,7 +103,7 @@ export class LibraryView extends Screen {
     this.setBody(
       isAdding ? note("Adding…") : null,
       message ? h("p", { class: "error message" }, message) : null,
-      books.length ? sections : note("No books yet. Choose Add… to pick an .epub, or drop one here. Books in your sync folder arrive on their own."),
+      books.length ? sections : note("No books yet. Choose Add… to pick an .epub or a .pdf, or drop one here. Books in your sync folder arrive on their own."),
     );
   }
 }

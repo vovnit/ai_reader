@@ -2,6 +2,7 @@
 
 #include "../../Services/EpubLoader.hpp"
 #include "../../Services/Paths.hpp"
+#include "../../Services/PdfImporter.hpp"
 #include "../../Support/Files.hpp"
 #include "../../Support/Text.hpp"
 #include "../Common/SyncRunner.hpp"
@@ -37,6 +38,12 @@ void LibraryFeature::remove(const Book& book) {
 
 std::string LibraryFeature::add(const std::string& path) {
     std::string error;
+    // A PDF becomes an EPUB in the books folder, and is shelved as one.
+    if (Files::extension(path) == "pdf") {
+        if (PdfImporter::convert(path, Paths::books(), &error).empty()) return error;
+        refresh();
+        return "";
+    }
     if (!EpubLoader::metadata(path, &error)) return error.empty() ? "Not an EPUB this app can read." : error;
     // A file already in a scanned folder is picked up where it is.
     std::string folder = Files::directoryName(path);

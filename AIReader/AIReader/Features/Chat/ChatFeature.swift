@@ -4,7 +4,8 @@ import Foundation
 /// A conversation about something in front of the reader: the page, a word
 /// just explained, what the book says about a name. The context is sent
 /// once, with the first question, so that follow-ups cost only the thread so
-/// far. The model may search the book while answering.
+/// far. The model may open the dictionary, search the book, and read around
+/// the passage while answering.
 @Reducer
 struct ChatFeature {
     @ObservableState
@@ -61,6 +62,7 @@ struct ChatFeature {
     }
 
     @Dependency(\.aiSettingsClient) var aiSettings
+    @Dependency(\.dictionaryClient) var dictionary
     @Dependency(\.uuid) var uuid
     @Dependency(\.webSearchSettingsClient) var webSearchSettings
 
@@ -78,13 +80,13 @@ struct ChatFeature {
 
                 let settings = aiSettings.load()
                 var messages = ChatPrompt.messages(context: state.context, turns: state.turns, language: settings.language)
-                let tools = ToolRunner.Tools(scope: state.scope, web: webSearchSettings.load())
+                let tools = ToolRunner.Tools(scope: state.scope, dictionary: dictionary, web: webSearchSettings.load())
                 return .run { send in
                     do {
                         let reply = try await ToolRunner.converse(
                             settings: settings,
                             messages: &messages,
-                            tools: [SearchTool.tool],
+                            tools: ChatPrompt.tools,
                             jsonMode: false,
                             available: tools
                         )

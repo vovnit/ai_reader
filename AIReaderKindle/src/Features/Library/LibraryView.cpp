@@ -104,7 +104,7 @@ GtkWidget* heading(Navigator& navigator, LibraryFeature& feature, const BookGrou
 
 void addBook(Navigator& navigator, LibraryFeature& feature) {
     FilePickerView::open(navigator, "Add a book",
-        [](const std::string& path) { return Files::extension(path) == "epub"; },
+        [](const std::string& path) { return Files::extension(path) == "epub" || Files::extension(path) == "pdf"; },
         [&navigator, &feature](const std::string& path) {
             std::string error = feature.add(path);
             if (!error.empty()) Widgets::alert(navigator.window(), "Couldn’t add the book", error);

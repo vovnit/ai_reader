@@ -11,18 +11,20 @@ void BookCorpus::provide(long long bookId, std::vector<std::string> chapters) {
 }
 
 void BookCorpus::loadMissing() {
-    for (const auto& book : books_) {
-        if (chapters_.count(book.id) || errors_.count(book.id)) continue;
-        std::string error;
-        auto document = EpubLoader::load(book.path, &error, false);
-        if (!document) {
-            errors_[book.id] = book.title + ": " + error;
-            continue;
-        }
-        std::vector<std::string> chapters;
-        for (auto& chapter : document->chapters) chapters.push_back(std::move(chapter.text));
-        chapters_[book.id] = std::move(chapters);
+    for (const auto& book : books_) load(book);
+}
+
+void BookCorpus::load(const Book& book) {
+    if (chapters_.count(book.id) || errors_.count(book.id)) return;
+    std::string error;
+    auto document = EpubLoader::load(book.path, &error, false);
+    if (!document) {
+        errors_[book.id] = book.title + ": " + error;
+        return;
     }
+    std::vector<std::string> chapters;
+    for (auto& chapter : document->chapters) chapters.push_back(std::move(chapter.text));
+    chapters_[book.id] = std::move(chapters);
 }
 
 std::vector<SearchHit> BookCorpus::search(const std::string& query, int limit, const std::optional<BookPosition>& upTo) {
@@ -45,6 +47,16 @@ std::vector<SearchHit> BookCorpus::search(const std::string& query, int limit, c
         }
     }
     return hits;
+}
+
+std::string BookCorpus::chapterText(long long bookId, int chapter) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (const auto& book : books_) {
+        if (book.id == bookId) load(book);
+    }
+    auto loaded = chapters_.find(bookId);
+    if (loaded == chapters_.end() || chapter < 0 || chapter >= static_cast<int>(loaded->second.size())) return "";
+    return loaded->second[chapter];
 }
 
 std::vector<std::string> BookCorpus::errors() {

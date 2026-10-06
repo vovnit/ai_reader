@@ -2,7 +2,7 @@
 // screen, a word just explained, what the book says about a name — goes in
 // once, with the first question. Turns are `{ isReader, text }`.
 import { assistant, system, user } from "./ChatMessage.js";
-import { dictionaryTool, searchTool } from "./Tools.js";
+import { contextTool, dictionaryTool, searchTool } from "./Tools.js";
 
 /** `language` is the one every answer is written in. */
 export function chatSystem(language) {
@@ -18,7 +18,11 @@ export function chatSystem(language) {
     + "Инструмент search_book ищет слово или фразу в тексте книги — до места, до которого "
     + "читатель дочитал, — и в других книгах той же серии. Пользуйся им, когда вопрос о том, "
     + "что было раньше: о персонаже, месте, событии, о том, где слово уже встречалось. "
-    + "Не пересказывай того, чего читатель ещё не читал.";
+    + "Не пересказывай того, чего читатель ещё не читал.\n"
+    + "\n"
+    + "Инструмент expand_context возвращает текст книги прямо перед тем, о чём разговор, или сразу "
+    + "после него. Пользуйся им, когда для ответа не хватает соседнего текста: начала сцены, "
+    + "предыдущей реплики, конца фразы на следующей странице.";
 }
 
 export function pageContext(page) {
@@ -47,5 +51,5 @@ export function chatMessages(context, turns, language) {
   ];
 }
 
-/** The dictionary and the book search, both open to the model in a conversation. */
-export const chatTools = [dictionaryTool, searchTool];
+/** The dictionary, the book search and the text around the passage, all open to the model in a conversation. */
+export const chatTools = [dictionaryTool, searchTool, contextTool];

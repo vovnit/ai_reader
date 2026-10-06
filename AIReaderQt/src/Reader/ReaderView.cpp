@@ -88,7 +88,10 @@ void ReaderView::render() {
 void ReaderView::tapped(const ReaderFeature::Tap& tap) {
     if (tap.kind != ReaderFeature::Tap::Kind::Word) return;
     LookupContext context{tap.selection.word, tap.selection.sentence, feature_.language(), feature_.book().id};
-    navigator.push(new LookupView(env_, navigator, context, link()));
+    // The model may read around the word's sentence rather than the page.
+    ReaderLink around = link();
+    around.scope = feature_.scope(tap.selection);
+    navigator.push(new LookupView(env_, navigator, context, around));
 }
 
 void ReaderView::showMenu() {

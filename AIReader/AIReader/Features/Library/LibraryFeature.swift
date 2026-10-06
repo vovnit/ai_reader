@@ -92,7 +92,7 @@ struct LibraryFeature {
             case let .filesPicked(.success(urls)):
                 return .run { send in
                     do {
-                        for url in urls { try await library.add(epub: url) }
+                        for url in urls { try await library.add(file: url) }
                     } catch {
                         await send(.failed(title: "Couldn’t add the book", message: error.localizedDescription))
                     }

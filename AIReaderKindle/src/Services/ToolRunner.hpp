@@ -11,8 +11,8 @@
 #include <vector>
 
 /// Carries a conversation with the model, answering the tools it calls —
-/// the dictionary, the book search and the web — until it answers in
-/// words. Runs on a worker thread; throws `ChatApi::Error` with a message
+/// the dictionary, the book search, the text around the passage and the
+/// web — until it answers in words. Runs on a worker thread; throws `ChatApi::Error` with a message
 /// fit to show.
 namespace ToolRunner {
 

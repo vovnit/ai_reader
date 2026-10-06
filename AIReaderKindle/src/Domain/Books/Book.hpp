@@ -45,3 +45,11 @@ struct BookPosition {
     int chapter = 0;
     int offset = 0;
 };
+
+/// A stretch of one chapter: byte offsets `[start, end)` into its text.
+struct BookPassage {
+    long long bookId = 0;
+    int chapter = 0;
+    int start = 0;
+    int end = 0;
+};

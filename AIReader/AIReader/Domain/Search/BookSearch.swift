@@ -26,6 +26,15 @@ struct BookPosition: Equatable, Sendable {
     var offset: Int
 }
 
+/// A stretch of one chapter: UTF-16 offsets `start..<end` into the book's
+/// text.
+struct BookPassage: Equatable, Sendable {
+    var bookID: Book.ID
+    var chapter: Int
+    var start: Int
+    var end: Int
+}
+
 /// Finds a query in a book's text, case-insensitively, and cuts a readable
 /// excerpt around every hit. Pure: no display, no disk.
 enum BookSearch {
@@ -81,6 +90,44 @@ enum BookSearch {
         }
         if cut.back { excerpt += "…" }
         return SearchHit(offset: match.location, excerpt: excerpt, matchRange: start..<end)
+    }
+
+    // MARK: - Reading on from a passage
+
+    /// How far one step past a passage reaches, in UTF-16 units, before it
+    /// is evened out to a sentence.
+    static let step = 1200
+
+    /// Where a step back from `start` begins: about `step` earlier, at the
+    /// start of a sentence — or of a word, when the sentence runs long. Never
+    /// before `floor`.
+    static func stepBack(in text: NSString, from start: Int, floor: Int) -> Int {
+        var target = max(floor, start - step)
+        if target == floor { return floor }
+        let lowest = max(floor, target - reach)
+        let from = sentenceStart(text, at: target, floor: lowest)
+        // The chapter starting within reach is a boundary of its own.
+        if from > lowest || lowest == floor { return from }
+        // A sentence longer than `reach` is entered at a word; a text without
+        // spaces, at a character.
+        let word = cutForward(text, at: lowest, ceiling: start)
+        if word < start { return word }
+        if UTF16.isTrailSurrogate(text.character(at: target)) { target += 1 }
+        return target
+    }
+
+    /// Where a step forward from `end` stops: about `step` later, at the end
+    /// of a sentence or a word. Never past `ceiling`.
+    static func stepForward(in text: NSString, from end: Int, ceiling: Int) -> Int {
+        var target = min(ceiling, end + step)
+        if target == ceiling { return ceiling }
+        let highest = min(ceiling, target + reach)
+        let to = sentenceEnd(text, at: target, ceiling: highest)
+        if to < highest || highest == ceiling { return to }
+        let word = cutBackward(text, at: highest, floor: end)
+        if word > end { return word }
+        if UTF16.isTrailSurrogate(text.character(at: target)) { target -= 1 }
+        return target
     }
 
     // MARK: - Sentence boundaries

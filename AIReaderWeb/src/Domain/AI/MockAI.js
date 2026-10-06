@@ -4,7 +4,7 @@
 // tool-calling loop and the JSON parsing. The same as the other apps'
 // `MockAI`, reply for reply.
 import { assistant, toolCall } from "./ChatMessage.js";
-import { dictionaryToolName, searchToolName, webSearchToolName } from "./Tools.js";
+import { contextToolName, dictionaryToolName, searchToolName, webSearchToolName } from "./Tools.js";
 import { explanationJson } from "./WordExplanation.js";
 
 export const mockModels = ["mock-medium", "mock-small"];
@@ -60,10 +60,18 @@ function everything(messages) {
   };
 }
 
+/** The first words `expand_context` read, from the last tool answer: its first line names the direction, the text follows. */
+function firstWordsRead(messages) {
+  const answer = messages.filter((message) => message.role === "tool" && message.content != null).at(-1)?.content ?? "";
+  const lines = answer.split("\n");
+  return lines.length < 2 ? "" : lines[1].split(" ").slice(0, 6).join(" ");
+}
+
 /**
  * A conversation: echo the question; asked to find something, search the
  * book; asked to look something up online, search the web; asked what a
- * word means, open the dictionary — the way a real model would.
+ * word means, open the dictionary; asked what came before or comes after,
+ * read around the passage — the way a real model would.
  */
 function chat(messages) {
   let question = messages.filter((message) => message.role === "user" && message.content != null).at(-1)?.content ?? "";
@@ -91,6 +99,14 @@ function chat(messages) {
     return assistant(found
       ? `Макет: по словарю «${found.lemma}» — ${found.firstSense}.`
       : `Макет: слова «${word}» в словаре нет.`);
+  }
+  for (const verb of ["раньше", "before", "дальше", "after"]) {
+    if (!lowered.startsWith(verb)) continue;
+    const before = verb === "раньше" || verb === "before";
+    if (!sawToolResult) return toolCall("mock-context-1", contextToolName, "direction", before ? "before" : "after");
+    const place = before ? "перед этим местом" : "после этого места";
+    const words = firstWordsRead(messages);
+    return assistant(words ? `Макет: ${place} в книге — «${words}…».` : `Макет: ${place} в главе ничего нет.`);
   }
   return assistant(`Макет: на вопрос «${question}» настоящая модель ответила бы по тексту книги.`);
 }

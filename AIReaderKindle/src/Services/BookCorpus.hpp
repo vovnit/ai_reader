@@ -29,6 +29,9 @@ public:
     /// seen — and the others in full.
     std::vector<SearchHit> search(const std::string& query, int limit, const std::optional<BookPosition>& upTo = std::nullopt);
 
+    /// One chapter's text, or nothing when the book cannot be read.
+    std::string chapterText(long long bookId, int chapter);
+
     /// Why a book could not be read, if one could not; checked after a search.
     std::vector<std::string> errors();
 
@@ -39,11 +42,15 @@ private:
     std::map<long long, std::string> errors_;
 
     void loadMissing();
+    void load(const Book& book);
 };
 
 /// What is open in front of the reader, as a lookup, an X-ray or a
-/// conversation sees it: the books to search, and how far they have read.
+/// conversation sees it: the books to search, how far they have been read,
+/// and the passage in front of the reader — the sentence of a lookup, the
+/// page of a chat — which the model may read around.
 struct ReadingScope {
     std::shared_ptr<BookCorpus> corpus;
     std::optional<BookPosition> upTo;
+    std::optional<BookPassage> passage;
 };

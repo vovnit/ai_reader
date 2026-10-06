@@ -20,6 +20,16 @@ browser as an [installable web app](AIReaderWeb/README.md) that works offline.
 shows covers, newest first. Long-press a book to remove it, or to put it in a
 group.
 
+**PDF.** A `.pdf` is added the same way, and made into an EPUB as it is: its
+text laid out again as paragraphs, with running heads and page numbers
+dropped, a word hyphenated at a line's end mended, and a paragraph a page
+break cut joined again. Its bookmarks become chapters; without them, its
+headings do. From then on it is an EPUB like any other — read, searched,
+looked up, and sent to the other devices as one. A scanned PDF has no text
+to take; [`ScanTool/`](ScanTool/README.md) is for those. The text comes from
+PDFKit here, and from the apps' own reader on the Kindle, on Linux and on the
+web, which take PDFs too; the rules that make it a book are the same in all.
+
 **Groups.** A group is for books that belong together, a series or a course:
 the shelf lists each group under its name, and a search from any of its
 books, the reader's or the model's, covers them all. The group's menu
@@ -60,6 +70,15 @@ a term; from a lookup, it takes the tapped word.
 a question in chat — the model has a `search_book` tool: the same search,
 kept to the pages read so far. It uses it when a word looks like a name or an
 invented term, or when a question is about what happened earlier.
+In a conversation it also has the dictionary, `lookup_dictionary`, the same
+tool a lookup gives it: asked what a word means or how two words differ, it
+answers from the article rather than from memory.
+
+**The model can read on.** A lookup gives the model one sentence, a chat one
+page; when that is not enough — a pronoun whose noun came earlier, a reply
+whose question is on the page before — it calls `expand_context` for the text
+just before or just after it, about a thousand characters at a time and
+within the chapter.
 
 **The model can search the web.** With a [Monid](https://monid.ai) token in
 Settings, every prompt also offers `search_web`: for a name, a place, an

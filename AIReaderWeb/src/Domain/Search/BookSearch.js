@@ -120,3 +120,39 @@ export function findInText(text, query, chapter, limit) {
   }
   return hits;
 }
+
+/** How far one step past a passage reaches before it is evened out to a sentence. */
+export const step = 1200;
+
+/**
+ * Where a step back from `start` begins: about `step` earlier, at the start
+ * of a sentence — or of a word, when the sentence runs long. Never before
+ * the start of the text.
+ */
+export function stepBack(text, start) {
+  let target = Math.max(0, start - step);
+  if (target === 0) return 0;
+  const floor = Math.max(0, target - reach);
+  const from = sentenceStart(text, target, floor);
+  // The chapter starting within reach is a boundary of its own.
+  if (from > floor || floor === 0) return from;
+  // A sentence longer than `reach` is entered at a word; a text without
+  // spaces, at a character.
+  const word = cutForward(text, floor, start);
+  if (word < start) return word;
+  if (/[\udc00-\udfff]/.test(text[target])) target++;
+  return target;
+}
+
+/** Where a step forward from `end` stops: about `step` later, at the end of a sentence or a word. Never past the end of the text. */
+export function stepForward(text, end) {
+  let target = Math.min(text.length, end + step);
+  if (target === text.length) return target;
+  const ceiling = Math.min(text.length, target + reach);
+  const to = sentenceEnd(text, target, ceiling);
+  if (to < ceiling || ceiling === text.length) return to;
+  const word = cutBackward(text, ceiling, end);
+  if (word > end) return word;
+  if (/[\udc00-\udfff]/.test(text[target])) target--;
+  return target;
+}

@@ -2,7 +2,8 @@ import ComposableArchitecture
 import Foundation
 
 /// Carries a conversation with the model, answering the tools it calls —
-/// the dictionary, the book search and the web — until it answers in words.
+/// the dictionary, the book search, the text around the passage and the
+/// web — until it answers in words.
 enum ToolRunner {
     enum RunError: LocalizedError {
         case gaveUp
@@ -31,6 +32,7 @@ enum ToolRunner {
         available: Tools
     ) async throws -> ChatMessage {
         let offered = offered(tools, settings: settings, available: available)
+        var window = available.scope.passage
         for _ in 0...budget {
             let reply = try await ChatAPI.chat(
                 settings: settings,
@@ -41,7 +43,8 @@ enum ToolRunner {
             guard let calls = reply.toolCalls, !calls.isEmpty else { return reply }
             messages.append(reply)
             for call in calls {
-                messages.append(.toolResult(await answer(call, settings: settings, available), callID: call.id))
+                let result = await answer(call, settings: settings, available, window: &window)
+                messages.append(.toolResult(result, callID: call.id))
             }
         }
         throw RunError.gaveUp
@@ -53,10 +56,17 @@ enum ToolRunner {
         return tools + [WebSearchTool.tool]
     }
 
-    private static func answer(_ call: ChatMessage.ToolCall, settings: AISettings, _ available: Tools) async -> String {
+    /// `window` is how much of the book around the passage the model has
+    /// read so far, widened by each `expand_context` call.
+    private static func answer(
+        _ call: ChatMessage.ToolCall,
+        settings: AISettings,
+        _ available: Tools,
+        window: inout BookPassage?
+    ) async -> String {
         switch call.function.name {
-        case ExplanationPrompt.toolName:
-            let word = ToolSchema.argument("word", in: call.function.arguments) ?? ""
+        case DictionaryTool.toolName:
+            let word = DictionaryTool.word(in: call.function.arguments)
             guard let dictionary = available.dictionary else {
                 return DictionaryLookup(query: word).summary
             }
@@ -69,6 +79,23 @@ enum ToolRunner {
             }
             let hits = await corpus.search(query, limit: SearchTool.passageLimit, upTo: available.scope.upTo)
             return SearchTool.summary(query: query, hits: hits, severalBooks: corpus.severalBooks)
+
+        case ContextTool.toolName:
+            guard let direction = ContextTool.direction(in: call.function.arguments) else {
+                return ContextTool.unknownDirection
+            }
+            guard var passage = window,
+                  let document = await available.scope.corpus?.document(for: passage.bookID),
+                  document.chapters.indices.contains(passage.chapter)
+            else { return ContextTool.nothingAround }
+            let read = ContextTool.read(
+                direction,
+                in: document.text.string as NSString,
+                chapter: document.chapters[passage.chapter],
+                window: &passage
+            )
+            window = passage
+            return read
 
         case WebSearchTool.toolName:
             let query = WebSearchTool.query(in: call.function.arguments)

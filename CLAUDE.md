@@ -94,6 +94,15 @@ these, open every copy:
   parent makes `MKCOL` answer 409) and on escaping names.
 - **User-visible descriptions of sync**, in each app's Settings screen and
   README.
+- **How a PDF becomes a book.** The rules that turn a PDF's lines into
+  paragraphs and chapters, and the EPUB written from them, are alike in
+  `PdfParagraphs`, `PdfLayout` and `EpubBuilder` (Kindle, `.cpp`; web,
+  `.js`) and `PDFParagraphs`, `PDFLayout` and `EPUBBuilder` (iOS, `.swift`).
+  The PDF itself is read by `Support/Pdf*.cpp` and their `.js` ports, and on
+  iOS by PDFKit (`PDFImporter.swift`). The web app's `Support/ZipWriter.js`
+  is the browser extension's `lib/zip.js`. The two checks put together the
+  same sample PDF; given the same real one, the Kindle and web apps should
+  write the same EPUB.
 - **The bundled dictionary's credits** — its sources and their license, which
   the license requires be shown — on each app's Dictionaries screen and in the
   top-level README. A pack built from other sources changes all of them.
@@ -168,6 +177,7 @@ conclusive than driving a UI, and cost nothing.
 | Kindle, Qt shared code, or `Core/` | `AIReaderKindle/build.sh check` (runs on a Mac). |
 | Anything that talks to a WebDAV server | The same check with `AIREADER_SYNC_URL` (and `AIREADER_SYNC_USER`, `AIREADER_SYNC_PASSWORD`) set and a book given, against a local server: `rclone serve webdav <dir> --addr 127.0.0.1:8765`. |
 | An EPUB, from any source | `AIReaderKindle/build.sh check book.epub page.png` also loads it and renders a page. |
+| PDF import | `AIReaderKindle/build.sh check book.pdf page.png` and `AIReaderWeb/build.sh check book.pdf` make the EPUB and load it; the two should agree. |
 | Qt views | `AIReaderQt/build.sh` (Docker); `AIReaderQt/build.sh script tools/smoke.txt <book.epub>` (written for the Le Petit Prince in `References/`) walks every screen against the mock and saves snapshots. |
 | The Qt AppImage | `AIReaderQt/build.sh appimage`; test it in a clean container of another distribution, which needs `shared-mime-info` and a desktop's X/GL libraries (see `AIReaderQt/README.md`). |
 | The browser extension | Load it unpacked in Chrome, or in Playwright's Chromium with `--load-extension`, against a local WebDAV server and page. `lib/zip.js`, `lib/epub.js` and `lib/names.js` also run under Node; the rest need a browser. |

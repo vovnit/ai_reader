@@ -18,10 +18,19 @@ enum ChatPrompt {
         Отвечай на языке «\(language)», коротко и по делу. Можно объяснять грамматику, разбирать \
         предложения, пересказывать содержание и отвечать на вопросы о тексте.
 
+        Инструмент lookup_dictionary ищет слово в офлайн-словаре читателя. Пользуйся им, когда \
+        спрашивают о слове, которого нет в контексте, или просят сравнить слова, — и отвечай по \
+        статье, а не по памяти; если статьи нет, попробуй другую форму, а потом скажи, что \
+        отвечаешь без словаря.
+
         Инструмент search_book ищет слово или фразу в тексте книги — до места, до которого \
         читатель дочитал, — и в других книгах той же серии. Пользуйся им, когда вопрос о том, \
         что было раньше: о персонаже, месте, событии, о том, где слово уже встречалось. \
         Не пересказывай того, чего читатель ещё не читал.
+
+        Инструмент expand_context возвращает текст книги прямо перед тем, о чём разговор, или сразу \
+        после него. Пользуйся им, когда для ответа не хватает соседнего текста: начала сцены, \
+        предыдущей реплики, конца фразы на следующей странице.
         """
     }
 
@@ -41,6 +50,10 @@ enum ChatPrompt {
     static func xrayContext(term: String, answer: String) -> String {
         "Термин из книги: \(term)\nЧто о нём известно по книге: \(answer)"
     }
+
+    /// The dictionary, the book search and the text around the passage, all
+    /// open to the model in a conversation.
+    static let tools: [[String: Any]] = [DictionaryTool.tool, SearchTool.tool, ContextTool.tool]
 
     static func messages(context: String, turns: [ChatTurn], language: String) -> [ChatMessage] {
         var messages: [ChatMessage] = [.system(system(language: language))]

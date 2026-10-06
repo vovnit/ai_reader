@@ -1,5 +1,6 @@
 #include "ChatPrompt.hpp"
 
+#include "ContextTool.hpp"
 #include "DictionaryTool.hpp"
 #include "SearchTool.hpp"
 
@@ -19,7 +20,11 @@ std::string system(const std::string& language) {
     "Инструмент search_book ищет слово или фразу в тексте книги — до места, до которого "
     "читатель дочитал, — и в других книгах той же серии. Пользуйся им, когда вопрос о том, "
     "что было раньше: о персонаже, месте, событии, о том, где слово уже встречалось. "
-    "Не пересказывай того, чего читатель ещё не читал.";
+    "Не пересказывай того, чего читатель ещё не читал.\n"
+    "\n"
+    "Инструмент expand_context возвращает текст книги прямо перед тем, о чём разговор, или сразу "
+    "после него. Пользуйся им, когда для ответа не хватает соседнего текста: начала сцены, "
+    "предыдущей реплики, конца фразы на следующей странице.";
 }
 
 std::string pageContext(const std::string& page) {
@@ -54,7 +59,7 @@ std::vector<ChatMessage> messages(const std::string& context, const std::vector<
 }
 
 Json tools() {
-    return Json(std::vector<Json>{DictionaryTool::tool(), SearchTool::tool()});
+    return Json(std::vector<Json>{DictionaryTool::tool(), SearchTool::tool(), ContextTool::tool()});
 }
 
 }  // namespace ChatPrompt

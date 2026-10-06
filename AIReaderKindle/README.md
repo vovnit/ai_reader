@@ -17,8 +17,11 @@ The same things as the iOS app, in the same shape.
 
 **Library.** *Add* opens a file picker — the folders of the Kindle's USB
 partition, one tall row per entry — and copies the `.epub` you choose into
-`/mnt/us/aireader/books`. Files copied there (or into the Kindle's own
-`documents` folder) over USB appear after *Refresh*. Where you stopped is
+`/mnt/us/aireader/books`; a `.pdf` is made into an EPUB there instead, its
+text laid out again as chapters and paragraphs (a scanned PDF, with no text,
+is refused). Files copied there (or into the Kindle's own
+`documents` folder) over USB appear after *Refresh*; a PDF copied that way
+is left alone until it is added. Where you stopped is
 remembered per book. `✕` removes a book and its file.
 
 **Groups.** *Group*, on a book's row, puts it in a group — one of the groups
@@ -76,6 +79,12 @@ then says what the book says.
 In a conversation it also has the dictionary, `lookup_dictionary`, the same
 tool a lookup gives it: asked what a word means or how two words differ, it
 answers from the article rather than from memory.
+
+**The model can read on.** A lookup gives the model one sentence, a chat one
+page; when that is not enough — a pronoun whose noun came earlier, a reply
+whose question is on the page before — it calls `expand_context` for the text
+just before or just after it, about a thousand characters at a time and
+within the chapter.
 
 **The model can search the web.** With a [Monid](https://monid.ai) token in
 Settings, every prompt — a lookup, an X-ray, a conversation — also offers
@@ -241,10 +250,12 @@ which is `AIREADER_DATA_DIR=../AIReader/AIReader/Resources ./build/aireader
 The pure logic — prompt building, mock replies, dictionary formatting,
 parameter negotiation, EPUB reading and its table of contents, pagination,
 the database, the sync document and its merge — runs from the command line, no display needed. Give
-it an EPUB to read that too, and a PNG path to draw its first page:
+it an EPUB to read that too, and a PNG path to draw its first page; given a
+PDF, it makes the EPUB first and shows the start of each chapter:
 
 ```bash
 ./build.sh check book.epub page.png
+./build.sh check book.pdf page.png
 ```
 
 With `AIREADER_SYNC_URL` (and `AIREADER_SYNC_USER`, `AIREADER_SYNC_PASSWORD`)

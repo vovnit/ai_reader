@@ -30,7 +30,7 @@ enum MockAI {
         // With nothing to go on, ask the dictionary once more — the same move a
         // real model makes when the first entries are unusable.
         if article == nil, !sawToolResult(in: messages) {
-            return call(ExplanationPrompt.toolName, id: "mock-call-1", argument: "word", value: form?.lemma ?? word)
+            return call(DictionaryTool.toolName, id: "mock-call-1", argument: "word", value: form?.lemma ?? word)
         }
 
         let explanation = WordExplanation(
@@ -49,8 +49,9 @@ enum MockAI {
     }
 
     /// A conversation: echo the question; asked to find something, search the
-    /// book for it, and asked to look something up online, search the web —
-    /// the way a real model would.
+    /// book for it, asked to look something up online, search the web, asked
+    /// what a word means, open the dictionary, and asked what came before or
+    /// comes after, read around the passage — the way a real model would.
     private static func chat(_ messages: [ChatMessage]) -> ChatMessage {
         var question = messages.last { $0.role == "user" }?.content ?? ""
         if let marker = question.range(of: "Вопрос: ", options: .backwards) {
@@ -72,6 +73,29 @@ enum MockAI {
             }
             let count = passageCount(in: everything(in: messages))
             return ChatMessage(role: "assistant", content: "Макет: в интернете по запросу «\(query)» нашлось \(count) страниц.")
+        }
+        for verb in ["что значит ", "what does "] where lowered.hasPrefix(verb) {
+            var word = question.dropFirst(verb.count).trimmingCharacters(in: .whitespaces)
+            while word.hasSuffix("?") || word.hasSuffix(".") { word.removeLast() }
+            if !sawToolResult(in: messages) {
+                return call(DictionaryTool.toolName, id: "mock-call-1", argument: "word", value: word)
+            }
+            guard let found = article(in: everything(in: messages)) else {
+                return ChatMessage(role: "assistant", content: "Макет: слова «\(word)» в словаре нет.")
+            }
+            return ChatMessage(role: "assistant", content: "Макет: по словарю «\(found.lemma)» — \(found.firstSense).")
+        }
+        for verb in ["раньше", "before", "дальше", "after"] where lowered.hasPrefix(verb) {
+            let before = verb == "раньше" || verb == "before"
+            if !sawToolResult(in: messages) {
+                return call(ContextTool.toolName, id: "mock-context-1", argument: "direction", value: before ? "before" : "after")
+            }
+            let place = before ? "перед этим местом" : "после этого места"
+            let words = firstWordsRead(in: messages)
+            return ChatMessage(
+                role: "assistant",
+                content: words.isEmpty ? "Макет: \(place) в главе ничего нет." : "Макет: \(place) в книге — «\(words)…»."
+            )
         }
         return ChatMessage(
             role: "assistant",
@@ -153,6 +177,15 @@ enum MockAI {
 
     private static func sawToolResult(in messages: [ChatMessage]) -> Bool {
         messages.contains { $0.role == "tool" }
+    }
+
+    /// The first words `expand_context` read, from the last tool answer: its
+    /// first line names the direction, the text follows.
+    private static func firstWordsRead(in messages: [ChatMessage]) -> String {
+        let answer = messages.last { $0.role == "tool" }?.content ?? ""
+        let lines = answer.split(separator: "\n", omittingEmptySubsequences: false)
+        guard lines.count >= 2 else { return "" }
+        return lines[1].split(separator: " ", omittingEmptySubsequences: false).prefix(6).joined(separator: " ")
     }
 
     /// Matches an article line from `DictionaryLookup.summary`.

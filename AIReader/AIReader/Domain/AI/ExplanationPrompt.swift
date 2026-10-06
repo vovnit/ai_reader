@@ -1,9 +1,7 @@
 import Foundation
 
-/// The instructions and tool description that drive a word explanation.
+/// The instructions and tools that drive a word explanation.
 enum ExplanationPrompt {
-    static let toolName = "lookup_dictionary"
-
     /// `language` is the one the explanation is written in.
     static func system(language: String) -> String {
         """
@@ -14,13 +12,17 @@ enum ExplanationPrompt {
         форме стоит слово. Не переводи предложение — объясни само слово, коротко и \
         понятно, на языке «\(language)».
 
-        Если словарных статей нет или они не подходят, вызови инструмент \(toolName) с другой \
+        Если словарных статей нет или они не подходят, вызови инструмент \(DictionaryTool.toolName) с другой \
         формой слова: с предполагаемой начальной формой, без артикля или частицы, с другой \
         частью составного выражения. Инструмент можно вызывать несколько раз.
 
         Если слово похоже на имя, название или авторское слово, которого в словаре нет, вызови \
         инструмент \(SearchTool.toolName): он находит отрывки книги, где слово уже встречалось, и по ним \
         видно, кто или что это в этой книге.
+
+        Если по одному предложению не понять, в каком значении стоит слово, — к кому относится \
+        местоимение, кто говорит, о чём речь, — вызови инструмент \(ContextTool.toolName): он возвращает \
+        текст книги перед предложением или после него.
 
         Если значение так и не нашлось, догадайся сам по контексту и честно отметь это.
 
@@ -45,12 +47,8 @@ enum ExplanationPrompt {
     }
 
     static let tools: [[String: Any]] = [
-        ToolSchema.function(
-            name: toolName,
-            description: "Ищет слово в офлайн-словаре и возвращает найденные статьи.",
-            argument: "word",
-            argumentDescription: "Форма слова, которую нужно найти."
-        ),
-        SearchTool.tool
+        DictionaryTool.tool,
+        SearchTool.tool,
+        ContextTool.tool
     ]
 }

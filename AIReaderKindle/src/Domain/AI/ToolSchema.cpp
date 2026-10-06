@@ -6,11 +6,17 @@ Json function(
     const std::string& name,
     const std::string& description,
     const std::string& argument,
-    const std::string& argumentDescription)
+    const std::string& argumentDescription,
+    const std::vector<std::string>& choices)
 {
     Json value = Json::object();
     value.set("type", "string");
     value.set("description", argumentDescription);
+    if (!choices.empty()) {
+        Json allowed = Json::array();
+        for (const auto& choice : choices) allowed.push(Json(choice));
+        value.set("enum", allowed);
+    }
 
     Json properties = Json::object();
     properties.set(argument, value);

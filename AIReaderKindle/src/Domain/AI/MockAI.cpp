@@ -1,6 +1,7 @@
 #include "MockAI.hpp"
 
 #include "../../Support/Text.hpp"
+#include "ContextTool.hpp"
 #include "DictionaryTool.hpp"
 #include "SearchTool.hpp"
 #include "WebSearchTool.hpp"
@@ -113,6 +114,29 @@ ChatMessage webCall(const std::string& query) {
     return call;
 }
 
+ChatMessage contextCall(const std::string& direction) {
+    ChatMessage call;
+    call.role = "assistant";
+    Json arguments = Json::object();
+    arguments.set("direction", direction);
+    call.toolCalls.push_back({"mock-context-1", ContextTool::toolName, arguments.dump()});
+    return call;
+}
+
+/// The first words `expand_context` read, from the last tool answer: its
+/// first line names the direction, the text follows.
+std::string firstWordsRead(const std::vector<ChatMessage>& messages) {
+    std::string answer;
+    for (const auto& message : messages) {
+        if (message.role == "tool" && message.content) answer = *message.content;
+    }
+    auto lines = Text::split(answer, '\n');
+    if (lines.size() < 2) return "";
+    auto words = Text::split(lines[1], ' ');
+    if (words.size() > 6) words.resize(6);
+    return Text::join(words, " ");
+}
+
 ChatMessage lookupCall(const std::string& word) {
     ChatMessage call;
     call.role = "assistant";
@@ -123,9 +147,9 @@ ChatMessage lookupCall(const std::string& word) {
 }
 
 /// A conversation: echo the question; asked to find something, search the
-/// book for it, asked to look something up online, search the web, and
-/// asked what a word means, open the dictionary — the way a real model
-/// would.
+/// book for it, asked to look something up online, search the web, asked
+/// what a word means, open the dictionary, and asked what came before or
+/// comes after, read around the passage — the way a real model would.
 ChatMessage chat(const std::vector<ChatMessage>& messages) {
     std::string question;
     for (const auto& message : messages) {
@@ -160,6 +184,16 @@ ChatMessage chat(const std::vector<ChatMessage>& messages) {
         return ChatMessage::assistant(found
             ? "Макет: по словарю «" + found->lemma + "» — " + found->firstSense() + "."
             : "Макет: слова «" + word + "» в словаре нет.");
+    }
+    for (const char* verb : {"раньше", "before", "дальше", "after"}) {
+        if (!Text::startsWith(lowered, verb)) continue;
+        bool before = std::string(verb) == "раньше" || std::string(verb) == "before";
+        if (!sawToolResult) return contextCall(before ? "before" : "after");
+        std::string place = before ? "перед этим местом" : "после этого места";
+        std::string words = firstWordsRead(messages);
+        return ChatMessage::assistant(words.empty()
+            ? "Макет: " + place + " в главе ничего нет."
+            : "Макет: " + place + " в книге — «" + words + "…».");
     }
     return ChatMessage::assistant("Макет: на вопрос «" + question + "» настоящая модель ответила бы по тексту книги.");
 }

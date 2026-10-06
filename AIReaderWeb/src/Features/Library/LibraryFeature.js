@@ -2,8 +2,11 @@
 // the reader.
 import { bookKey } from "../../Domain/Books/BookKey.js";
 import { epubCover, epubMetadata } from "../../Services/EpubLoader.js";
+import { pdfToEpub } from "../../Services/PdfImporter.js";
 import { runSync } from "../../Services/Sync.js";
 import { Feature } from "../Common/Feature.js";
+
+const isPdf = (file) => file.type === "application/pdf" || /\.pdf$/i.test(file.name);
 
 export class LibraryFeature extends Feature {
   books = [];
@@ -30,7 +33,7 @@ export class LibraryFeature extends Feature {
     return this.books.filter((book) => book.groupId === groupId);
   }
 
-  /** Puts the EPUBs on the shelf; returns the ids of the ones added. */
+  /** Puts the EPUBs on the shelf, a PDF made into one first; returns the ids of the ones added. */
   async add(files) {
     this.isAdding = true;
     this.message = "";
@@ -38,9 +41,12 @@ export class LibraryFeature extends Feature {
     const problems = [];
     const added = [];
     const keys = new Set(this.books.map((book) => bookKey(book.title, book.author)));
-    for (const file of files) {
+    for (const picked of files) {
       try {
-        const metadata = await epubMetadata(file, file.name);
+        const file = isPdf(picked)
+          ? await pdfToEpub(new Uint8Array(await picked.arrayBuffer()), picked.name.replace(/\.pdf$/i, ""))
+          : picked;
+        const metadata = await epubMetadata(file, picked.name);
         const key = bookKey(metadata.title, metadata.author);
         if (keys.has(key)) {
           problems.push(`“${metadata.title}” is already on the shelf.`);
@@ -49,7 +55,7 @@ export class LibraryFeature extends Feature {
         keys.add(key);
         added.push(await this.#env.library.add(metadata, file, await epubCover(file).catch(() => null)));
       } catch (error) {
-        problems.push(`${file.name}: ${error.message}`);
+        problems.push(`${picked.name}: ${error.message}`);
       }
     }
     this.isAdding = false;
