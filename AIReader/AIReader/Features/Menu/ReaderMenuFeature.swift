@@ -1,14 +1,15 @@
 import ComposableArchitecture
 import Foundation
 
-/// The reader's menu: what has been looked up in this book, a search of it,
-/// an X-ray of a name, a conversation about the page on screen, and how the
-/// text is rendered.
+/// The reader's menu: the book's table of contents, what has been looked up
+/// in it, a search of it, an X-ray of a name, a conversation about the page on
+/// screen, and how the text is rendered.
 @Reducer
 struct ReaderMenuFeature {
     @Reducer
     enum Path {
         case chat(ChatFeature)
+        case contents(ContentsFeature)
         case display(DisplaySettingsFeature)
         case search(SearchFeature)
         case words(WordsFeature)
@@ -24,12 +25,16 @@ struct ReaderMenuFeature {
         let scope: ReadingScope
         /// "this book" or the group, for the search screen.
         let covers: String
+        /// The book's table of contents, and the entry the page falls under.
+        let contents: [ContentsEntry]
+        let currentEntry: Int?
         var path = StackState<Path.State>()
     }
 
     enum Action {
         case chatTapped
         case closeBookTapped
+        case contentsTapped
         case displayTapped
         case doneTapped
         case searchTapped
@@ -50,6 +55,14 @@ struct ReaderMenuFeature {
             switch action {
             case .chatTapped:
                 state.path.append(.chat(.aboutPage(state.page, scope: state.scope)))
+                return .none
+
+            case .contentsTapped:
+                state.path.append(.contents(ContentsFeature.State(
+                    bookID: state.bookID,
+                    entries: state.contents,
+                    current: state.currentEntry
+                )))
                 return .none
 
             case .displayTapped:
@@ -74,7 +87,8 @@ struct ReaderMenuFeature {
             case .doneTapped:
                 return .send(.delegate(.dismiss))
 
-            case let .path(.element(id: _, action: .search(.delegate(.jump(position))))),
+            case let .path(.element(id: _, action: .contents(.delegate(.jump(position))))),
+                 let .path(.element(id: _, action: .search(.delegate(.jump(position))))),
                  let .path(.element(id: _, action: .xray(.delegate(.jump(position))))):
                 return .send(.delegate(.jump(position)))
 

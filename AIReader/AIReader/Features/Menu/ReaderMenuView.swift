@@ -8,6 +8,11 @@ struct ReaderMenuView: View {
         NavigationStack(path: $store.scope(state: \.path, action: \.path)) {
             List {
                 Button {
+                    store.send(.contentsTapped)
+                } label: {
+                    Label("Contents", systemImage: "list.bullet")
+                }
+                Button {
                     store.send(.wordsTapped)
                 } label: {
                     Label("Lookups", systemImage: "character.book.closed")
@@ -45,6 +50,7 @@ struct ReaderMenuView: View {
         } destination: { store in
             switch store.case {
             case let .chat(store): ChatView(store: store)
+            case let .contents(store): ContentsView(store: store)
             case let .display(store): DisplaySettingsView(store: store)
             case let .search(store): SearchView(store: store)
             case let .words(store): WordsView(store: store, showsDoneButton: false)

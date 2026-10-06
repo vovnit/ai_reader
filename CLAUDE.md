@@ -94,6 +94,11 @@ these, open every copy:
   parent makes `MKCOL` answer 409) and on escaping names.
 - **User-visible descriptions of sync**, in each app's Settings screen and
   README.
+- **The table of contents.** `EpubNavigation` (Kindle, web) and
+  `EPUBNavigation.swift` read it; each app's loader points it into the kept
+  chapters the same way — `EpubLoader.cpp`, `Contents.js`, and on iOS
+  `BookDocumentLoader.swift` with `ChapterAnchors.swift`, which finds the
+  anchors the HTML import would lose.
 - **How a PDF becomes a book.** The rules that turn a PDF's lines into
   paragraphs and chapters, and the EPUB written from them, are alike in
   `PdfParagraphs`, `PdfLayout` and `EpubBuilder` (Kindle, `.cpp`; web,

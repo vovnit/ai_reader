@@ -16,10 +16,22 @@ struct EPUBPackage: Equatable, Sendable {
     var items: [String: Item] = [:]
     var spine: [String] = []
     var coverItemID: String?
+    /// The EPUB 2 table of contents the spine names.
+    var ncxItemID: String?
 
     /// Items to render, in reading order, limited to markup documents.
     var readingOrder: [Item] {
         spine.compactMap { items[$0] }.filter { $0.mediaType.contains("html") }
+    }
+
+    /// The table of contents: the EPUB 3 navigation document, or else the
+    /// EPUB 2 NCX.
+    var navigationItem: Item? {
+        if let nav = items.values.first(where: { $0.properties.split(separator: " ").contains("nav") }) {
+            return nav
+        }
+        if let id = ncxItemID, let ncx = items[id] { return ncx }
+        return items.values.first { $0.mediaType == "application/x-dtbncx+xml" }
     }
 
     /// The manifest item holding the cover image, either flagged by the EPUB 3
@@ -48,6 +60,7 @@ struct EPUBPackage: Equatable, Sendable {
                 )
             case "spine":
                 inSpine = true
+                package.ncxItemID = attributes["toc"]
             case "itemref":
                 if inSpine, let idref = attributes["idref"] { package.spine.append(idref) }
             case "meta":

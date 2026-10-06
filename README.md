@@ -96,6 +96,11 @@ the EPUB declares. On-device, free.
 
 **The reader's menu.** A handle at the foot of the page opens:
 
+- *Contents* — the book's own table of contents, from its navigation document
+  (EPUB 3) or NCX (EPUB 2), nested entries indented and the one being read
+  marked; a tap turns to it, to the very anchor when the entry points inside a
+  file. A book without one lists its chapters by their first heading; a PDF's
+  bookmarks are its contents.
 - *Lookups* — every word met in this book, with the sentence it came from.
 - *Search* and *X-ray* — above.
 - *Ask about this page* — a conversation about the page in front of you. The

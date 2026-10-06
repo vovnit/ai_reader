@@ -177,11 +177,19 @@ struct ReaderFeature {
 
             case .menuTapped:
                 let count = state.corpus?.books.count ?? 1
+                var contents: [ContentsEntry] = []
+                var current: Int?
+                if case let .loaded(document) = state.document {
+                    contents = document.contents
+                    current = document.contentsEntry(at: state.book.readingOffset)
+                }
                 state.menu = ReaderMenuFeature.State(
                     bookID: state.book.id,
                     page: state.pageText,
                     scope: state.scope,
-                    covers: state.groupName.map { "the \(count) books of “\($0)”" } ?? "this book"
+                    covers: state.groupName.map { "the \(count) books of “\($0)”" } ?? "this book",
+                    contents: contents,
+                    currentEntry: current
                 )
                 return .none
 
