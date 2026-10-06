@@ -121,7 +121,8 @@ book added on one device is sent there, and one found there is fetched and
 shelved. Removing a book removes it from that device only — the file stays
 for the others, and is not fetched again. Web pages saved with the [browser
 extension](BrowserExtension/README.md) land in the same folder and arrive
-the same way.
+the same way. A scanned book becomes an EPUB with [`ScanTool/`](ScanTool/README.md),
+from what Mistral's OCR made of it.
 
 ## Layout
 

@@ -111,6 +111,7 @@ The top level has one folder per thing that is built:
 | `Core/` | C++ both the iOS and Kindle apps compile: the sync document and JSON. |
 | `BrowserExtension/` | Chrome and Firefox: saves web pages as EPUBs into the sync folder. |
 | `DictionaryTool/` | Python: builds the bundled `dictionary.sqlite3` and other packs. |
+| `ScanTool/` | Python: makes an EPUB of a scanned book from its Mistral OCR export. |
 
 Build output, wherever it lands, is ignored by git, and so are the dictionary
 tool's gigabytes of downloaded source data.
@@ -173,6 +174,7 @@ conclusive than driving a UI, and cost nothing.
 | Web logic (`AIReaderWeb/src` below the views) | `AIReaderWeb/build.sh check [book.epub]` (Node 22.12+); with `AIREADER_SYNC_URL` set, against a WebDAV server too. |
 | Web views | `AIReaderWeb/build.sh serve`, then `http://localhost:8080/?aiEndpoint=mock://ai&aiModel=mock-medium` in a browser. Sync from a page needs the server to allow its origin: `rclone serve webdav <dir> --addr 127.0.0.1:8765 --allow-origin http://localhost:8080`. |
 | `DictionaryTool/` | `python3 -m unittest discover -s tests -t .` from that folder. |
+| `ScanTool/` | The same unit tests from that folder; then convert an export and load the EPUB with `AIReaderKindle/build.sh check book.epub page.png`. |
 
 Build the iOS app:
 
