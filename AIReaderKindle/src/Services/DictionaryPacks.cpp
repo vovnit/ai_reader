@@ -42,6 +42,7 @@ void DictionaryPacks::remove(const DictionaryPack& pack) {
     if (pack.isBundled()) return;
     Statement remove(database_, "DELETE FROM dictionaryPacks WHERE id = ?");
     remove.bind(1, pack.id).run();
+    DictionaryDatabase::shared().close(DictionaryDatabase::path(pack));
     Files::remove(DictionaryDatabase::path(pack));
 }
 

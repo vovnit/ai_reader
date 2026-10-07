@@ -4,8 +4,12 @@
 
 #include <QVBoxLayout>
 
-EntryView::EntryView(Navigator& navigator, const std::string& lemma, const std::vector<DictionaryLookup::Article>& articles)
+EntryView::EntryView(Navigator& navigator, const std::string& lemma, const std::vector<DictionaryLookup::Article>& entry)
     : Screen(navigator, Ui::q(lemma)) {
+    setBody(Ui::scrolled(articles(entry)));
+}
+
+QWidget* EntryView::articles(const std::vector<DictionaryLookup::Article>& articles) {
     auto* holder = new QWidget;
     QVBoxLayout* column = Ui::column(holder, 10);
     for (size_t i = 0; i < articles.size(); ++i) {
@@ -19,5 +23,5 @@ EntryView::EntryView(Navigator& navigator, const std::string& lemma, const std::
         }
         if (!article.source.empty()) column->addWidget(Ui::note(Ui::escape(article.source)));
     }
-    setBody(Ui::scrolled(holder));
+    return holder;
 }

@@ -14,11 +14,13 @@ namespace ChatApi {
 
 using Error = Http::Error;
 
+/// `maxTokens` bounds the answer: enough for a lookup unless said otherwise.
 ChatMessage chat(
     const AiSettings& settings,
     const std::vector<ChatMessage>& messages,
     const Json& tools = Json::array(),
-    bool jsonMode = false);
+    bool jsonMode = false,
+    int maxTokens = 700);
 
 /// The model names the endpoint offers, sorted.
 std::vector<std::string> models(const AiSettings& settings);

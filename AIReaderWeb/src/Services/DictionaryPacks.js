@@ -68,6 +68,28 @@ export class DictionaryPacks {
     return { added, errors };
   }
 
+  /** The book's glossary, or null before one is begun. */
+  async glossary(book) {
+    return (await this.all()).find((pack) => pack.kind === "converted" && pack.name === glossaryName(book)) ?? null;
+  }
+
+  /** Begins the book's glossary, empty, so lookups use it while it fills. */
+  async createGlossary(book) {
+    const id = await this.#insert({ name: glossaryName(book), kind: "converted", fileName: "", targetLanguage: "", definitionLanguage: "" });
+    return this.#db.get("dictionaryPacks", id);
+  }
+
+  /** The forms the glossary defines so far. */
+  async glossaryForms(pack) {
+    return new Set((await this.#db.keysInRange("dictionaryArticles", [pack.id, ""], [pack.id, []])).map((key) => key[1]));
+  }
+
+  /** Files each definition (form → text) under its form. */
+  async addToGlossary(pack, definitions) {
+    const rows = [...definitions].map(([word, definition]) => ({ packId: pack.id, word, articles: [{ partOfSpeech: "", senses: [definition] }] }));
+    await this.#db.putAll("dictionaryArticles", rows);
+  }
+
   async #insert(pack) {
     return this.#db.put("dictionaryPacks", { ...pack, isEnabled: true, addedAt: now() });
   }
@@ -115,6 +137,11 @@ export class DictionaryPacks {
     const rows = [...articles].map(([word, list]) => ({ packId: id, word, articles: list }));
     for (let start = 0; start < rows.length; start += 5000) await this.#db.putAll("dictionaryArticles", rows.slice(start, start + 5000));
   }
+}
+
+/** A book's glossary is the dictionary of this name, written in the app or by DictionaryTool's `book_glossary.py`. */
+export function glossaryName(book) {
+  return `${book.title} glossary`;
 }
 
 /** "fr → ru" when the pack says what it holds. */

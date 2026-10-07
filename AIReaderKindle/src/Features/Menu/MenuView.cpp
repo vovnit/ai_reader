@@ -5,6 +5,7 @@
 #include "../Common/Navigator.hpp"
 #include "../Common/Widgets.hpp"
 #include "../Contents/ContentsView.hpp"
+#include "../Glossary/GlossaryView.hpp"
 #include "../Reader/ReaderFeature.hpp"
 #include "../Search/SearchView.hpp"
 #include "../Words/WordsView.hpp"
@@ -41,6 +42,7 @@ void open(Env& env, Navigator& navigator, ReaderFeature& reader, const ReaderLin
     add("X-ray", [&env, &navigator, link] { XRayView::ask(env, navigator, link); });
     add("Ask about this page", [&env, &navigator, pageSeed] { ChatView::open(env, navigator, pageSeed); });
     add("Display", [&env, &navigator, &reader] { DisplayView::open(env, navigator, reader); });
+    add("Offline glossary", [&env, &navigator, &reader] { GlossaryView::open(env, navigator, reader); });
     add("Close book", [&navigator] { navigator.popToRoot(); });
 
     navigator.push(Widgets::screen("Menu", box, [&navigator] { navigator.pop(); }, "Done"));

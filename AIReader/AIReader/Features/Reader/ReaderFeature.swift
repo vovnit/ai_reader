@@ -185,6 +185,7 @@ struct ReaderFeature {
                 }
                 state.menu = ReaderMenuFeature.State(
                     bookID: state.book.id,
+                    title: state.book.title,
                     page: state.pageText,
                     scope: state.scope,
                     covers: state.groupName.map { "the \(count) books of “\($0)”" } ?? "this book",

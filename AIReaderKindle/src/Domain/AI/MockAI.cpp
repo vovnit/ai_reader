@@ -232,11 +232,38 @@ ChatMessage lookup(const std::string& word, const std::vector<ChatMessage>& mess
     return ChatMessage::assistant(explanation.toJson().dump());
 }
 
+/// A glossary batch: every numbered word defined from nothing but its spelling.
+ChatMessage glossary(const std::vector<ChatMessage>& messages) {
+    Json words = Json::array();
+    const ChatMessage* first = firstUserMessage(messages);
+    for (const auto& line : Text::split(first ? *first->content : "", '\n')) {
+        size_t digits = 0;
+        while (digits < line.size() && line[digits] >= '0' && line[digits] <= '9') ++digits;
+        if (digits == 0 || line.compare(digits, 2, ". ") != 0 || line.size() == digits + 2) continue;
+        std::string spelling = line.substr(digits + 2);
+        Json word = Json::object();
+        word.set("n", std::stoi(line.substr(0, digits)));
+        word.set("lemma", Text::lower(spelling));
+        word.set("form_note", "");
+        word.set("meaning", "«" + spelling + "» в книге (макет)");
+        words.push(word);
+    }
+    Json answer = Json::object();
+    answer.set("words", words);
+    return ChatMessage::assistant(answer.dump());
+}
+
 }  // namespace
 
 ChatMessage reply(const std::vector<ChatMessage>& messages) {
-    // Which prompt built this: the X-ray names a term, a conversation ends
-    // its first message with a question, a lookup names a word.
+    // Which prompt built this: a glossary's system prompt says so, the X-ray
+    // names a term, a conversation ends its first message with a question, a
+    // lookup names a word.
+    for (const auto& message : messages) {
+        if (message.role == "system" && message.content && Text::startsWith(*message.content, "Ты составляешь словарик")) {
+            return glossary(messages);
+        }
+    }
     if (auto term = value("Термин: ", messages)) return xray(*term, messages);
     const ChatMessage* first = firstUserMessage(messages);
     if (first && Text::contains(*first->content, "\nВопрос: ")) return chat(messages);

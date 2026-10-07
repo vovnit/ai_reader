@@ -111,7 +111,10 @@ the page on screen; the page's text is sent once, with the first question. A
 conversation opened from a lookup or an X-ray starts from that instead, so
 follow-up questions need no retyping. *Display* — type size, face, line
 spacing and margins, and whether page turns are animated; the page
-re-paginates as they change. *Close book.*
+re-paginates as they change. *Offline glossary* — the model's definition of
+every word in the book, written while there is Wi-Fi and kept as a dictionary,
+as the [main README](../README.md#dictionaries) describes; the screen has to
+stay open while it runs. *Close book.*
 
 **Words.** From the library, the same list across every book.
 
@@ -168,7 +171,9 @@ together, whichever of its files was picked); *Scan folder* registers whatever
 has been copied there by hand. Packs in this app's format (`.sqlite3`) are
 taken as they are; word lists (`.tsv`, `.csv`), Lingvo DSL (`.dsl`, plain or
 `.dz`), StarDict (`.ifo` with its `.idx` and `.dict`/`.dict.dz`) and XDXF are
-converted into one, which for a large dictionary takes a while.
+converted into one, which for a large dictionary takes a while. Without Wi-Fi,
+a tapped word shows what the dictionaries say about it — a book's offline
+glossary among them.
 
 **Looks.** GTK+ 2 draws its controls the way a desktop of the nineties did.
 Every control here is drawn by the app instead (`src/Features/Common/Theme.cpp`):

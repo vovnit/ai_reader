@@ -4,7 +4,8 @@ import Foundation
 /// One word lookup: read the cache, otherwise ask the explainer and store the
 /// answer. The dictionary's own entry for the lemma comes with it, so the
 /// reader can see what the answer was drawn from; from here the word can be
-/// X-rayed in the book or talked over with the model.
+/// X-rayed in the book or talked over with the model. When the model cannot
+/// be asked, the dictionaries answer alone.
 @Reducer
 struct LookupFeature {
     @Reducer
@@ -23,7 +24,8 @@ struct LookupFeature {
         let scope: ReadingScope
         var explanation: WordExplanation?
         /// The articles under the lemma; empty when the dictionary has no such
-        /// headword, as after a guess.
+        /// headword, as after a guess. Without an explanation, what the
+        /// dictionaries have for the word itself.
         var entry: [DictionaryLookup.Article] = []
         var errorMessage: String?
         var path = StackState<Path.State>()
@@ -38,7 +40,7 @@ struct LookupFeature {
     enum Action {
         case task
         case explained(WordExplanation, entry: [DictionaryLookup.Article])
-        case failed(String)
+        case failed(String, entry: [DictionaryLookup.Article])
         case speakTapped(String)
         case doneTapped
         case entryTapped
@@ -80,7 +82,10 @@ struct LookupFeature {
                         await send(.explained(explanation, entry: await dictionary.articles(lemma: explanation.lemma)))
                     } catch is CancellationError {
                     } catch {
-                        await send(.failed(error.localizedDescription))
+                        // Offline, or the model unreachable: the dictionaries,
+                        // a book's own glossary among them, are on the device.
+                        let lookup = await dictionary.lookup(context.word)
+                        await send(.failed(error.localizedDescription, entry: lookup.articles))
                     }
                 }
 
@@ -90,8 +95,9 @@ struct LookupFeature {
                 state.errorMessage = nil
                 return .none
 
-            case let .failed(message):
+            case let .failed(message, entry):
                 state.errorMessage = message
+                state.entry = entry
                 return .none
 
             case let .speakTapped(text):

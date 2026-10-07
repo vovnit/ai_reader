@@ -28,6 +28,7 @@ export async function checkRelay() {
   const ask = (query, init) => relay.fetch(new Request(`${site}/relay?${query}`, init), env);
 
   check("the relay says which hosts it relays", (await ask("host=127.0.0.1")).status === 204 && (await ask("host=evil.example")).status === 403);
+  check("the web search's broker is relayed without being listed", (await relay.fetch(new Request(`${site}/relay?host=api.monid.ai`), {})).status === 204);
   const listing = await ask(`url=${encodeURIComponent(`${base}/remote.php/dav/files/me/AIReader/Books/`)}`, {
     method: "PROPFIND",
     headers: { Authorization: "Basic dTpw", Depth: "1", Cookie: "page=1", Origin: site },

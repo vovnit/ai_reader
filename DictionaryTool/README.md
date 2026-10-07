@@ -155,6 +155,39 @@ Wiktionary entries remain first and the database schema is unchanged.
 Use `--data-dir PATH` for another destination or `--force` to replace valid
 existing files. Downloads are staged, validated, and atomically installed.
 
+## Book glossaries
+
+`book_glossary.py` writes a glossary of one EPUB: every word form in the book,
+each with what it means there, as a tab-separated word list. Added to any of
+the apps as a dictionary, it answers lookups in that book without a network —
+the apps show the dictionaries' entries whenever the model cannot be reached.
+Each app can write the same glossary itself (*Offline glossary* in the reader's
+menu), with the same prompt, and continues one added from here: a book's
+glossary is the dictionary named `<title> glossary`.
+
+```bash
+MISTRAL_API_KEY=... python3 book_glossary.py book.epub
+```
+
+It writes `<title> glossary.tsv` here (`--output` for another path), its
+definitions in Russian (`--language`), from the apps' default endpoint and
+model (`--endpoint`, `--model`; any OpenAI-compatible service). The model is
+asked about fifty forms at a time, each with the first three places it appears
+— only the first, so a name is never explained by what happens later. Forms
+follow the apps' word boundaries, so `l'homme` and `c'est` are words of their
+own, and each line reads `form<TAB>lemma (form): meaning`. The Kindle and Qt
+apps break a word at an apostrophe — a tap there finds `l` or `homme` — so for
+them a glossary written in the app covers those words better.
+
+The glossary is written as answers arrive. Run the same command again after
+an interruption, or after a batch the model answered badly, and it asks only
+about the words still missing. `--endpoint mock://ai` answers from a stand-in,
+for a run that costs nothing.
+
+At the end it reports the tokens used. A short book of 11,000 words has about
+2,200 forms, which should come to roughly 170,000 tokens in and 90,000 out; a
+novel, six or seven times that.
+
 ## Licenses
 
 Lexique 4 and the Wiktionary extracts are licensed CC BY-SA 4.0, and a pack

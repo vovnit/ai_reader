@@ -29,6 +29,12 @@ std::string lower(const std::string& text) {
     return result;
 }
 
+std::string thousands(long long value) {
+    std::string digits = std::to_string(value < 0 ? -value : value);
+    for (int i = static_cast<int>(digits.size()) - 3; i > 0; i -= 3) digits.insert(i, ",");
+    return value < 0 ? "-" + digits : digits;
+}
+
 bool startsWith(const std::string& text, const std::string& prefix) {
     return text.compare(0, prefix.size(), prefix) == 0;
 }

@@ -108,6 +108,11 @@ these, open every copy:
   is the browser extension's `lib/zip.js`. The two checks put together the
   same sample PDF; given the same real one, the Kindle and web apps should
   write the same EPUB.
+- **A book's offline glossary.** Its prompt is `GlossaryPrompt` in each
+  app's `Domain/AI` and `DictionaryTool/glossary_prompt.py`, word for word,
+  with the mock's answer to it; the words come from `BookWords`, by each app's
+  own word boundaries (Pango splits at an apostrophe, the others do not). A
+  book's glossary is the dictionary named "<title> glossary" everywhere.
 - **The bundled dictionary's credits** — its sources and their license, which
   the license requires be shown — on each app's Dictionaries screen and in the
   top-level README. A pack built from other sources changes all of them.

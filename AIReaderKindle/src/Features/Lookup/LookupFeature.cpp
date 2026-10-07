@@ -33,6 +33,9 @@ void LookupFeature::start() {
                 answer.entry = DictionaryDatabase::shared().articlesFor(answer.explanation->lemma, tools.packs);
             } catch (const std::exception& failure) {
                 answer.error = failure.what();
+                // Offline, or the model unreachable: the dictionaries, a
+                // book's own glossary among them, are on the device.
+                answer.entry = DictionaryDatabase::shared().lookup(context.word, tools.packs).articles;
             }
             return answer;
         },
@@ -43,6 +46,7 @@ void LookupFeature::start() {
                 entry_ = std::move(answer.entry);
             } else {
                 error_ = answer.error;
+                entry_ = std::move(answer.entry);
             }
             if (onChange) onChange();
         },

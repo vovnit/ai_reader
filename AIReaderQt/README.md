@@ -22,7 +22,7 @@ density, so a page breaks the same way on both.
 - **Reader** — click a word to look it up, blank space to turn the page; the
   arrow keys, Page Up/Down, Space and the wheel turn pages too. The footer
   opens the menu: contents, the book's lookups, search (also Ctrl+F), X-ray,
-  a conversation about the page, display, close. Escape goes back from any
+  a conversation about the page, display, the book's offline glossary, close. Escape goes back from any
   screen.
 - **Lookup** — the meaning in this sentence, the dictionary form, and the way
   on to the dictionary's own entry, to what the book says about the word

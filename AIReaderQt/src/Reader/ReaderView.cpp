@@ -6,6 +6,7 @@
 #include "Domain/AI/ChatPrompt.hpp"
 #include "Lookup/LookupView.hpp"
 #include "Menu/ContentsView.hpp"
+#include "Glossary/GlossaryView.hpp"
 #include "Menu/DisplayView.hpp"
 #include "Reader/PageView.hpp"
 #include "Search/SearchView.hpp"
@@ -114,6 +115,7 @@ void ReaderView::showMenu() {
     add("X-ray…", [this, link] { XRayView::ask(env_, navigator, link, this); });
     add("Ask about this page", [this, pageSeed] { navigator.push(new ChatView(env_, navigator, pageSeed)); });
     add("Display", [this] { navigator.push(new DisplayView(env_, navigator, feature_)); });
+    add("Offline glossary", [this] { navigator.push(new GlossaryView(env_, navigator, feature_)); });
     menu.addSeparator();
     add("Close book", [this] { navigator.popToRoot(); });
     menu.exec(progress_->mapToGlobal(QPoint(0, 0)) - QPoint(0, menu.sizeHint().height()));

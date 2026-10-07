@@ -57,6 +57,7 @@ GtkWidget* rendered(Env& env, const LookupFeature& feature, Navigator& navigator
             add(Widgets::markup(Widgets::small(Widgets::escape(note))));
         }
     } else if (!feature.error().empty()) {
+        if (!feature.entry().empty()) add(EntryView::articles(feature.entry()));
         add(Widgets::label(feature.error()));
     } else {
         add(Widgets::label("Looking up…"));

@@ -109,6 +109,7 @@ the EPUB declares. On-device, free.
   that instead.
 - *Display* — type size, face, line spacing and margins. Changes re-render and
   repaginate immediately, without re-reading the EPUB.
+- *Offline glossary* — below.
 
 **Words.** From the library, the same list across every book — the vocabulary
 actually encountered, rather than one somebody else chose.
@@ -198,6 +199,18 @@ gigabytes that git ignores.
 
 The language the *answers* are written in is the one named under **Explain in**
 in Settings (Russian until changed), not the dictionary's.
+
+When the model cannot be reached — offline, or with no endpoint set up — a
+tapped word shows what the enabled dictionaries say about it instead. To have
+an answer for every word of one book without a network, write its glossary
+ahead of time: *Offline glossary*, in the reader's menu, asks the model once
+what each word form in the book means where it first appears, fifty at a
+time, and files the answers in the dictionary “<title> glossary” as they
+arrive — so lookups use it while it fills, a run that stops keeps what it paid
+for, and the next asks only about the rest. Before it starts it says how many
+words there are and roughly how many tokens they will take.
+[`DictionaryTool/book_glossary.py`](DictionaryTool/README.md#book-glossaries)
+writes the same glossary on a computer, as a word list to add like any other.
 
 ## The model
 

@@ -8,7 +8,7 @@ import { ChatView } from "../Chat/ChatView.js";
 import { Screen } from "../Common/Screen.js";
 import { button, h, note } from "../Common/Ui.js";
 import { XRayView } from "../XRay/XRayView.js";
-import { EntryView } from "./EntryView.js";
+import { articleSections, EntryView } from "./EntryView.js";
 import { LookupFeature } from "./LookupFeature.js";
 
 export class LookupView extends Screen {
@@ -34,7 +34,7 @@ export class LookupView extends Screen {
   #render() {
     const { explanation, error, entry, context, scope } = this.feature;
     if (!explanation) {
-      this.setBody(error ? h("p", { class: "error message" }, error) : note("Looking up…"), this.#sentence());
+      this.setBody(articleSections(entry), error ? h("p", { class: "error message" }, error) : note("Looking up…"), this.#sentence());
       return;
     }
     const chat = {

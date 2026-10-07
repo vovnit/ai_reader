@@ -25,6 +25,10 @@ public:
     /// came from. A form of another word brings nothing.
     std::vector<DictionaryLookup::Article> articlesFor(const std::string& lemma, const std::vector<DictionaryPack>& packs);
 
+    /// Forgets the connection to a pack file, which was removed: a pack made
+    /// again under the same name is then read afresh.
+    void close(const std::string& path);
+
     /// The `metadata` table of a pack file, or empty if it is not one.
     static std::map<std::string, std::string> metadata(const std::string& path);
 

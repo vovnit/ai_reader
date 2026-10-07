@@ -19,11 +19,13 @@ enum ChatAPI {
         }
     }
 
+    /// `maxTokens` bounds the answer: enough for a lookup unless said otherwise.
     static func chat(
         settings: AISettings,
         messages: [ChatMessage],
         tools: [[String: Any]] = [],
-        jsonMode: Bool = false
+        jsonMode: Bool = false,
+        maxTokens: Int = 700
     ) async throws -> ChatMessage {
         guard !settings.usesMock else { return MockAI.reply(to: messages) }
         guard let url = settings.chatURL else {
@@ -38,7 +40,8 @@ enum ChatAPI {
         for _ in 0...RequestQuirk.allCases.count {
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
-            request.timeoutInterval = 45
+            // A longer answer takes longer to write.
+            request.timeoutInterval = TimeInterval(max(45, maxTokens / 20))
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try JSONSerialization.data(
                 withJSONObject: body(
@@ -46,6 +49,7 @@ enum ChatAPI {
                     messages: messages,
                     tools: tools,
                     jsonMode: jsonMode,
+                    maxTokens: maxTokens,
                     quirks: quirks
                 )
             )
@@ -72,13 +76,14 @@ enum ChatAPI {
         messages: [ChatMessage],
         tools: [[String: Any]],
         jsonMode: Bool,
+        maxTokens: Int = 700,
         quirks: Set<RequestQuirk>
     ) throws -> [String: Any] {
         var body: [String: Any] = [
             "model": settings.model,
             "messages": try JSONSerialization.jsonObject(with: JSONEncoder().encode(messages))
         ]
-        body[quirks.contains(.completionTokens) ? "max_completion_tokens" : "max_tokens"] = 700
+        body[quirks.contains(.completionTokens) ? "max_completion_tokens" : "max_tokens"] = maxTokens
         if !quirks.contains(.defaultTemperature) {
             body["temperature"] = 0.2
         }

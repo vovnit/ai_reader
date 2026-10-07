@@ -1,9 +1,9 @@
 // The Cloudflare Worker beside the app's files: it relays the app's requests
 // to servers that do not answer web pages (CORS) — Nextcloud's WebDAV among
 // them. The page asks its own site, and the site asks the server. Only the
-// hosts named in RELAY_HOSTS (a dashboard variable, comma-separated) are
-// reached, so the site is no open proxy. Every other request is for the
-// app's files, which Cloudflare serves before this runs.
+// hosts named in RELAY_HOSTS (a dashboard variable, comma-separated) and the
+// app's own services are reached, so the site is no open proxy. Every other
+// request is for the app's files, which Cloudflare serves before this runs.
 //
 //   GET  relay?host=cloud.example.com   204 when that host is relayed, 403 when not
 //   ANY  relay?url=https://cloud.example.com/remote.php/dav/…
@@ -14,8 +14,12 @@ const forwarded = ["authorization", "content-type", "depth", "destination", "ove
 /** What comes back, minus the server's cookies and its password challenge, which would make the browser ask for a password itself. */
 const returned = ["content-type", "etag", "last-modified", "dav"];
 
+/** Services the app itself uses that do not answer pages, relayed whatever RELAY_HOSTS says: Monid, which brokers the web search (`src/Services/WebSearch.js`). */
+const appHosts = ["api.monid.ai"];
+
 function hosts(env) {
-  return new Set((env.RELAY_HOSTS ?? "").split(/[\s,]+/).filter(Boolean).map((host) => host.toLowerCase()));
+  const listed = (env.RELAY_HOSTS ?? "").split(/[\s,]+/).filter(Boolean).map((host) => host.toLowerCase());
+  return new Set([...appHosts, ...listed]);
 }
 
 export default {

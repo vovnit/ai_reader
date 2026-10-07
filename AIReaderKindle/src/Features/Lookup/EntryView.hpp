@@ -2,6 +2,8 @@
 
 #include "../../Domain/Dictionary/DictionaryLookup.hpp"
 
+#include <gtk/gtk.h>
+
 #include <string>
 #include <vector>
 
@@ -12,5 +14,8 @@ class Navigator;
 namespace EntryView {
 
 void open(Navigator& navigator, const std::string& lemma, const std::vector<DictionaryLookup::Article>& articles);
+
+/// The articles alone, for a screen that shows them among other things.
+GtkWidget* articles(const std::vector<DictionaryLookup::Article>& articles);
 
 }  // namespace EntryView

@@ -93,6 +93,10 @@ export class MemoryDatabase {
     this.#store(name).rows.delete(JSON.stringify(key));
   }
 
+  async keysInRange(name, lower, upper) {
+    return this.#sorted(this.#store(name)).map((row) => row.key).filter((key) => compare(key, lower) >= 0 && compare(key, upper) <= 0);
+  }
+
   async deleteRange(name, lower, upper) {
     const store = this.#store(name);
     for (const [id, row] of store.rows) if (compare(row.key, lower) >= 0 && compare(row.key, upper) <= 0) store.rows.delete(id);

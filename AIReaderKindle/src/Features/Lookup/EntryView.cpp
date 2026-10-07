@@ -5,9 +5,8 @@
 
 namespace EntryView {
 
-void open(Navigator& navigator, const std::string& lemma, const std::vector<DictionaryLookup::Article>& articles) {
+GtkWidget* articles(const std::vector<DictionaryLookup::Article>& articles) {
     GtkWidget* box = gtk_vbox_new(FALSE, Widgets::px(10));
-    gtk_container_set_border_width(GTK_CONTAINER(box), Widgets::px(12));
     auto add = [&](GtkWidget* widget) { gtk_box_pack_start(GTK_BOX(box), widget, FALSE, FALSE, 0); };
 
     for (size_t i = 0; i < articles.size(); ++i) {
@@ -21,7 +20,12 @@ void open(Navigator& navigator, const std::string& lemma, const std::vector<Dict
         }
         if (!article.source.empty()) add(Widgets::markup(Widgets::small(Widgets::escape(article.source))));
     }
+    return box;
+}
 
+void open(Navigator& navigator, const std::string& lemma, const std::vector<DictionaryLookup::Article>& entry) {
+    GtkWidget* box = articles(entry);
+    gtk_container_set_border_width(GTK_CONTAINER(box), Widgets::px(12));
     navigator.push(Widgets::screen(lemma, Widgets::scrolled(box), [&navigator] { navigator.pop(); }));
 }
 

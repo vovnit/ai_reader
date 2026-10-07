@@ -38,6 +38,11 @@ struct ReaderMenuView: View {
                     Label("Display", systemImage: "textformat.size")
                 }
                 Button {
+                    store.send(.glossaryTapped)
+                } label: {
+                    Label("Offline glossary", systemImage: "text.book.closed")
+                }
+                Button {
                     store.send(.closeBookTapped)
                 } label: {
                     Label("Close book", systemImage: "books.vertical")
@@ -52,6 +57,7 @@ struct ReaderMenuView: View {
             case let .chat(store): ChatView(store: store)
             case let .contents(store): ContentsView(store: store)
             case let .display(store): DisplaySettingsView(store: store)
+            case let .glossary(store): GlossaryView(store: store)
             case let .search(store): SearchView(store: store)
             case let .words(store): WordsView(store: store, showsDoneButton: false)
             case let .xray(store): XRayView(store: store)

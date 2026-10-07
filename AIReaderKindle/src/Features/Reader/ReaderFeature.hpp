@@ -52,6 +52,8 @@ public:
     int marginPixels() const;
     int chapterIndex() const { return chapter_; }
     int chapterCount() const;
+    /// Every chapter's text, a paragraph a line.
+    std::vector<std::string> chapterTexts() const;
     int pageIndex() const { return page_; }
     int pageCount() const { return static_cast<int>(layout_.pages.size()); }
     /// The text of the page on screen, so the menu's chat can be about it.

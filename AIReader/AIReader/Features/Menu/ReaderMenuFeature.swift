@@ -3,7 +3,7 @@ import Foundation
 
 /// The reader's menu: the book's table of contents, what has been looked up
 /// in it, a search of it, an X-ray of a name, a conversation about the page on
-/// screen, and how the text is rendered.
+/// screen, how the text is rendered, and the book's offline glossary.
 @Reducer
 struct ReaderMenuFeature {
     @Reducer
@@ -11,6 +11,7 @@ struct ReaderMenuFeature {
         case chat(ChatFeature)
         case contents(ContentsFeature)
         case display(DisplaySettingsFeature)
+        case glossary(GlossaryFeature)
         case search(SearchFeature)
         case words(WordsFeature)
         case xray(XRayFeature)
@@ -19,6 +20,7 @@ struct ReaderMenuFeature {
     @ObservableState
     struct State: Equatable {
         let bookID: Book.ID
+        let title: String
         /// The text of the page the reader is on, handed to the chat.
         let page: String
         /// The books to search and how far they have been read.
@@ -37,6 +39,7 @@ struct ReaderMenuFeature {
         case contentsTapped
         case displayTapped
         case doneTapped
+        case glossaryTapped
         case searchTapped
         case wordsTapped
         case xrayTapped
@@ -67,6 +70,14 @@ struct ReaderMenuFeature {
 
             case .displayTapped:
                 state.path.append(.display(DisplaySettingsFeature.State()))
+                return .none
+
+            case .glossaryTapped:
+                state.path.append(.glossary(GlossaryFeature.State(
+                    bookID: state.bookID,
+                    title: state.title,
+                    scope: state.scope
+                )))
                 return .none
 
             case .searchTapped:

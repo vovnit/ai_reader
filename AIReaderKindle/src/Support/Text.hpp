@@ -11,6 +11,8 @@ std::string trim(const std::string& text);
 /// illustration placeholders is left.
 bool isBlank(const std::string& text);
 std::string lower(const std::string& text);
+/// 2239 → "2,239".
+std::string thousands(long long value);
 bool startsWith(const std::string& text, const std::string& prefix);
 bool endsWith(const std::string& text, const std::string& suffix);
 bool contains(const std::string& text, const std::string& part);

@@ -77,6 +77,11 @@ export class IdbDatabase {
     return this.#run(store, "readwrite", (objects) => objects.delete(key));
   }
 
+  /** The keys from `lower` to `upper`, both included, in order. */
+  keysInRange(store, lower, upper) {
+    return this.#run(store, "readonly", (objects) => objects.getAllKeys(IDBKeyRange.bound(lower, upper)));
+  }
+
   /** Deletes the records with keys from `lower` to `upper`, both included. */
   deleteRange(store, lower, upper) {
     return this.#run(store, "readwrite", (objects) => objects.delete(IDBKeyRange.bound(lower, upper)));

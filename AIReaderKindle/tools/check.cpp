@@ -8,6 +8,7 @@
 #include "../src/Domain/AI/ContextTool.hpp"
 #include "../src/Domain/AI/DictionaryTool.hpp"
 #include "../src/Domain/AI/ExplanationPrompt.hpp"
+#include "../src/Domain/AI/GlossaryPrompt.hpp"
 #include "../src/Domain/AI/MockAI.hpp"
 #include "../src/Domain/AI/RequestQuirks.hpp"
 #include "../src/Domain/AI/SearchTool.hpp"
@@ -28,6 +29,7 @@
 #include "../src/Domain/Formats/DictionaryFormat.hpp"
 #include "../src/Support/TextFile.hpp"
 #include "../src/Domain/Reading/Illustrations.hpp"
+#include "../src/Domain/Reading/BookWords.hpp"
 #include "../src/Domain/Reading/Paginator.hpp"
 #include "../src/Domain/Reading/WordContext.hpp"
 #include "../src/Domain/Books/ReadingPlace.hpp"
@@ -42,6 +44,7 @@
 #include "../src/Services/DictionaryPacks.hpp"
 #include "../src/Services/Env.hpp"
 #include "../src/Services/EpubLoader.hpp"
+#include "../src/Services/Glossary.hpp"
 #include "../src/Services/LibraryStore.hpp"
 #include "../src/Services/LibrarySync.hpp"
 #include "../src/Services/LookupCache.hpp"
@@ -1330,6 +1333,71 @@ static void checkEpub(const std::string& path) {
     }
 }
 
+/// The web check's glossary cases, with the same expectations but one: Pango
+/// breaks a word at an apostrophe, where the other apps' segmenters do not,
+/// so here a tap on "l'homme" finds "l" or "homme", and the glossary has those.
+static void checkGlossary() {
+    std::vector<std::string> forms;
+    for (const auto& word : BookWords::collect({"L’homme dit : c'est-à-dire 42 fois, l'homme !"}, "fr")) forms.push_back(word.form);
+    check("glossary forms follow the word boundaries", Text::join(forms, " ") == "l homme dit c est à dire fois", Text::join(forms, " "));
+    BookWord chat = BookWords::collect({"Le chat un.\nLe chat deux.", "Le chat trois.\nLe chat quatre."}, "fr")[1];
+    check("a form keeps its first three places", Text::join(chat.examples, " | ") == "Le chat un. | Le chat deux. | Le chat trois.",
+          Text::join(chat.examples, " | "));
+    auto repeated = [](const std::string& text, int times) { std::string out; for (int i = 0; i < times; ++i) out += text; return out; };
+    BookWord around = BookWords::collect({repeated("mot ", 10) + "chat" + repeated(" mot", 10) + "."}, "fr")[1];
+    check("an example is the words around it", around.examples.size() == 1
+          && around.examples[0] == "…" + repeated("mot ", 8) + "chat" + repeated(" mot", 8) + "…", around.examples.empty() ? "" : around.examples[0]);
+
+    std::vector<BookWord> words = {{"maisons", "maisons", {}}, {"paris", "Paris", {"à Paris en hiver"}}, {"est", "est", {}}};
+    check("glossary question", GlossaryPrompt::question({words[1]}) == "1. Paris\n   — à Paris en hiver");
+    check("glossary prompt names the language", Text::contains(GlossaryPrompt::system("Russian"), "на языке «Russian»:\n{\"words\": [{\"n\": "));
+    std::string answer = "```json\n{\"words\": [\n"
+        "{\"n\": 1, \"lemma\": \"maison\", \"form_note\": \"мн. ч.\", \"meaning\": \"дома\"},\n"
+        "{\"n\": \"2\", \"lemma\": \"Paris\", \"form_note\": \"\", \"meaning\": \"Париж,\\t\\\"столица\\\"\"},\n"
+        "{\"n\": 9, \"lemma\": \"x\", \"meaning\": \"вне списка\"},\n"
+        "{\"n\": 3, \"lemma\": \"être\", \"meaning\": \"\"}\n]}\n```";
+    auto definitions = GlossaryPrompt::definitions(answer, words);
+    check("glossary answer becomes definitions", definitions && definitions->size() == 2 && definitions->at("maisons") == "maison (мн. ч.): дома"
+          && definitions->at("paris") == "Париж, 'столица'", definitions && definitions->count("paris") ? definitions->at("paris") : "");
+    check("an unreadable glossary answer is no answer", !GlossaryPrompt::definitions("Sorry, I cannot help.", words));
+    ChatMessage mocked = MockAI::reply({ChatMessage::system(GlossaryPrompt::system("Russian")), ChatMessage::user(GlossaryPrompt::question(words))});
+    auto defined = GlossaryPrompt::definitions(mocked.content.value_or(""), words);
+    check("mock defines every word of a batch", defined && defined->size() == 3 && defined->at("paris") == "«Paris» в книге (макет)",
+          mocked.content.value_or(""));
+}
+
+/// The word list a run appends to, and the dictionary made of it.
+static void checkGlossaryList(const std::string& folder) {
+    g_setenv("AIREADER_HOME", folder.c_str(), TRUE);
+    Paths::prepare();
+    Database database(Files::join(folder, "library.sqlite3"));
+    Migrations::migrate(database);
+    DictionaryPacks packs(database);
+    Book book;
+    book.title = "Le Petit Livre";
+    AiSettings settings;
+    settings.endpoint = "mock://ai";
+    settings.model = "mock-medium";
+
+    std::vector<BookWord> words = BookWords::collect({"Le chat arrive.\nLa maison attend."}, "fr");
+    Glossary::append(book, settings, Glossary::define(settings, {words.begin(), words.begin() + 3}));
+    Glossary::install(packs, book);
+    check("a glossary keeps what a run defined", Glossary::definedForms(book) == std::set<std::string>{"le", "chat", "arrive"});
+    Glossary::append(book, settings, Glossary::define(settings, {words.begin() + 3, words.end()}));
+    Glossary::install(packs, book);
+    int named = 0;
+    std::vector<DictionaryPack> glossary;
+    for (const auto& pack : packs.all()) {
+        if (pack.name == "Le Petit Livre glossary") {
+            ++named;
+            glossary.push_back(pack);
+        }
+    }
+    DictionaryLookup found = DictionaryDatabase::shared().lookup("Attend", glossary);
+    check("installing again replaces the dictionary, read afresh", named == 1 && found.articles.size() == 1
+          && found.articles[0].senses[0] == "«attend» в книге (макет)", found.summary());
+}
+
 int main(int argc, char** argv) {
     g_thread_init(nullptr);
     ChatApi::initialize();
@@ -1340,6 +1408,7 @@ int main(int argc, char** argv) {
     checkLanguage();
     checkDictionaryLookup();
     checkMock();
+    checkGlossary();
     checkQuirks();
     checkChatPrompt();
     checkWebSearch();
@@ -1361,6 +1430,7 @@ int main(int argc, char** argv) {
     checkWordLists(Files::join(scratch, "home"));
     checkConverters(Files::join(scratch, "home"));
     checkAddFile(Files::join(scratch, "home"));
+    checkGlossaryList(Files::join(scratch, "glossary"));
     checkPdf(Files::join(scratch, "pdf-sample"));
     checkBundledDictionary();
     // A PDF is checked as the EPUB the library makes of it.

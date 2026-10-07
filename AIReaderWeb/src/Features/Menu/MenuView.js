@@ -5,6 +5,7 @@ import { ChatView } from "../Chat/ChatView.js";
 import { Screen } from "../Common/Screen.js";
 import { button, h } from "../Common/Ui.js";
 import { ContentsView } from "../Contents/ContentsView.js";
+import { GlossaryView } from "../Glossary/GlossaryView.js";
 import { SearchView } from "../Search/SearchView.js";
 import { WordsView } from "../Words/WordsView.js";
 import { XRayView } from "../XRay/XRayView.js";
@@ -27,6 +28,8 @@ export class MenuView extends Screen {
       button("X-ray", () => open(new XRayView(env, navigator, "", reader.link))),
       button("Ask about this page", () => open(new ChatView(env, navigator, page))),
       button("Display", () => open(new DisplayView(env, navigator, feature))),
+      feature.document ? button("Offline glossary", () => open(new GlossaryView(env, navigator, feature.book,
+        feature.document.chapters.map((chapter) => chapter.text), feature.language))) : null,
       button("Close book", () => navigator.pop(reader))));
   }
 }

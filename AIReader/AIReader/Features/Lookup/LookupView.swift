@@ -13,6 +13,7 @@ struct LookupView: View {
                     if let explanation = store.explanation {
                         content(explanation)
                     } else if let message = store.errorMessage {
+                        articles(store.entry)
                         Text(message).foregroundStyle(.secondary)
                     } else {
                         ProgressView().frame(maxWidth: .infinity)
@@ -83,6 +84,28 @@ struct LookupView: View {
                 Text("Уверенность: \(Int((explanation.confidence * 100).rounded()))%")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    /// What the dictionaries say when the model could not be asked.
+    private func articles(_ articles: [DictionaryLookup.Article]) -> some View {
+        ForEach(Array(articles.enumerated()), id: \.offset) { _, article in
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(article.lemma).font(.headline)
+                    if let partOfSpeech = article.partOfSpeech {
+                        Text(partOfSpeech).font(.caption)
+                    }
+                }
+                ForEach(Array(article.senses.enumerated()), id: \.offset) { index, sense in
+                    Text("\(index + 1).  \(sense)")
+                }
+                if let source = article.source {
+                    Text(source)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }

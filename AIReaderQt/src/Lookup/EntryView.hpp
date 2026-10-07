@@ -10,4 +10,7 @@
 class EntryView : public Screen {
 public:
     EntryView(Navigator& navigator, const std::string& lemma, const std::vector<DictionaryLookup::Article>& articles);
+
+    /// The articles alone, for a screen that shows them among other things.
+    static QWidget* articles(const std::vector<DictionaryLookup::Article>& articles);
 };

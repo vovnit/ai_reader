@@ -25,6 +25,21 @@ final class DictionaryPackWriter {
 
     private(set) var entryCount = 0
 
+    /// Opens a pack this writer made before, to add articles to it: what a
+    /// glossary does a batch at a time.
+    init(appendingTo url: URL) throws {
+        queue = try DatabaseQueue(path: url.path)
+        let (lemmas, entries) = try queue.read { db in
+            (
+                try DictionaryLemma.all.fetchAll(db),
+                try DictionaryEntryRow.select { ($0.lemmaID, $0.ordinal) }.fetchAll(db)
+            )
+        }
+        for lemma in lemmas { lemmaIDs[lemma.word] = lemma.id }
+        for (lemma, ordinal) in entries { ordinals[lemma] = max(ordinals[lemma] ?? 0, ordinal + 1) }
+        entryCount = entries.count
+    }
+
     init(creating url: URL) throws {
         try? FileManager.default.removeItem(at: url)
         queue = try DatabaseQueue(path: url.path)
@@ -87,7 +102,7 @@ final class DictionaryPackWriter {
         ]
         try queue.write { db in
             for (key, value) in metadata where !value.isEmpty {
-                try db.execute(sql: "INSERT INTO metadata (key, value) VALUES (?, ?)",
+                try db.execute(sql: "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
                                arguments: [key, value])
             }
         }

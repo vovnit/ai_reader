@@ -139,9 +139,22 @@ function lookup(word, messages) {
   }));
 }
 
+/** A glossary batch: every numbered word defined from nothing but its spelling. */
+function glossary(messages) {
+  const words = [...(firstUserMessage(messages)?.content ?? "").matchAll(/^(\d+)\. (.+)$/gm)].map(([, number, spelling]) => ({
+    n: Number(number),
+    lemma: spelling.toLowerCase(),
+    form_note: "",
+    meaning: `«${spelling}» в книге (макет)`,
+  }));
+  return assistant(JSON.stringify({ words }));
+}
+
 export function mockReply(messages) {
-  // Which prompt built this: the X-ray names a term, a conversation ends
-  // its first message with a question, a lookup names a word.
+  // Which prompt built this: a glossary's system prompt says so, the X-ray
+  // names a term, a conversation ends its first message with a question, a
+  // lookup names a word.
+  if (messages.some((message) => message.role === "system" && message.content?.startsWith("Ты составляешь словарик"))) return glossary(messages);
   const term = value("Термин: ", messages);
   if (term !== null) return xray(term, messages);
   const first = firstUserMessage(messages);

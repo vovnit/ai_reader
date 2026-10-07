@@ -29,6 +29,11 @@ Database* DictionaryDatabase::connection(const std::string& path) {
     return raw;
 }
 
+void DictionaryDatabase::close(const std::string& path) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    connections_.erase(path);
+}
+
 DictionaryLookup DictionaryDatabase::lookup(const std::string& word, const std::vector<DictionaryPack>& packs) {
     std::string normalized = WordNormalizer::normalize(word);
     DictionaryLookup result;

@@ -8,9 +8,9 @@ import {
 import { bearer, errorMessage, send } from "./Http.js";
 import { aiToken, chatUrl, modelsUrl, usesMock } from "./Settings.js";
 
-function requestBody(settings, messages, tools, jsonMode, quirks) {
+function requestBody(settings, messages, tools, jsonMode, maxTokens, quirks) {
   const body = { model: settings.model, messages: messages.map(toJson) };
-  body[quirks.has(completionTokens) ? "max_completion_tokens" : "max_tokens"] = 700;
+  body[quirks.has(completionTokens) ? "max_completion_tokens" : "max_tokens"] = maxTokens;
   if (!quirks.has(defaultTemperature)) body.temperature = 0.2;
   if (quirks.has(noReasoning)) body.reasoning_effort = "none";
   if (tools.length) {
@@ -25,7 +25,8 @@ function checkEndpoint(settings) {
   if (!settings.endpoint.includes("://")) throw new Error(`“${settings.endpoint}” is not a valid endpoint URL.`);
 }
 
-export async function chat(settings, messages, tools = [], jsonMode = false) {
+/** `maxTokens` bounds the answer: enough for a lookup unless said otherwise. */
+export async function chat(settings, messages, tools = [], jsonMode = false, maxTokens = 700) {
   if (usesMock(settings)) return mockReply(messages);
   checkEndpoint(settings);
   const signature = `${settings.endpoint}|${settings.model}`;
@@ -36,7 +37,9 @@ export async function chat(settings, messages, tools = [], jsonMode = false) {
     const { status, text } = await send(chatUrl(settings), {
       method: "POST",
       headers: { "Content-Type": "application/json", ...bearer(aiToken(settings)) },
-      body: requestBody(settings, messages, tools, jsonMode, quirks),
+      body: requestBody(settings, messages, tools, jsonMode, maxTokens, quirks),
+      // A longer answer takes longer to write.
+      seconds: Math.max(45, maxTokens / 20),
     });
     if (status === 400) {
       const quirk = quirkNamed(text);

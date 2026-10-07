@@ -6,7 +6,8 @@ offline dictionary, and a model turns those entries into a short
 explanation of what the word means *in that sentence*.
 
 It is a progressive web app. Opened once, it works offline — the library,
-the reader, the dictionaries; only the model and sync need the network — and
+the reader, the dictionaries; only the model and sync need the network, and
+without the model a clicked word shows what the dictionaries say — and
 it can be installed from the browser's menu as an app of its own, which then
 opens `.epub` files from the system's file manager (Chrome and Edge).
 
@@ -22,7 +23,8 @@ apps do, and syncs with them and the iOS app through the same WebDAV folder.
 - **Reader** — click a word to look it up, blank space to turn the page; the
   arrow keys, Page Up/Down, Space, the wheel and a swipe turn pages too,
   Ctrl+F (⌘F) searches. *Menu* holds contents, the book's lookups, search,
-  X-ray, a conversation about the page, display, close. Escape — or the
+  X-ray, a conversation about the page, display, the book's offline glossary
+  (see the [main README](../README.md#dictionaries)), close. Escape — or the
   browser's Back, or a phone's back gesture — closes the top screen.
 - **Lookup** — the meaning in this sentence, the dictionary form, the word
   and the sentence spoken by the system's voices, and the way on to the
@@ -97,17 +99,18 @@ telling: Ollama with `OLLAMA_ORIGINS`, LM Studio with its CORS switch.
 
 Most WebDAV servers do not answer pages — Nextcloud and hosted services
 among them — and neither does Monid, which brokers the web search. Hosted on
-Cloudflare, the app sends the requests for every host named in `RELAY_HOSTS`
-through its own site instead: `relay.js` makes them there and hands back the
-answers, so the page only ever talks to itself. It carries the password and
+Cloudflare, the app sends the requests for every host named in `RELAY_HOSTS`,
+and for Monid without its being named, through its own site instead:
+`relay.js` makes them there and hands back the answers, so the page only ever
+talks to itself. It carries the password and
 the WebDAV headers over and nothing else, and reaches no host that is not
 listed. The server must be reachable from the internet, not only from home.
 Served elsewhere, a server must allow the page's origin itself:
 `rclone serve webdav --allow-origin https://your.host`, or the CORS settings
 of Apache or nginx in front of it (allow `Authorization`, `Depth` and
-`Content-Type`, and the methods `PROPFIND`, `MKCOL`, `PUT`, `GET`). Without
-either, `search_web` fails in the browser — the model is told and answers
-without it.
+`Content-Type`, and the methods `PROPFIND`, `MKCOL`, `PUT`, `GET`). Monid
+cannot be told to allow a page, so served anywhere but Cloudflare,
+`search_web` fails in the browser — the model is told and answers without it.
 
 For Nextcloud the WebDAV folder is
 `https://cloud.example.com/remote.php/dav/files/<user name>/<folder>`, and an

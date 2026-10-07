@@ -11,8 +11,12 @@ enum MockAI {
     static let models = ["mock-medium", "mock-small"]
 
     static func reply(to messages: [ChatMessage]) -> ChatMessage {
-        // Which prompt built this: the X-ray names a term, a conversation
-        // ends its first message with a question, a lookup names a word.
+        // Which prompt built this: a glossary's system prompt says so, the
+        // X-ray names a term, a conversation ends its first message with a
+        // question, a lookup names a word.
+        if messages.contains(where: { $0.role == "system" && $0.content?.hasPrefix("Ты составляешь словарик") == true }) {
+            return glossary(messages)
+        }
         if let term = value(after: "Термин: ", in: messages) { return xray(term, messages) }
         if firstUserMessage(in: messages)?.contains("\nВопрос: ") == true { return chat(messages) }
         if let word = value(after: "Слово: ", in: messages) { return lookup(word, messages) }
@@ -20,6 +24,23 @@ enum MockAI {
     }
 
     // MARK: - Answers
+
+    /// A glossary batch: every numbered word defined from nothing but its spelling.
+    private static func glossary(_ messages: [ChatMessage]) -> ChatMessage {
+        let words: [[String: Any]] = (firstUserMessage(in: messages) ?? "")
+            .split(separator: "\n")
+            .compactMap { line in
+                let digits = line.prefix { $0.isASCII && $0.isNumber }
+                guard let number = Int(digits), line.dropFirst(digits.count).hasPrefix(". ") else { return nil }
+                let spelling = String(line.dropFirst(digits.count + 2))
+                guard !spelling.isEmpty else { return nil }
+                return ["n": number, "lemma": spelling.lowercased(), "form_note": "", "meaning": "«\(spelling)» в книге (макет)"]
+            }
+        let json = (try? JSONSerialization.data(withJSONObject: ["words": words])).flatMap {
+            String(data: $0, encoding: .utf8)
+        }
+        return ChatMessage(role: "assistant", content: json)
+    }
 
     /// A word lookup: answer from the dictionary material in the conversation.
     private static func lookup(_ word: String, _ messages: [ChatMessage]) -> ChatMessage {

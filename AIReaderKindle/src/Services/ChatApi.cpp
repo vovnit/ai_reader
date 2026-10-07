@@ -19,6 +19,7 @@ Json requestBody(
     const std::vector<ChatMessage>& messages,
     const Json& tools,
     bool jsonMode,
+    int maxTokens,
     const std::set<RequestQuirk>& quirks)
 {
     Json body = Json::object();
@@ -26,7 +27,7 @@ Json requestBody(
     Json list = Json::array();
     for (const auto& message : messages) list.push(message.toJson());
     body.set("messages", list);
-    body.set(quirks.count(RequestQuirk::CompletionTokens) ? "max_completion_tokens" : "max_tokens", 700);
+    body.set(quirks.count(RequestQuirk::CompletionTokens) ? "max_completion_tokens" : "max_tokens", maxTokens);
     if (!quirks.count(RequestQuirk::DefaultTemperature)) body.set("temperature", 0.2);
     if (quirks.count(RequestQuirk::NoReasoning)) body.set("reasoning_effort", "none");
     if (tools.size() > 0) {
@@ -47,7 +48,7 @@ void initialize() {
     Http::initialize();
 }
 
-ChatMessage chat(const AiSettings& settings, const std::vector<ChatMessage>& messages, const Json& tools, bool jsonMode) {
+ChatMessage chat(const AiSettings& settings, const std::vector<ChatMessage>& messages, const Json& tools, bool jsonMode, int maxTokens) {
     if (settings.usesMock()) return MockAI::reply(messages);
     std::string url = settings.chatUrl();
     if (url.find("://") == std::string::npos) throw Error("“" + settings.endpoint + "” is not a valid endpoint URL.");
@@ -58,8 +59,9 @@ ChatMessage chat(const AiSettings& settings, const std::vector<ChatMessage>& mes
     // A service that rejects a parameter says which one, so drop or rename it
     // and try again rather than failing the lookup.
     for (int attempt = 0; attempt <= requestQuirkCount; ++attempt) {
-        std::string body = requestBody(settings, messages, tools, jsonMode, quirks).dump();
-        Response response = send(url, settings.token(), &body, 45);
+        std::string body = requestBody(settings, messages, tools, jsonMode, maxTokens, quirks).dump();
+        // A longer answer takes longer to write.
+        Response response = send(url, settings.token(), &body, std::max(45, maxTokens / 20));
 
         if (response.status == 400) {
             auto quirk = requestQuirkNamed(response.body);

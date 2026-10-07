@@ -12,7 +12,8 @@
 
 /// One word lookup: read the cache, otherwise ask the explainer and store the
 /// answer. The dictionary's own entry for the lemma comes with it, so the
-/// reader can see what the answer was drawn from.
+/// reader can see what the answer was drawn from. When the model cannot be
+/// asked, the dictionaries answer alone.
 class LookupFeature {
 public:
     /// `scope` is what the model may search while explaining; none from a
@@ -25,7 +26,8 @@ public:
     const ReadingScope& scope() const { return scope_; }
     const std::optional<WordExplanation>& explanation() const { return explanation_; }
     /// The articles under the lemma; empty when the dictionary has no such
-    /// headword, as after a guess.
+    /// headword, as after a guess. Without an explanation, what the
+    /// dictionaries have for the word itself.
     const std::vector<DictionaryLookup::Article>& entry() const { return entry_; }
     const std::string& error() const { return error_; }
 

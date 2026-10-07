@@ -31,6 +31,7 @@ void LookupView::render() {
 
     const auto& explanation = feature_.explanation();
     if (!explanation) {
+        if (!feature_.entry().empty()) column_->addWidget(EntryView::articles(feature_.entry()));
         column_->addWidget(Ui::label(feature_.error().empty() ? "Looking up…" : feature_.error()));
         if (feature_.error().empty()) sentence();
         return;

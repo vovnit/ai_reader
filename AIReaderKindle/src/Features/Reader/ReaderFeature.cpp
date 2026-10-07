@@ -101,6 +101,14 @@ int ReaderFeature::chapterCount() const {
     return document_ ? static_cast<int>(document_->chapters.size()) : 0;
 }
 
+std::vector<std::string> ReaderFeature::chapterTexts() const {
+    std::vector<std::string> texts;
+    if (document_) {
+        for (const auto& chapter : document_->chapters) texts.push_back(chapter.text);
+    }
+    return texts;
+}
+
 std::string ReaderFeature::pageText() const {
     const Page* current = page();
     if (!current || !document_) return "";
