@@ -51,8 +51,8 @@ not encrypt. A WebDAV account used only for AIReader is the sensible choice.
 Books are saved as `Books/<author> - <title>.epub` in the folder, with
 ` (2)` and so on added rather than replacing a book already there. The apps
 treat that folder as the shared library: a book added to either app goes
-there too, and removing a book in an app removes it from that device only.
-To delete a book for good, delete its file from the server.
+there too, each app lists the books there for downloading, and removing a
+book in an app removes it from that device, or from the folder too.
 
 A downloaded book has the same name, in the browser's downloads folder, with
 a number added by the browser if the name is taken.

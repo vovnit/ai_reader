@@ -22,7 +22,9 @@ export const schema = {
       // were deleted, by name, so a sync deletes them elsewhere too.
       db.createObjectStore("cardPractice", { keyPath: "lookupId" });
       db.createObjectStore("lookupTombstones", { keyPath: ["word", "sentence"] });
-      // Every file in the sync folder's `Books` this device has met.
+      // The files in the sync folder's `Books`, as the last sync listed
+      // them. (While sync fetched every book: every file this device had
+      // met; the next sync replaces those with the listing.)
       db.createObjectStore("remoteBooks", { keyPath: "name" });
 
       // The dictionaries: SQLite packs kept as files, and the articles of
@@ -40,6 +42,13 @@ export const schema = {
         isEnabled: true,
         addedAt: now(),
       });
+    },
+    (db) => {
+      // What this device last knew of each file in the sync folder's
+      // `aireader-sync`: `{ folder, name, version, digest }`, the server's
+      // version of it and a fingerprint of the records here that belong in
+      // it, so a sync reads and writes only the files that changed.
+      db.createObjectStore("syncFiles", { keyPath: ["folder", "name"] });
     },
   ],
 };

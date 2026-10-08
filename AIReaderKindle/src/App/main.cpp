@@ -6,6 +6,7 @@
 #include "../Services/Env.hpp"
 #include "../Services/Migrations.hpp"
 #include "../Services/Paths.hpp"
+#include "../Services/RequestQuirkStore.hpp"
 #include "../Support/Files.hpp"
 #include "../Features/Common/Navigator.hpp"
 #include "SmokeScript.hpp"
@@ -34,6 +35,7 @@ int main(int argc, char** argv) {
     gtk_init(&argc, &argv);
     ChatApi::initialize();
     Paths::prepare();
+    RequestQuirkStore::shared().keepIn(Paths::requestQuirks());
 
     Database database(Paths::database());
     if (!Migrations::migrate(database)) {

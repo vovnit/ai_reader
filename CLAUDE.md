@@ -74,12 +74,18 @@ these, open every copy:
   must also teach that check what to drop. The web app keeps the same records
   in IndexedDB (`AIReaderWeb/src/Services/Schema.js`), additive the same way.
 - **The sync document.** Reading, writing and merging exist only in
-  `Core/Sources/AIReaderCore/Domain/Sync/SyncDocument.cpp`, compiled by both
-  apps. `Domain/Sync/SyncDocument.swift` is its Swift face and
-  `SyncDocument+Core.swift` the only place that converts; keep C++ types out
-  of other Swift files. The web app cannot compile C++, so
-  `AIReaderWeb/src/Domain/Sync/SyncDocument.js` is a port: change it with the
-  C++, and `AIReaderWeb/build.sh check` repeats the C++ check's cases.
+  `Core/Sources/AIReaderCore/Domain/Sync/SyncDocument.cpp`, and the files it
+  is spread over on the server — which file a record belongs in, which files
+  a sync reads — only in `SyncParts.cpp` beside it, both compiled by both
+  apps. `Domain/Sync/SyncDocument.swift` and `SyncParts.swift` are their
+  Swift face and `SyncDocument+Core.swift` the only place that converts; keep
+  C++ types out of other Swift files. The web app cannot compile C++, so
+  `AIReaderWeb/src/Domain/Sync/SyncDocument.js` and `SyncParts.js` are ports:
+  change them with the C++, and `AIReaderWeb/build.sh check` repeats the C++
+  check's cases. A key that lands in a different file on one device hides
+  its changes from the others. The round that drives them — list, read,
+  merge, send, remember — is `Services/Sync.cpp` (Kindle, Qt),
+  `Services/Sync/RecordSync.swift` and `AIReaderWeb/src/Services/Sync.js`.
 - **The book key** (title and author, normalized), which matches a book across
   devices: `Domain/Books/BookKey.swift`,
   `AIReaderKindle/src/Domain/Books/BookKey.cpp` and

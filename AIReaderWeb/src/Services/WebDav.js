@@ -1,5 +1,5 @@
-// What sync needs of a WebDAV server: fetch one file, store one file, and
-// list a folder. Any server that speaks GET, PUT and PROPFIND with a
+// What sync needs of a WebDAV server: fetch, store and delete one file, and
+// list a folder. Any server that speaks GET, PUT, DELETE and PROPFIND with a
 // password will do — and, for a page, answers requests from it (CORS).
 // Agrees with `WebDAV.swift`, `WebDav.cpp` and the extension's
 // `lib/webdav.js` on making folders and escaping names.
@@ -47,7 +47,11 @@ export async function download(url, settings) {
   return new Uint8Array(await response.arrayBuffer());
 }
 
-/** Stores the file, making its folder first if the server says there is none. */
+/**
+ * Stores the file, making its folder first if the server says there is none.
+ * Returns the version the server gives it, or "" when it gives none — or
+ * when it does not let a page see it (CORS).
+ */
 export async function upload(url, contents, settings, type = "application/json") {
   const options = { body: contents, headers: { "Content-Type": type } };
   let response = await request("PUT", url, settings, options);
@@ -56,14 +60,25 @@ export async function upload(url, contents, settings, type = "application/json")
     response = await request("PUT", url, settings, options);
   }
   check(response.status);
+  return response.headers.get("ETag") ?? "";
 }
 
-/** The names of the files in a folder, folders left out; none when there is no such folder yet. */
-export async function list(folderUrl, settings) {
-  const response = await request("PROPFIND", folderUrl, settings, { headers: { Depth: "1" } });
+/** Deletes the file; one already gone counts as deleted. */
+export async function remove(url, settings) {
+  const response = await request("DELETE", url, settings);
+  if (response.status !== 404) check(response.status);
+}
+
+/**
+ * The files in a folder, `[{ name, version }]` with the version the server
+ * gives each (its ETag, "" when it gives none), folders left out; none when
+ * there is no such folder yet. Given a file, the file alone.
+ */
+export async function list(url, settings) {
+  const response = await request("PROPFIND", url, settings, { headers: { Depth: "1" } });
   if (response.status === 404) return [];
   check(response.status);
-  return fileNames(await response.text());
+  return entries(await response.text());
 }
 
 function decode(text) {
@@ -74,17 +89,19 @@ function decode(text) {
   }
 }
 
-/** The file names a PROPFIND answer lists, decoded; folders are left out. */
-export function fileNames(multistatus) {
-  const names = [];
+/** The files a PROPFIND answer lists, `[{ name, version }]`, decoded; folders are left out. */
+export function entries(multistatus) {
+  const files = [];
   let href = "";
+  let etag = "";
   let isFolder = false;
   let element = "";
   const close = () => {
     const trimmed = href.replace(/\/+$/, "");
     const name = decode(trimmed.slice(trimmed.lastIndexOf("/") + 1));
-    if (!isFolder && name) names.push(name);
+    if (!isFolder && name) files.push({ name, version: etag.trim() });
     href = "";
+    etag = "";
     isFolder = false;
   };
   scan(multistatus, {
@@ -98,10 +115,11 @@ export function fileNames(multistatus) {
     },
     onText(text) {
       if (element === "href") href += text;
+      if (element === "getetag") etag += text;
     },
   });
   if (href) close();
-  return names;
+  return files;
 }
 
 /** A name made safe to put in a URL's path: everything but letters, digits and `-._~` percent-encoded. */

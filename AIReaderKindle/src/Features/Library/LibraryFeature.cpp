@@ -1,13 +1,33 @@
 #include "LibraryFeature.hpp"
 
 #include "../../Services/EpubLoader.hpp"
+#include "../../Services/LibrarySync.hpp"
 #include "../../Services/Paths.hpp"
 #include "../../Services/PdfImporter.hpp"
 #include "../../Support/Files.hpp"
 #include "../../Support/Text.hpp"
+#include "../../Support/Async.hpp"
 #include "../Common/SyncRunner.hpp"
 
 #include <cstdio>
+
+namespace {
+
+/// Runs a step of the exchange on a worker. What came of it is written down
+/// even if the screen has closed by then; `done` runs only while it is open.
+void exchangeFiles(Env& env, std::function<LibrarySync::Outcome()> work, const std::shared_ptr<bool>& alive,
+                   std::function<void(const LibrarySync::Outcome&)> done) {
+    static auto forever = std::make_shared<bool>(true);
+    Env* environment = &env;
+    Async::run<LibrarySync::Outcome>(std::move(work),
+        [environment, screen = std::weak_ptr<bool>(alive), done](LibrarySync::Outcome outcome) {
+            LibrarySync::record(*environment, outcome);
+            if (screen.lock()) done(outcome);
+        },
+        forever);
+}
+
+}  // namespace
 
 LibraryFeature::LibraryFeature(Env& env) : env_(env) {}
 
@@ -19,9 +39,21 @@ std::vector<Book> LibraryFeature::booksIn(long long groupId) const {
     return books;
 }
 
+bool LibraryFeature::isInCloud(const Book& book) const {
+    return !book.remoteName.empty() && remote_.count(book.remoteName);
+}
+
 void LibraryFeature::reload() {
     books_ = env_.library.all();
     groups_ = env_.groups.all();
+    remote_.clear();
+    cloud_.clear();
+    if (env_.settings.sync().isConfigured()) remote_ = env_.library.remoteNames();
+    std::set<std::string> here;
+    for (const auto& book : books_) here.insert(book.remoteName);
+    for (const auto& name : remote_) {
+        if (!here.count(name)) cloud_.push_back(name);
+    }
     if (onChange) onChange();
 }
 
@@ -34,6 +66,42 @@ void LibraryFeature::remove(const Book& book) {
     env_.library.remove(book.id);
     Files::remove(book.path);
     reload();
+}
+
+void LibraryFeature::removeEverywhere(const Book& book) {
+    SyncSettings settings = env_.settings.sync();
+    std::string name = book.remoteName;
+    exchangeFiles(env_, [settings, name] { return LibrarySync::remove(settings, name); }, alive_,
+        [this, book](const LibrarySync::Outcome& outcome) {
+            // The file first: if it cannot go, the book stays as it was.
+            if (outcome.error.empty()) remove(book);
+            else if (onFailure) onFailure("Couldn’t delete “" + book.title + "”", outcome.error);
+        });
+}
+
+void LibraryFeature::removeRemote(const std::string& name) {
+    SyncSettings settings = env_.settings.sync();
+    exchangeFiles(env_, [settings, name] { return LibrarySync::remove(settings, name); }, alive_,
+        [this, name](const LibrarySync::Outcome& outcome) {
+            if (!outcome.error.empty() && onFailure) onFailure("Couldn’t delete “" + Files::stem(name) + "”", outcome.error);
+            reload();
+        });
+}
+
+void LibraryFeature::download(const std::string& name) {
+    SyncSettings settings = env_.settings.sync();
+    if (!downloading_.insert(name).second) return;
+    reload();
+    std::vector<Book> books = env_.library.all();
+    exchangeFiles(env_, [settings, books, name] { return LibrarySync::fetch(settings, books, name); }, alive_,
+        [this, name](const LibrarySync::Outcome& outcome) {
+            downloading_.erase(name);
+            if (!outcome.error.empty() && onFailure) onFailure("Couldn’t download “" + Files::stem(name) + "”", outcome.error);
+            reload();
+            // Where another device is in it, and its group, come with the
+            // document.
+            if (outcome.error.empty()) sync();
+        });
 }
 
 std::string LibraryFeature::add(const std::string& path) {

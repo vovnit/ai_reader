@@ -6,7 +6,9 @@ import { chatMessages, chatTools, pageContext, wordContext } from "../../src/Dom
 import { explanationQuestion, explanationSystem, explanationTools } from "../../src/Domain/AI/ExplanationPrompt.js";
 import { markdownLines } from "../../src/Domain/AI/ChatMarkdown.js";
 import { mockReply } from "../../src/Domain/AI/MockAI.js";
-import { completionTokens, defaultTemperature, learnQuirk, noReasoning, quirkNamed, quirksFor } from "../../src/Domain/AI/RequestQuirks.js";
+import { completionTokens, defaultTemperature, noReasoning, quirkNamed } from "../../src/Domain/AI/RequestQuirks.js";
+import { forgetQuirks, keepQuirksIn, learnQuirk, quirksFor } from "../../src/Services/RequestQuirkStore.js";
+import { MemoryStorage } from "../MemoryDatabase.js";
 import { passagesSummary, webHits, webSummary } from "../../src/Domain/AI/SearchSummary.js";
 import { argument, contextToolName, dictionaryToolName, searchToolName, webSearchToolName } from "../../src/Domain/AI/Tools.js";
 import { decodeExplanation } from "../../src/Domain/AI/WordExplanation.js";
@@ -77,6 +79,18 @@ export async function checkAi() {
   check("quirk: unrelated", !quirkNamed('{"error":{"message":"nope"}}') && !quirkNamed("not json"));
   learnQuirk(noReasoning, "m");
   check("quirk store remembers", quirksFor("m").has(noReasoning));
+  // What a load learned is there for the next one, once storage is given.
+  const storage = new MemoryStorage();
+  keepQuirksIn(storage);
+  learnQuirk(completionTokens, "https://api.example/v1|luna");
+  learnQuirk(noReasoning, "https://api.example/v1|luna");
+  learnQuirk(defaultTemperature, "https://api.example/v1|other");
+  keepQuirksIn(storage);
+  check("learned quirks outlast the page", quirksFor("https://api.example/v1|luna").size === 2
+    && quirksFor("https://api.example/v1|other").has(defaultTemperature) && !quirksFor("m").size, storage.getItem("requestQuirks"));
+  forgetQuirks("https://api.example/v1|luna");
+  keepQuirksIn(storage);
+  check("a model's quirks can be forgotten", !quirksFor("https://api.example/v1|luna").size && quirksFor("https://api.example/v1|other").size === 1);
 
   const chat = chatMessages(pageContext("Page text."), [{ isReader: true, text: "Q1" }, { isReader: false, text: "A1" }, { isReader: true, text: "Q2" }], "Russian");
   check("chat sends the page once", chat.length === 4 && chat[1].content.includes("Page text.") && chat[3].content === "Q2");

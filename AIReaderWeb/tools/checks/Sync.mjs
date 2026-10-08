@@ -3,8 +3,11 @@
 import {
   bookRecord, encodeDocument, lookupRecord, mergeDocuments, parseDocument, sameDocument,
 } from "../../src/Domain/Sync/SyncDocument.js";
+import {
+  digest, dueParts, fingerprints, isPart, joinParts, mergeParts, oldSyncFile, partName, rememberParts, splitDocument,
+} from "../../src/Domain/Sync/SyncParts.js";
 import { applyDocument, exportAll } from "../../src/Services/SyncStore.js";
-import { fileNames, escapeName } from "../../src/Services/WebDav.js";
+import { entries, escapeName } from "../../src/Services/WebDav.js";
 import { check } from "./Check.mjs";
 import { freshEnv } from "./Env.mjs";
 
@@ -82,7 +85,57 @@ export async function checkSync() {
     + "<D:response><D:href>/dav/Books/Saint-Exup%C3%A9ry%20-%20Vol%20de%20nuit.epub</D:href><D:propstat><D:prop><D:resourcetype/></D:prop></D:propstat></D:response>"
     + "<D:response><D:href>https://example.org/dav/Books/Old/</D:href><D:propstat><D:prop><D:resourcetype><D:collection/></D:resourcetype></D:prop></D:propstat></D:response>"
     + "</D:multistatus>";
-  const names = fileNames(listing);
-  check("listing gives files, decoded, without folders", names.length === 1 && names[0] === "Saint-Exupéry - Vol de nuit.epub", names.join());
+  const files = entries(listing);
+  check("listing gives files, decoded, without folders", files.length === 1 && files[0].name === "Saint-Exupéry - Vol de nuit.epub", files.map((file) => file.name).join());
+  const versioned = entries('<d:multistatus xmlns:d="DAV:"><d:response><d:href>/dav/aireader-sync/0a.json</d:href><d:propstat><d:prop>'
+    + "<d:getetag>&quot;5f1c&quot;</d:getetag><d:resourcetype/></d:prop></d:propstat></d:response></d:multistatus>");
+  check("listing gives each file's version", versioned.length === 1 && versioned[0].name === "0a.json" && versioned[0].version === '"5f1c"', versioned[0]?.version);
   check("names escape for a url", escapeName("Vol de nuit é.epub") === "Vol%20de%20nuit%20%C3%A9.epub");
+}
+
+/** The C++ check's cases for the files the records are kept in. */
+export function checkSyncParts() {
+  check("a key's file is the same on every device", partName("le grand meaulnes|alain-fournier") === "f4.json"
+    && partName("maisons\u0001Les maisons.") === "95.json" && partName("été|") === "bb.json", partName("été|"));
+  check("only the record files count", isPart("0a.json") && !isPart("0A.json") && !isPart(oldSyncFile) && !isPart("._0a.json"));
+
+  const local = {
+    books: [book("a|", "2026-09-16T10:00:00Z"), book("b|", "2026-09-16T10:00:00Z")],
+    lookups: [lookup("un", "2026-09-16T10:00:00Z"), lookup("deux", "2026-09-16T10:00:00Z")],
+  };
+  const parts = splitDocument(local);
+  check("records are split by file and joined again", parts.length > 1 && sameDocument(joinParts(parts), local));
+  const changed = { ...local, lookups: [{ ...local.lookups[0], correct: 9 }, local.lookups[1]] };
+  const reordered = { ...local, lookups: [...local.lookups].reverse() };
+  check("a fingerprint follows the records, not their order", digest(local).length === 16 && digest(reordered) === digest(local)
+    && digest(changed) !== digest(local) && digest({ books: [], lookups: [] }) === "");
+
+  const known = fingerprints(local).map((file) => ({ ...file, version: '"1"' }));
+  const listed = known.map((file) => ({ name: file.name, version: file.version, digest: "" }));
+  known.push({ name: oldSyncFile, version: '"o"', digest: "" });
+  listed.push({ name: "._0a.json", version: '"x"', digest: "" });
+  const none = { books: [], lookups: [] };
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  check("nothing is due when nothing changed", dueParts(listed, known, local, none).length === 0);
+  const un = partName("un\u0001s");
+  check("a file whose records changed here is due", same(dueParts(listed, known, changed, none), [un]));
+  const moved = listed.map((file, index) => (index ? file : { ...file, version: '"2"' }));
+  check("a file changed on the server is due", same(dueParts(moved, known, local, none), [moved[0].name]));
+  check("a file gone from the server is due", same(dueParts(listed.slice(1), known, local, none), [listed[0].name]));
+  check("a file the server gives no version is always due", same(dueParts([{ ...listed[0], version: "" }, ...listed.slice(1)], known, local, none), [listed[0].name]));
+  check("every file is due to a device that knows none", dueParts(listed, [], local, none).length === known.length - 1);
+  const old = { books: [], lookups: [lookup("trois", "2026-09-16T09:00:00Z")] };
+  const fresh = partName("trois\u0001s");
+  check("the old file's records make their files due", same(dueParts(listed, known, local, old), [fresh]));
+
+  const theirs = { books: [], lookups: [lookup("un", "2026-09-16T09:00:00Z", "b|")] };
+  const merged = mergeParts([{ name: un, records: theirs }, { name: fresh, records: none }], changed, old);
+  const word = merged[0]?.records.lookups.find((record) => record.word === "un");
+  check("a due file is merged with the records here that belong in it", merged.length === 2 && merged[0].name === un && word?.correct === 9 && word?.book === "b|");
+  check("and with the old file's", merged[1].name === fresh && merged[1].records.lookups.length >= 1 && splitDocument(merged[1].records).length === 1);
+
+  const remembered = new Map(rememberParts(known, [{ name: un, version: '"3"', digest: "d" }, { name: fresh, version: "", digest: "" }, { name: "ff.json", version: "", digest: "e" }])
+    .map((file) => [file.name, file]));
+  check("remembering takes the settled files and keeps the rest", remembered.get(un).version === '"3"' && remembered.has(oldSyncFile)
+    && remembered.has("ff.json") && !remembered.has(fresh) && remembered.size === known.length + 1);
 }

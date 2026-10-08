@@ -1,6 +1,7 @@
 // Parameters some OpenAI-compatible services reject while others require
 // them. A service names the offending parameter in its error, so a request
-// is adjusted and sent again rather than special-casing a provider.
+// is adjusted and sent again rather than special-casing a provider; what a
+// model needed is remembered by `Services/RequestQuirkStore.js`.
 
 /** Newer OpenAI reasoning models take `max_completion_tokens` in place of `max_tokens`. */
 export const completionTokens = "completionTokens";
@@ -26,16 +27,4 @@ export function quirkNamed(errorBody) {
   if (parameter === "temperature") return defaultTemperature;
   if (parameter === "reasoning_effort") return noReasoning;
   return null;
-}
-
-/** What each endpoint and model needed this session, so discovering it is paid once. */
-const known = new Map();
-
-export function quirksFor(signature) {
-  return new Set(known.get(signature));
-}
-
-export function learnQuirk(quirk, signature) {
-  if (!known.has(signature)) known.set(signature, new Set());
-  known.get(signature).add(quirk);
 }

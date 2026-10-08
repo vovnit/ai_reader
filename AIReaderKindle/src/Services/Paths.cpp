@@ -25,6 +25,7 @@ std::string books() { return Files::join(home(), "books"); }
 std::string dictionaries() { return Files::join(home(), "dictionaries"); }
 std::string database() { return Files::join(home(), "library.sqlite3"); }
 std::string settings() { return Files::join(home(), "settings.ini"); }
+std::string requestQuirks() { return Files::join(home(), "request-quirks.txt"); }
 std::string ankiCards() { return Files::join(home(), "anki-cards.txt"); }
 
 std::vector<std::string> bookFolders() {

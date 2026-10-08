@@ -18,17 +18,18 @@ std::optional<RequestQuirk> requestQuirkNamed(const std::string& errorBody) {
     return std::nullopt;
 }
 
-RequestQuirkStore& RequestQuirkStore::shared() {
-    static RequestQuirkStore store;
-    return store;
+const char* requestQuirkName(RequestQuirk quirk) {
+    switch (quirk) {
+        case RequestQuirk::CompletionTokens: return "completionTokens";
+        case RequestQuirk::DefaultTemperature: return "defaultTemperature";
+        case RequestQuirk::NoReasoning: return "noReasoning";
+    }
+    return "";
 }
 
-std::set<RequestQuirk> RequestQuirkStore::quirks(const std::string& model) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return known_[model];
-}
-
-void RequestQuirkStore::learn(RequestQuirk quirk, const std::string& model) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    known_[model].insert(quirk);
+std::optional<RequestQuirk> requestQuirkCalled(const std::string& name) {
+    for (auto quirk : {RequestQuirk::CompletionTokens, RequestQuirk::DefaultTemperature, RequestQuirk::NoReasoning}) {
+        if (name == requestQuirkName(quirk)) return quirk;
+    }
+    return std::nullopt;
 }

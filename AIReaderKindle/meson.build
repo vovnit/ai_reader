@@ -39,6 +39,7 @@ endif
 # Its files are included by their path from there: "Support/Json.hpp".
 shared = files(
   '../Core/Sources/AIReaderCore/Domain/Sync/SyncDocument.cpp',
+  '../Core/Sources/AIReaderCore/Domain/Sync/SyncParts.cpp',
   '../Core/Sources/AIReaderCore/Support/Json.cpp',
   '../Core/Sources/AIReaderCore/Support/JsonParser.cpp',
 )
@@ -122,6 +123,7 @@ services = files(
   'src/Services/Migrations.cpp',
   'src/Services/Paths.cpp',
   'src/Services/PdfImporter.cpp',
+  'src/Services/RequestQuirkStore.cpp',
   'src/Services/Settings.cpp',
   'src/Services/Sync.cpp',
   'src/Services/SyncStore.cpp',

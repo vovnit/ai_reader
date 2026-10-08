@@ -1,8 +1,8 @@
 #include "ChatApi.hpp"
 
 #include "../Domain/AI/MockAI.hpp"
-#include "../Domain/AI/RequestQuirks.hpp"
 #include "Http.hpp"
+#include "RequestQuirkStore.hpp"
 
 #include <algorithm>
 #include <set>
@@ -69,6 +69,9 @@ ChatMessage chat(const AiSettings& settings, const std::vector<ChatMessage>& mes
                 RequestQuirkStore::shared().learn(*quirk, signature);
                 continue;
             }
+            // Refused over something already adjusted: what was remembered no
+            // longer fits, so the next request finds out afresh.
+            if (quirk) RequestQuirkStore::shared().forget(signature);
         }
         if (response.status < 200 || response.status >= 300) {
             throw Error("The request failed (" + std::to_string(response.status) + "): " + response.body);

@@ -43,7 +43,7 @@ private:
     std::string url(const std::string& path) const;
 };
 
-/// Where the sync file lives: a WebDAV folder and the account that may
+/// Where sync keeps its files: a WebDAV folder and the account that may
 /// write to it. Nothing is synced until a URL is given.
 struct SyncSettings {
     std::string url;
@@ -51,8 +51,11 @@ struct SyncSettings {
     std::string password;
 
     bool isConfigured() const;
-    /// The sync file inside the folder.
-    std::string fileUrl() const;
+    /// The folder of record files inside it (`SyncParts`), with a trailing
+    /// slash.
+    std::string partsUrl() const;
+    /// The one file older versions kept the records in.
+    std::string oldFileUrl() const;
     /// The books' folder inside it, with a trailing slash.
     std::string booksUrl() const;
 
@@ -60,6 +63,9 @@ struct SyncSettings {
         return url == other.url && username == other.username && password == other.password;
     }
     bool operator!=(const SyncSettings& other) const { return !(*this == other); }
+
+private:
+    std::string folderUrl() const;
 };
 
 /// Web search for the model, through Monid (monid.ai): one key reaches the

@@ -197,6 +197,24 @@ func appDatabase() throws -> any DatabaseWriter {
         .execute(db)
     }
 
+    migrator.registerMigration("Remember the sync files") { db in
+        // The server's version of each file of records and a fingerprint of
+        // the records here that belong in it, so a sync reads and writes
+        // only the files that changed.
+        try #sql(
+            """
+            CREATE TABLE "syncFiles" (
+              "folder" TEXT NOT NULL,
+              "name" TEXT NOT NULL,
+              "version" TEXT NOT NULL,
+              "digest" TEXT NOT NULL,
+              PRIMARY KEY ("folder", "name")
+            ) STRICT
+            """
+        )
+        .execute(db)
+    }
+
     try migrator.migrate(database)
 
     return database

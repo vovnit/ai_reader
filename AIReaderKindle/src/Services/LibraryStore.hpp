@@ -33,10 +33,11 @@ public:
 
     /// Records the book's file in the sync folder.
     void setRemoteName(long long id, const std::string& name);
-    /// Every file in the sync folder this device has met: fetched, sent, or
-    /// found to be a book it already had.
-    std::set<std::string> remoteNamesMet();
-    void meetRemote(const std::string& name);
+    /// The files in the sync folder's `Books`, as the last sync listed them.
+    /// Those no book here has as its `remoteName` can be fetched on request.
+    std::set<std::string> remoteNames();
+    void setRemoteNames(const std::vector<std::string>& names);
+    void forgetRemote(const std::string& name);
 
     /// Brings the table in line with the folders: new files are added, files
     /// that have gone are dropped.

@@ -37,6 +37,9 @@ void clear(QLayout* layout);
 void later(std::function<void()> action);
 
 bool confirm(QWidget* parent, const std::string& title, const std::string& text, const std::string& action);
+/// Asks which of two actions to take: 1 or 2, or 0 for neither.
+int choose(QWidget* parent, const std::string& title, const std::string& text,
+           const std::string& first, const std::string& second);
 void alert(QWidget* parent, const std::string& title, const std::string& text);
 
 }  // namespace Ui

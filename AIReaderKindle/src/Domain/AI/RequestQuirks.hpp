@@ -1,9 +1,6 @@
 #pragma once
 
-#include <map>
-#include <mutex>
 #include <optional>
-#include <set>
 #include <string>
 
 /// Parameters that some OpenAI-compatible services reject while others require
@@ -23,17 +20,7 @@ constexpr int requestQuirkCount = 3;
 /// Reads the quirk a failed request's error body is describing, if any.
 std::optional<RequestQuirk> requestQuirkNamed(const std::string& errorBody);
 
-/// Remembers, for the rest of the session, which adjustments a given model
-/// needed, so the cost of discovering them is paid once rather than on every
-/// lookup.
-class RequestQuirkStore {
-public:
-    static RequestQuirkStore& shared();
-
-    std::set<RequestQuirk> quirks(const std::string& model);
-    void learn(RequestQuirk quirk, const std::string& model);
-
-private:
-    std::mutex mutex_;
-    std::map<std::string, std::set<RequestQuirk>> known_;
-};
+/// The quirk's name as it is written down — the iOS and web apps' names —
+/// and the quirk a name stands for.
+const char* requestQuirkName(RequestQuirk quirk);
+std::optional<RequestQuirk> requestQuirkCalled(const std::string& name);

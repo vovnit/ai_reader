@@ -102,6 +102,17 @@ bool confirm(QWidget* parent, const std::string& title, const std::string& text,
     return box.clickedButton() == go;
 }
 
+int choose(QWidget* parent, const std::string& title, const std::string& text,
+           const std::string& first, const std::string& second) {
+    QMessageBox box(QMessageBox::Question, "AIReader", q(title), QMessageBox::Cancel, parent);
+    box.setInformativeText(q(text));
+    QPushButton* one = box.addButton(q(first), QMessageBox::AcceptRole);
+    QPushButton* two = box.addButton(q(second), QMessageBox::DestructiveRole);
+    box.setDefaultButton(QMessageBox::Cancel);
+    box.exec();
+    return box.clickedButton() == one ? 1 : box.clickedButton() == two ? 2 : 0;
+}
+
 void alert(QWidget* parent, const std::string& title, const std::string& text) {
     QMessageBox box(QMessageBox::Information, "AIReader", q(title), QMessageBox::Ok, parent);
     box.setInformativeText(q(text));

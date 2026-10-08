@@ -17,8 +17,10 @@ browser as an [installable web app](AIReaderWeb/README.md) that works offline.
 ## What it does
 
 **Library.** Add an `.epub` and it is unpacked into its own folder; the shelf
-shows covers, newest first. Long-press a book to remove it, or to put it in a
-group.
+shows covers, newest first. Long-press a book to remove it — from this device,
+or from the sync folder too — or to put it in a group. Books in the sync
+folder that are not on this device are listed below the shelf; tap one to
+download it.
 
 **PDF.** A `.pdf` is added the same way, and made into an EPUB as it is: its
 text laid out again as paragraphs, with running heads and page numbers
@@ -131,9 +133,12 @@ from one book's lookups — and hands it to the Files app to save.
 
 **Sync.** *Settings → Sync* takes a WebDAV folder and an account. From then
 on, reading positions, groups, looked-up words and how each has fared in
-practice are shared through one file in that folder — with the [Kindle
-app](AIReaderKindle/README.md), the [Linux app](AIReaderQt/README.md) and the
-[web app](AIReaderWeb/README.md), which read and write the same file. The app
+practice are shared through the files in that folder's `aireader-sync` — with
+the [Kindle app](AIReaderKindle/README.md), the [Linux app](AIReaderQt/README.md)
+and the [web app](AIReaderWeb/README.md), which read and write the same files.
+Each record is kept in the file its title or word falls in, one of up to 256,
+so a sync reads only the files another device has changed and sends only the
+ones its own changes fall in, however large the library grows. The app
 syncs when it opens and when a book is closed, and on *Sync now*. Books are
 matched by title and author, since neither the file nor the row is the same on
 two devices; a position travels as the chapter, how far into it, and the words
@@ -141,12 +146,20 @@ at that point, so it is found again whatever the other device's rendering.
 Where both devices changed one thing, the later change wins; a word deleted on
 one device is deleted on the other rather than coming back.
 
+Earlier versions kept everything in the one file `aireader-sync.json`. The
+first sync after an update moves it over, and the file is read again whenever
+it changes, so a device not yet updated still passes its changes on — though
+it sees the others' only once it is updated too. It is never written or
+deleted.
+
 The books themselves travel too, as EPUB files in the folder's `Books`: a
-book added on one device is sent there, and one found there is fetched and
-shelved. Removing a book removes it from that device only — the file stays
-for the others, and is not fetched again. Web pages saved with the [browser
-extension](BrowserExtension/README.md) land in the same folder and arrive
-the same way. A scanned book becomes an EPUB with [`ScanTool/`](ScanTool/README.md),
+book added on one device is sent there, and the ones there that a device
+does not have are listed under its shelf, each downloaded when chosen.
+Removing a book that is there asks whether to remove it from this device
+only — it is listed again, to download later — or to delete its file from
+the folder too; devices that already have it keep their copy. Web pages
+saved with the [browser extension](BrowserExtension/README.md) land in the
+same folder and are listed the same way. A scanned book becomes an EPUB with [`ScanTool/`](ScanTool/README.md),
 from what Mistral's OCR made of it.
 
 ## Layout
@@ -159,7 +172,7 @@ the rest would port to another UI layer unchanged.
 | `App` | The entry point: prepares the database and the root store. |
 | `Database` | `appDatabase()` — connection, configuration, migrations. |
 | `Support` | Inflate and deflate, an XML scanner, a ZIP reader, text files, image loading, and the keychain. |
-| `Domain` | The material and pure logic over it: books (the package, the document with its chapters, the reading place, the book key, groups), the dictionary shape and formats, search (a phrase in a text, and the sentence around it), the AI prompts — explanation, chat, X-ray — the tools the model may call and the mock, cards (a flash card from a lookup, a round of the matching game, the Anki file) and the sync document with its merge. |
+| `Domain` | The material and pure logic over it: books (the package, the document with its chapters, the reading place, the book key, groups), the dictionary shape and formats, search (a phrase in a text, and the sentence around it), the AI prompts — explanation, chat, X-ray — the tools the model may call and the mock, cards (a flash card from a lookup, a round of the matching game, the Anki file) and the sync document with its merge and the files it is kept in. |
 | `Services` | Anything reaching disk, network, database or keychain: the library, groups and cards in SQLite, the lookup cache, the corpus (the open book and its group, searched from any task), the chat API and the tool-calling loop, the dictionary packs, speech, and sync (the WebDAV client, the store that turns the database into a document and back, and the exchange of the books themselves). |
 | `Features` | One folder per screen: a reducer and its views — library and group picker, reader, lookup with the dictionary entry, menu, search, X-ray, chat, words and practice, settings, dictionaries. |
 | `App` | The entry point: prepares the database and the root store. |
@@ -230,9 +243,13 @@ Services disagree about request parameters. Newer OpenAI reasoning models reject
 `max_tokens` in favour of `max_completion_tokens`, accept only their default
 temperature, and refuse function tools unless `reasoning_effort` is `none`.
 Rather than special-casing a provider, a rejected request is read for the
-parameter it names, adjusted, and sent again; the adjustment is remembered for
-that endpoint and model, so only the first lookup of a session pays for the
-discovery. See `AI/RequestQuirks.swift`.
+parameter it names, adjusted, and sent again. The adjustment is remembered for
+that endpoint and model across launches, in the suite the app shares with the
+Explain extension, so only the first request ever made to a model pays for the
+discovery — not every launch, nor every Explain, which starts afresh each time.
+Should the service later refuse something already adjusted, what was remembered
+is forgotten and the next request finds out again. See `AI/RequestQuirks.swift`
+and `Services/AI/RequestQuirkStore.swift`.
 
 ### The mock endpoint
 
@@ -266,11 +283,11 @@ the keychain and is not reachable this way at all.)
 | --- | --- |
 | Books and their groups, lookups and how each has fared in practice, deleted lookups (kept by name so a sync deletes them elsewhere too), dictionary packs | SQLite, via sqlite-data, in Application Support |
 | Unpacked EPUBs, added dictionaries | Application Support, addressed by folder name so the container path can change |
-| Endpoint, model, sync folder and user name | `UserDefaults` |
+| Endpoint, model, sync folder and user name; what each model was found to need of a request | `UserDefaults` |
 | API token, sync password | Keychain |
 | Reading style | A JSON file, shared through `@Shared(.fileStorage)` |
-| The sync document | `aireader-sync.json` in the WebDAV folder |
-| Shared books | `Books/*.epub` in the WebDAV folder; which of them this device has met, in SQLite |
+| Synced records | `aireader-sync/00.json` to `ff.json` in the WebDAV folder; what this device last knew of each — the server's version, a fingerprint of its own records there — in SQLite |
+| Shared books | `Books/*.epub` in the WebDAV folder; their names as last listed, in SQLite |
 
 Schema changes are additive migrations, so an existing library survives an
 update.

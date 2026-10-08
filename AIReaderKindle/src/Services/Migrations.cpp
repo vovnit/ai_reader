@@ -116,12 +116,30 @@ bool migrate(Database& database) {
     }
     if (version < 5) {
         // Books shared as files in the sync folder's `Books`: the name each
-        // book has there, and every name this device has met, so a book
-        // removed here is not fetched again.
+        // book has there, and the names there. (The table held every name
+        // this device had met while sync fetched every book; the next sync
+        // replaces those with the listing.)
         bool ok = database.exec("ALTER TABLE books ADD COLUMN remoteName TEXT")
             && database.exec("CREATE TABLE remoteBooks (name TEXT PRIMARY KEY NOT NULL)");
         if (!ok) return false;
         database.setUserVersion(5);
+    }
+    if (version < 6) {
+        // What this device last knew of each file in the sync folder's
+        // `aireader-sync`: the server's version of it and a fingerprint of
+        // the records here that belong in it, so a sync reads and writes
+        // only the files that changed. Kept with the folder's address, since
+        // another folder's versions say nothing.
+        bool ok = database.exec(
+            "CREATE TABLE syncFiles ("
+            "  folder TEXT NOT NULL,"
+            "  name TEXT NOT NULL,"
+            "  version TEXT NOT NULL,"
+            "  digest TEXT NOT NULL,"
+            "  PRIMARY KEY (folder, name)"
+            ")");
+        if (!ok) return false;
+        database.setUserVersion(6);
     }
     return true;
 }

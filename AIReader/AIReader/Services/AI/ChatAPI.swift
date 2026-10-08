@@ -61,9 +61,16 @@ enum ChatAPI {
                 else { throw APIError.noChoices }
                 return message
             } catch let APIError.http(status, body) where status == 400 {
-                guard let quirk = RequestQuirk.named(inErrorBody: body),
-                      quirks.insert(quirk).inserted
-                else { throw APIError.http(status: status, body: body) }
+                guard let quirk = RequestQuirk.named(inErrorBody: body) else {
+                    throw APIError.http(status: status, body: body)
+                }
+                guard quirks.insert(quirk).inserted else {
+                    // Refused over something already adjusted: what was
+                    // remembered no longer fits, so the next request finds
+                    // out afresh.
+                    await RequestQuirkStore.shared.forget(signature)
+                    throw APIError.http(status: status, body: body)
+                }
                 await RequestQuirkStore.shared.learn(quirk, for: signature)
             }
         }

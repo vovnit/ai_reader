@@ -75,7 +75,8 @@ button.open:hover, .hits button:hover, .contents button:hover, .choices button:h
 /* The shelf. */
 .books li { display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--rule); }
 .books button.open { flex-direction: row; align-items: center; gap: 0.75rem; flex: 1; min-width: 0; }
-.books button.open > span { display: flex; flex-direction: column; min-width: 0; }
+.books button.open > span, .books .remote { display: flex; flex-direction: column; min-width: 0; }
+.books .remote { flex: 1; padding: 0.45rem 0.3rem; }
 .books img, .no-cover { width: 2.6rem; height: 3.8rem; object-fit: cover; flex: none; background: var(--rule); }
 .row-actions { display: flex; gap: 0.3rem; flex: none; }
 h2 button.link { font-weight: normal; font-size: 0.9rem; }

@@ -5,7 +5,7 @@
 // run (`?aiEndpoint=mock://ai`) win over the saved ones without replacing them.
 import { defaultStyle, sanitizeStyle } from "../Domain/Reading/ReadingStyle.js";
 import { booksFolder } from "../Domain/Books/RemoteBookName.js";
-import { syncFileName } from "../Domain/Sync/SyncDocument.js";
+import { oldSyncFile, partsFolder } from "../Domain/Sync/SyncParts.js";
 
 /** Not a real address: lookups are answered by `MockAI`, without the network. */
 export const mockEndpoint = "mock://ai";
@@ -25,7 +25,9 @@ export const chatUrl = (ai) => `${base(ai.endpoint)}/chat/completions`;
 export const modelsUrl = (ai) => `${base(ai.endpoint)}/models`;
 
 export const syncConfigured = (sync) => sync.url.trim() !== "";
-export const syncFileUrl = (sync) => `${base(sync.url)}/${syncFileName}`;
+/** The folder of record files (`SyncParts.js`), and the one file older versions kept the records in. */
+export const syncPartsUrl = (sync) => `${base(sync.url)}/${partsFolder}/`;
+export const syncOldFileUrl = (sync) => `${base(sync.url)}/${oldSyncFile}`;
 export const syncBooksUrl = (sync) => `${base(sync.url)}/${booksFolder}/`;
 
 export const webConfigured = (web) => !!(web.apiKey.trim() && web.provider.trim() && web.endpoint.trim());

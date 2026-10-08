@@ -14,6 +14,8 @@ std::string books();
 std::string dictionaries();
 std::string database();
 std::string settings();
+/// What each model has been found to need (`RequestQuirkStore`).
+std::string requestQuirks();
 /// The cards written for Anki, beside the books so a computer can take it.
 std::string ankiCards();
 /// Folders scanned for `.epub` files.

@@ -3,7 +3,8 @@ import Foundation
 import SQLiteData
 
 /// The shelf: the books that have been added, the groups they are sorted
-/// into, and the door into the reader.
+/// into, the books in the sync folder not fetched yet, and the door into the
+/// reader.
 @Reducer
 struct LibraryFeature {
     @ObservableState
@@ -12,10 +13,15 @@ struct LibraryFeature {
         var books
         @FetchAll(BookGroup.order { $0.name })
         var groups
+        @FetchAll(RemoteBook.order { $0.name })
+        var remoteBooks
 
         var isImporterPresented = false
         var isSyncing = false
-        @Presents var alert: AlertState<Never>?
+        var isSyncConfigured = false
+        /// The files being fetched from the sync folder, by name.
+        var downloading: Set<String> = []
+        @Presents var alert: AlertState<Alert>?
         @Presents var groupPicker: GroupPickerFeature.State?
         @Presents var reader: ReaderFeature.State?
         @Presents var settings: SettingsFeature.State?
@@ -26,16 +32,36 @@ struct LibraryFeature {
         func books(in groupID: BookGroup.ID?) -> [Book] {
             books.filter { $0.groupID == groupID }
         }
+
+        /// The books in the sync folder that are not on this device.
+        var cloudBooks: [RemoteBook] {
+            guard isSyncConfigured else { return [] }
+            let here = Set(books.compactMap(\.remoteName))
+            return remoteBooks.filter { !here.contains($0.name) }
+        }
+
+        func isInCloud(_ book: Book) -> Bool {
+            isSyncConfigured && remoteBooks.contains { $0.name == book.remoteName }
+        }
+    }
+
+    enum Alert: Equatable, Sendable {
+        case deleteEverywhere(Book)
+        case deleteRemote(RemoteBook)
     }
 
     enum Action: BindableAction {
         case task
         case addBookTapped
-        case alert(PresentationAction<Never>)
+        case alert(PresentationAction<Alert>)
         case binding(BindingAction<State>)
         case bookTapped(Book)
         case deleteTapped(Book)
+        case deleteEverywhereTapped(Book)
+        case deleteRemoteTapped(RemoteBook)
         case dissolveTapped(BookGroup)
+        case downloadFinished(RemoteBook, Result<Void, any Error>)
+        case downloadTapped(RemoteBook)
         case failed(title: String, message: String)
         case filesPicked(Result<[URL], any Error>)
         case groupPicker(PresentationAction<GroupPickerFeature.Action>)
@@ -77,6 +103,42 @@ struct LibraryFeature {
                     do { try await library.delete(book: book) }
                     catch { await send(.failed(title: "Couldn’t remove the book", message: error.localizedDescription)) }
                 }
+
+            case let .deleteEverywhereTapped(book):
+                state.alert = .deleteEverywhere(book)
+                return .none
+
+            case let .alert(.presented(.deleteEverywhere(book))):
+                return .run { _ in
+                    // The file first: if it cannot go, the book stays as it was.
+                    if let name = book.remoteName { try await sync.deleteRemote(name: name) }
+                    try await library.delete(book: book)
+                } catch: { error, send in
+                    await send(.failed(title: "Couldn’t delete the book", message: error.localizedDescription))
+                }
+
+            case let .deleteRemoteTapped(remote):
+                state.alert = .deleteRemote(remote)
+                return .none
+
+            case let .alert(.presented(.deleteRemote(remote))):
+                return .run { _ in try await sync.deleteRemote(name: remote.name) } catch: { error, send in
+                    await send(.failed(title: "Couldn’t delete the book", message: error.localizedDescription))
+                }
+
+            case let .downloadTapped(remote):
+                guard state.downloading.insert(remote.name).inserted else { return .none }
+                return .run { send in
+                    await send(.downloadFinished(remote, Result { try await sync.download(name: remote.name) }))
+                }
+
+            case let .downloadFinished(remote, result):
+                state.downloading.remove(remote.name)
+                if case let .failure(error) = result {
+                    return .send(.failed(title: "Couldn’t download “\(remote.title)”", message: error.localizedDescription))
+                }
+                // Where another device is in it, and its group, come with the document.
+                return syncIfConfigured(&state)
 
             case let .groupTapped(book):
                 state.groupPicker = GroupPickerFeature.State(book: book)
@@ -128,6 +190,11 @@ struct LibraryFeature {
 
             case .settings(.presented(.delegate(.dismiss))):
                 state.settings = nil
+                state.isSyncConfigured = sync.isConfigured()
+                return .none
+
+            case .settings(.dismiss):
+                state.isSyncConfigured = sync.isConfigured()
                 return .none
 
             case let .syncFinished(result):
@@ -174,7 +241,8 @@ struct LibraryFeature {
     /// Quietly brings this device in line with the others, when a server
     /// has been set up.
     private func syncIfConfigured(_ state: inout State) -> Effect<Action> {
-        guard sync.isConfigured(), !state.isSyncing else { return .none }
+        state.isSyncConfigured = sync.isConfigured()
+        guard state.isSyncConfigured, !state.isSyncing else { return .none }
         state.isSyncing = true
         return .run { send in
             await send(.syncFinished(Result { try await sync.sync() }))

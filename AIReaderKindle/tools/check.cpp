@@ -11,6 +11,7 @@
 #include "../src/Domain/AI/GlossaryPrompt.hpp"
 #include "../src/Domain/AI/MockAI.hpp"
 #include "../src/Domain/AI/RequestQuirks.hpp"
+#include "../src/Services/RequestQuirkStore.hpp"
 #include "../src/Domain/AI/SearchTool.hpp"
 #include "../src/Domain/AI/XRayPrompt.hpp"
 #include "../src/Domain/AI/WebSearchTool.hpp"
@@ -35,6 +36,7 @@
 #include "../src/Domain/Books/ReadingPlace.hpp"
 #include "../src/Domain/Search/BookSearch.hpp"
 #include "Domain/Sync/SyncDocument.hpp"
+#include "Domain/Sync/SyncParts.hpp"
 #include "../src/Domain/Books/BookKey.hpp"
 #include "../src/Domain/Books/RemoteBookName.hpp"
 #include "../src/Services/BookCorpus.hpp"
@@ -325,6 +327,25 @@ static void checkQuirks() {
     check("quirk: unrelated", !requestQuirkNamed(R"({"error":{"message":"nope"}})") && !requestQuirkNamed("not json"));
     RequestQuirkStore::shared().learn(RequestQuirk::NoReasoning, "m");
     check("quirk store remembers", RequestQuirkStore::shared().quirks("m").count(RequestQuirk::NoReasoning) == 1);
+    check("quirk names go both ways", requestQuirkCalled(requestQuirkName(RequestQuirk::CompletionTokens)) == RequestQuirk::CompletionTokens
+          && !requestQuirkCalled("nothing"));
+
+    // What a run learned is there for the next one, once a file is named.
+    char pattern[] = "/tmp/aireader-quirks-XXXXXX";
+    std::string file = std::string(mkdtemp(pattern)) + "/request-quirks.txt";
+    RequestQuirkStore& store = RequestQuirkStore::shared();
+    store.keepIn(file);
+    store.learn(RequestQuirk::CompletionTokens, "https://api.example/v1|luna");
+    store.learn(RequestQuirk::NoReasoning, "https://api.example/v1|luna");
+    store.learn(RequestQuirk::DefaultTemperature, "https://api.example/v1|other");
+    store.keepIn(file);
+    check("learned quirks outlast the run", store.quirks("https://api.example/v1|luna").size() == 2
+          && store.quirks("https://api.example/v1|other").count(RequestQuirk::DefaultTemperature) && store.quirks("m").empty(),
+          Files::read(file).value_or(""));
+    store.forget("https://api.example/v1|luna");
+    store.keepIn(file);
+    check("a model's quirks can be forgotten", store.quirks("https://api.example/v1|luna").empty() && store.quirks("https://api.example/v1|other").size() == 1);
+    store.keepIn("");
 }
 
 static void checkChatPrompt() {
@@ -770,18 +791,20 @@ static void checkDatabase(const std::string& folder) {
     database.exec("DROP TABLE cardPractice");
     database.exec("DROP TABLE lookupTombstones");
     database.exec("DROP TABLE remoteBooks");
+    database.exec("DROP TABLE syncFiles");
     for (const char* column : {"groupID", "placeFraction", "placeSnippet", "placePending", "updatedAt", "remoteName"}) {
         database.exec(std::string("ALTER TABLE books DROP COLUMN ") + column);
     }
     database.exec("DROP TABLE bookGroups");
     database.setUserVersion(1);
-    check("an older library migrates forward", Migrations::migrate(database) && database.userVersion() == 5
+    check("an older library migrates forward", Migrations::migrate(database) && database.userVersion() == 6
           && Statement(database, "SELECT lookupID FROM cardPractice").isValid()
           && Statement(database, "SELECT id FROM bookGroups").isValid()
           && Statement(database, "SELECT placeSnippet, updatedAt FROM books").isValid()
           && Statement(database, "SELECT word FROM lookupTombstones").isValid()
           && Statement(database, "SELECT remoteName FROM books").isValid()
-          && Statement(database, "SELECT name FROM remoteBooks").isValid(), database.lastError());
+          && Statement(database, "SELECT name FROM remoteBooks").isValid()
+          && Statement(database, "SELECT folder, name, version, digest FROM syncFiles").isValid(), database.lastError());
 
     auto packs = env.packs.all();
     check("bundled pack is listed", packs.size() == 1 && packs[0].isBundled() && packs[0].isEnabled);
@@ -887,6 +910,74 @@ static void checkSyncDocument() {
     check("book key normalizes", BookKey::make("  Le  Grand\tMeaulnes ", "Alain-Fournier") == "le grand meaulnes|alain-fournier");
 }
 
+static void checkSyncParts() {
+    // The web check expects the same names.
+    check("a key's file is the same on every device",
+          SyncParts::nameOf("le grand meaulnes|alain-fournier") == "f4.json" && SyncParts::nameOf("maisons\x01Les maisons.") == "95.json"
+          && SyncParts::nameOf("été|") == "bb.json", SyncParts::nameOf("été|"));
+    check("only the record files count", SyncParts::isPart("0a.json") && !SyncParts::isPart("0A.json")
+          && !SyncParts::isPart(SyncParts::oldFile) && !SyncParts::isPart("._0a.json"));
+
+    SyncDocument local;
+    local.books = {bookRecord("a|", "2026-09-16T10:00:00Z"), bookRecord("b|", "2026-09-16T10:00:00Z")};
+    local.lookups = {lookupRecord("un", "2026-09-16T10:00:00Z"), lookupRecord("deux", "2026-09-16T10:00:00Z")};
+    auto parts = SyncParts::split(local);
+    check("records are split by file and joined again", parts.size() > 1 && SyncParts::join(parts) == local.sorted());
+    SyncDocument changed = local;
+    changed.lookups[0].correct = 9;
+    SyncDocument reordered = local;
+    std::reverse(reordered.lookups.begin(), reordered.lookups.end());
+    check("a fingerprint follows the records, not their order",
+          SyncParts::digest(local).size() == 16 && SyncParts::digest(reordered) == SyncParts::digest(local)
+          && SyncParts::digest(changed) != SyncParts::digest(local) && SyncParts::digest(SyncDocument()).empty());
+
+    std::vector<SyncParts::File> known;
+    std::vector<SyncParts::File> listed;
+    for (auto file : SyncParts::fingerprints(local)) {
+        file.version = "\"1\"";
+        known.push_back(file);
+        listed.push_back({file.name, file.version, ""});
+    }
+    known.push_back({SyncParts::oldFile, "\"o\"", ""});
+    listed.push_back({"._0a.json", "\"x\"", ""});
+    using Names = std::vector<std::string>;
+    check("nothing is due when nothing changed", SyncParts::due(listed, known, local, {}).empty());
+    std::string un = SyncParts::nameOf(local.lookups[0].key());
+    check("a file whose records changed here is due", SyncParts::due(listed, known, changed, {}) == Names{un});
+    auto moved = listed;
+    moved[0].version = "\"2\"";
+    check("a file changed on the server is due", SyncParts::due(moved, known, local, {}) == Names{moved[0].name});
+    check("a file gone from the server is due",
+          SyncParts::due(std::vector<SyncParts::File>(listed.begin() + 1, listed.end()), known, local, {}) == Names{listed[0].name});
+    moved[0].version = "";
+    check("a file the server gives no version is always due", SyncParts::due(moved, known, local, {}) == Names{moved[0].name});
+    check("every file is due to a device that knows none", SyncParts::due(listed, {}, local, {}).size() == known.size() - 1);
+    SyncDocument old;
+    old.lookups = {lookupRecord("trois", "2026-09-16T09:00:00Z")};
+    check("the old file's records make their files due",
+          SyncParts::due(listed, known, local, old) == Names{SyncParts::nameOf(old.lookups[0].key())});
+
+    SyncDocument theirs;
+    theirs.lookups = {lookupRecord("un", "2026-09-16T09:00:00Z", "b|")};
+    std::string fresh = SyncParts::nameOf(old.lookups[0].key());
+    auto merged = SyncParts::merge({{un, theirs}, {fresh, {}}}, changed, old);
+    auto inUn = [&](const SyncDocument& document) {
+        for (const auto& record : document.lookups) if (record.word == "un") return record;
+        return SyncDocument::LookupRecord();
+    };
+    check("a due file is merged with the records here that belong in it",
+          merged.size() == 2 && merged[0].name == un && inUn(merged[0].records).correct == 9 && inUn(merged[0].records).book == "b|");
+    check("and with the old file's", merged[1].name == fresh && merged[1].records.lookups.size() >= 1
+          && SyncParts::split(merged[1].records).size() == 1);
+
+    auto remembered = SyncParts::remember(known, {{un, "\"3\"", "d"}, {fresh, "", ""}, {"ff.json", "", "e"}});
+    std::map<std::string, SyncParts::File> byName;
+    for (const auto& file : remembered) byName[file.name] = file;
+    check("remembering takes the settled files and keeps the rest",
+          byName[un].version == "\"3\"" && byName.count(SyncParts::oldFile) && byName.count("ff.json") && !byName.count(fresh)
+          && remembered.size() == known.size() + 1);
+}
+
 static void checkSyncStore(const std::string& folder) {
     Database database(Files::join(folder, "sync.sqlite3"));
     Migrations::migrate(database);
@@ -949,36 +1040,90 @@ static void checkSyncStore(const std::string& folder) {
 }
 
 /// Against a real server, when `AIREADER_SYNC_URL` (and `_USER`, `_PASSWORD`)
-/// name one: a round trip through the folder, and the iOS app's file if it
-/// has left one there.
+/// name one, in a folder of its own: a library an older version left in the
+/// one file is moved over by the first device to sync, reaches a second
+/// device, and from then on a change travels as the one file it falls in.
+/// A device not yet updated still gets its changes through the old file.
 static void checkSyncServer(const std::string& folder) {
-    const char* url = g_getenv("AIREADER_SYNC_URL");
-    if (!url) return;
-    SyncSettings settings{url, g_getenv("AIREADER_SYNC_USER") ? g_getenv("AIREADER_SYNC_USER") : "",
+    const char* base = g_getenv("AIREADER_SYNC_URL");
+    if (!base) return;
+    SyncSettings settings{std::string(base) + "/records-" + std::to_string(getpid()),
+                          g_getenv("AIREADER_SYNC_USER") ? g_getenv("AIREADER_SYNC_USER") : "",
                           g_getenv("AIREADER_SYNC_PASSWORD") ? g_getenv("AIREADER_SYNC_PASSWORD") : ""};
-    Database database(Files::join(folder, "server-sync.sqlite3"));
-    Migrations::migrate(database);
-    Env env(database, Files::join(folder, "server-sync.ini"));
+    struct Pass {
+        Sync::Fetched fetched;
+        Sync::Round round;
+        Sync::Sent sent;
+    };
+    // A round as the runner makes it, without the threads.
+    auto sync = [&](Env& env) {
+        Pass pass;
+        try {
+            pass.fetched = Sync::fetch(settings, Sync::gather(env, settings));
+            pass.round = Sync::reconcile(env, pass.fetched);
+            pass.sent = Sync::send(settings, pass.round);
+            Sync::record(env, settings, pass.round, pass.sent);
+        } catch (const std::exception& failure) {
+            pass.sent.error = failure.what();
+        }
+        return pass;
+    };
+    auto word = [](Env& env, const std::string& text) {
+        for (const auto& lookup : env.lookups.all()) if (lookup.word == text) return lookup;
+        return Lookup();
+    };
+
+    SyncDocument old;
+    old.books = {bookRecord("le grand meaulnes|alain-fournier", "2026-09-16T10:00:00Z", "Série", 2)};
+    old.lookups = {lookupRecord("un", "2026-09-16T10:00:00Z"), lookupRecord("deux", "2026-09-16T10:00:00Z")};
+    try {
+        WebDav::upload(settings.oldFileUrl(), old.dump(), settings);
+    } catch (const std::exception& failure) {
+        check("sync server takes the old file", false, failure.what());
+        return;
+    }
+
+    Database first(Files::join(folder, "records-a.sqlite3"));
+    Migrations::migrate(first);
+    Env a(first, Files::join(folder, "records-a.ini"));
     Book draft;
     draft.title = "Le Grand Meaulnes";
     draft.author = "Alain-Fournier";
     draft.path = Files::join(folder, "meaulnes.epub");
-    long long id = env.library.add(draft);
-    env.library.savePosition(id, 1, 10, ReadingPlace{1, 0.1, "Il vint"});
-    env.lookups.save({"maisons", "Les maisons.", "fr", id}, {"maison", "pl.", "дом", false, 0.9});
-    try {
-        SyncDocument remote = Sync::fetch(settings);
-        SyncDocument merged;
-        Sync::Report report = Sync::reconcile(env, remote, merged);
-        if (report.uploaded) Sync::store(settings, merged);
-        SyncDocument again = Sync::fetch(settings);
-        check("sync server round trip", again == merged, report.summary());
-        SyncDocument second;
-        check("second sync has nothing to send", !Sync::reconcile(env, again, second).uploaded);
-        std::printf("      %s\n", report.summary().c_str());
-    } catch (const std::exception& failure) {
-        check("sync server round trip", false, failure.what());
-    }
+    long long id = a.library.add(draft);
+    auto moved = sync(a);
+    auto book = a.library.find(id);
+    check("the first sync moves the old file over", moved.sent.error.empty() && moved.sent.files.size() == SyncParts::split(old).size()
+          && a.lookups.all().size() == 2 && book && book->groupId && book->place && book->place->chapter == 2, moved.sent.error);
+    auto quiet = sync(a);
+    check("then a sync reads and sends nothing", quiet.sent.error.empty() && quiet.fetched.remote.empty() && quiet.sent.files.empty(),
+          quiet.sent.error + " " + std::to_string(quiet.fetched.remote.size()) + " read");
+
+    Database second(Files::join(folder, "records-b.sqlite3"));
+    Migrations::migrate(second);
+    Env b(second, Files::join(folder, "records-b.ini"));
+    auto joined = sync(b);
+    check("a second device receives the records and sends nothing", joined.sent.error.empty() && joined.sent.files.empty()
+          && b.lookups.all().size() == 2, joined.sent.error);
+    b.cards.record(word(b, "un").id, true);
+    auto practised = sync(b);
+    std::string un = SyncParts::nameOf(lookupRecord("un", "").key());
+    check("a change there sends only its file", practised.sent.error.empty() && practised.fetched.remote.size() == 1
+          && practised.sent.files.size() == 1 && practised.sent.files[0].name == un, practised.sent.error);
+    auto received = sync(a);
+    auto cards = a.cards.all();
+    bool counted = false;
+    for (const auto& card : cards) counted = counted || (card.front == "un" && card.correct == 1);
+    check("and the first device reads only that file", received.sent.error.empty() && received.fetched.remote.size() == 1
+          && received.sent.files.empty() && counted, received.sent.error);
+
+    // An older version on a third device writes the old file again.
+    old.lookups.push_back(lookupRecord("trois", "2026-09-17T10:00:00Z"));
+    WebDav::upload(settings.oldFileUrl(), old.dump(), settings);
+    auto passed = sync(a);
+    check("a change to the old file still comes through", passed.sent.error.empty() && a.lookups.all().size() == 3
+          && passed.sent.files.size() == 1 && passed.round.applied.lookups == 1, passed.sent.error);
+    check("and is read once", sync(a).fetched.remote.empty());
 }
 
 static void checkRemoteBooks() {
@@ -1001,15 +1146,22 @@ static void checkRemoteBooks() {
         "<D:response><D:href>/dav/Books/Saint-Exup%C3%A9ry%20-%20Vol%20de%20nuit.epub</D:href><D:propstat><D:prop><D:resourcetype/></D:prop></D:propstat></D:response>"
         "<D:response><D:href>https://example.org/dav/Books/Old/</D:href><D:propstat><D:prop><D:resourcetype><D:collection/></D:resourcetype></D:prop></D:propstat></D:response>"
         "</D:multistatus>";
-    auto names = WebDav::fileNames(listing);
+    auto files = WebDav::entries(listing);
     check("listing gives files, decoded, without folders",
-          names.size() == 1 && names[0] == "Saint-Exupéry - Vol de nuit.epub", names.empty() ? "" : names[0]);
+          files.size() == 1 && files[0].name == "Saint-Exupéry - Vol de nuit.epub", files.empty() ? "" : files[0].name);
+    auto versioned = WebDav::entries(
+        "<d:multistatus xmlns:d=\"DAV:\"><d:response><d:href>/dav/aireader-sync/0a.json</d:href><d:propstat><d:prop>"
+        "<d:getetag>&quot;5f1c&quot;</d:getetag><d:resourcetype/></d:prop></d:propstat></d:response></d:multistatus>");
+    check("listing gives each file's version", versioned.size() == 1 && versioned[0].name == "0a.json" && versioned[0].version == "\"5f1c\"",
+          versioned.empty() ? "" : versioned[0].version);
     check("names escape for a url", WebDav::escape("Vol de nuit é.epub") == "Vol%20de%20nuit%20%C3%A9.epub");
 }
 
-/// Three devices and one server: the first sends its book, the second
-/// fetches it, and the third, which has the same book already, only takes
-/// note of the name. Needs AIREADER_SYNC_URL and a book on the command line.
+/// Three devices and one server: the first sends its book; the second sees
+/// it in the folder, fetches it on request and removes it again; the third,
+/// which has the same book already, only takes note of the name. Then the
+/// file is deleted from the folder. Needs AIREADER_SYNC_URL and a book on the
+/// command line.
 static void checkLibraryServer(const std::string& folder, const std::string& epub) {
     const char* base = g_getenv("AIREADER_SYNC_URL");
     if (!base) return;
@@ -1024,31 +1176,37 @@ static void checkLibraryServer(const std::string& folder, const std::string& epu
         Migrations::migrate(*database);
         return database;
     };
-    auto round = [&](Env& env) {
-        LibrarySync::Outcome outcome = LibrarySync::exchange(settings, LibrarySync::gather(env));
+    auto record = [](Env& env, LibrarySync::Outcome outcome) {
         LibrarySync::record(env, outcome);
         return outcome;
     };
+    auto round = [&](Env& env) { return record(env, LibrarySync::exchange(settings, env.library.all())); };
 
     auto first = device("first");
     Env a(*first, Paths::settings());
     Files::copy(epub, Files::join(Paths::books(), "livre.epub"));
     a.library.refresh(Paths::bookFolders());
     auto sent = round(a);
-    check("first device sends its book", sent.error.empty() && sent.sent == 1 && sent.received.empty(), sent.error);
+    std::string name = sent.named.empty() ? "" : sent.named[0].second;
+    check("first device sends its book", sent.error.empty() && sent.sent == 1 && a.library.remoteNames().count(name), sent.error);
     auto quiet = round(a);
-    check("first device then has nothing to do", quiet.error.empty() && quiet.sent == 0 && quiet.received.empty(), quiet.error);
+    check("first device then has nothing to do", quiet.error.empty() && quiet.sent == 0 && quiet.named.empty(), quiet.error);
 
     auto second = device("second");
     Env b(*second, Paths::settings());
-    auto fetched = round(b);
+    auto listed = round(b);
+    check("second device lists it without fetching it", listed.error.empty() && listed.sent == 0 && b.library.all().empty()
+          && b.library.remoteNames().count(name), listed.error);
+    auto fetched = record(b, LibrarySync::fetch(settings, b.library.all(), name));
     auto shelf = b.library.all();
-    check("second device fetches it", fetched.error.empty() && fetched.received.size() == 1 && fetched.sent == 0
-          && shelf.size() == 1 && !shelf[0].remoteName.empty() && Files::exists(shelf[0].path), fetched.error);
-    check("second device then has nothing to do", round(b).received.empty() && round(b).sent == 0);
+    check("second device fetches it on request", fetched.error.empty() && fetched.received.size() == 1
+          && shelf.size() == 1 && shelf[0].remoteName == name && Files::exists(shelf[0].path), fetched.error);
+    auto twice = LibrarySync::fetch(settings, b.library.all(), name);
+    check("a book on the shelf is not fetched twice", !twice.error.empty() && twice.received.empty() && b.library.all().size() == 1);
+    check("second device then has nothing to do", round(b).sent == 0);
     b.library.remove(shelf[0].id);
     Files::remove(shelf[0].path);
-    check("a book removed here is not fetched again", round(b).received.empty() && b.library.all().empty());
+    check("a book removed here stays in the folder", round(b).error.empty() && b.library.remoteNames().count(name));
 
     auto third = device("third");
     Env c(*third, Paths::settings());
@@ -1057,7 +1215,14 @@ static void checkLibraryServer(const std::string& folder, const std::string& epu
     auto matched = round(c);
     auto books = c.library.all();
     check("a book already here is recognised, not fetched or sent", matched.error.empty() && matched.received.empty()
-          && matched.sent == 0 && books.size() == 1 && books[0].remoteName == sent.named[0].second, matched.error);
+          && matched.sent == 0 && books.size() == 1 && books[0].remoteName == name, matched.error);
+
+    auto deleted = record(c, LibrarySync::remove(settings, name));
+    check("deleting the file from the folder", deleted.error.empty() && c.library.remoteNames().empty(), deleted.error);
+    auto after = round(a);
+    check("a deleted file is not sent again", after.error.empty() && after.sent == 0 && a.library.remoteNames().empty(), after.error);
+    auto missing = record(b, LibrarySync::fetch(settings, b.library.all(), name));
+    check("fetching a deleted file says so", !missing.error.empty() && missing.gone.size() == 1 && b.library.all().empty(), missing.error);
 }
 
 static void checkWordLists(const std::string& folder) {
@@ -1424,6 +1589,7 @@ int main(int argc, char** argv) {
     checkReadingPlace();
     checkRemoteBooks();
     checkSyncDocument();
+    checkSyncParts();
     checkDatabase(scratch);
     checkSyncStore(scratch);
     checkSyncServer(scratch);

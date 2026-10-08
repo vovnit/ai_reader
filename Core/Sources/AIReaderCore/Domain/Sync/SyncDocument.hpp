@@ -6,11 +6,12 @@
 #include <string>
 #include <vector>
 
-/// What two devices agree on: one JSON file holding every book's place and
-/// group, and every word looked up with how it has fared in practice. Each
-/// record carries when it last changed, and the newer one wins when both
-/// devices have it. A word that was deleted stays as a tombstone, so the
-/// other device deletes it too instead of bringing it back.
+/// What two devices agree on: every book's place and group, and every word
+/// looked up with how it has fared in practice. Each record carries when it
+/// last changed, and the newer one wins when both devices have it. A word
+/// that was deleted stays as a tombstone, so the other device deletes it too
+/// instead of bringing it back. On the server the records are spread over
+/// many files of this form (`SyncParts`).
 ///
 /// Times are strings of the form `2026-09-16T10:00:00Z`, so they sort as
 /// text.
@@ -20,7 +21,6 @@
 /// two cannot disagree about them.
 struct SyncDocument {
     static constexpr int version = 1;
-    static const char* const fileName;
 
     struct BookRecord {
         std::string key;

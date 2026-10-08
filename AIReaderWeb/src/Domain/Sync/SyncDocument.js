@@ -1,14 +1,14 @@
-// What devices agree on: one JSON file holding every book's place and
-// group, and every word looked up with how it has fared in practice. Each
-// record carries when it last changed, and the newer one wins. A deleted
-// word stays as a tombstone, so other devices delete it too.
+// What devices agree on: every book's place and group, and every word
+// looked up with how it has fared in practice. Each record carries when it
+// last changed, and the newer one wins. A deleted word stays as a
+// tombstone, so other devices delete it too. On the server the records are
+// spread over many files of this form (`SyncParts.js`).
 //
 // The iOS and Kindle apps share one C++ implementation of this file
 // (`Core/Sources/AIReaderCore/Domain/Sync/SyncDocument.cpp`); this is its
 // port, and must read, write and merge exactly as it does.
 import { compareCodePoints } from "../../Support/Text.js";
 
-export const syncFileName = "aireader-sync.json";
 export const syncVersion = 1;
 
 /** `{ key, title, author, language, group, chapter, fraction, snippet, updatedAt }`; a place counts only with both chapter and fraction (null otherwise). */

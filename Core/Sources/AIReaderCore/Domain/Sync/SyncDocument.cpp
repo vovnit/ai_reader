@@ -3,8 +3,6 @@
 #include <algorithm>
 #include <map>
 
-const char* const SyncDocument::fileName = "aireader-sync.json";
-
 bool SyncDocument::BookRecord::operator==(const BookRecord& other) const {
     return key == other.key && title == other.title && author == other.author && language == other.language
         && group == other.group && chapter == other.chapter && fraction == other.fraction && snippet == other.snippet

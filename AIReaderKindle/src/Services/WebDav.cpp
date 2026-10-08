@@ -1,5 +1,6 @@
 #include "WebDav.hpp"
 
+#include "../Support/Text.hpp"
 #include "../Support/XmlScanner.hpp"
 
 #include <curl/curl.h>
@@ -13,6 +14,7 @@ namespace {
 struct Response {
     long status = 0;
     std::string body;
+    std::string etag;
 };
 
 size_t collect(char* data, size_t size, size_t count, void* target) {
@@ -20,9 +22,33 @@ size_t collect(char* data, size_t size, size_t count, void* target) {
     return size * count;
 }
 
+size_t header(char* data, size_t size, size_t count, void* target) {
+    std::string line(data, size * count);
+    auto colon = line.find(':');
+    if (colon != std::string::npos && Text::lower(line.substr(0, colon)) == "etag") {
+        *static_cast<std::string*>(target) = Text::trim(line.substr(colon + 1));
+    }
+    return size * count;
+}
+
+/// One handle per thread, kept between requests: a sync makes many small
+/// ones, and on a Kindle opening a connection for each costs more than the
+/// request.
+CURL* handle() {
+    struct Kept {
+        CURL* curl = curl_easy_init();
+        ~Kept() {
+            if (curl) curl_easy_cleanup(curl);
+        }
+    };
+    thread_local Kept kept;
+    if (kept.curl) curl_easy_reset(kept.curl);
+    return kept.curl;
+}
+
 Response send(const char* method, const std::string& url, const std::string* body, const SyncSettings& settings,
               const std::vector<std::string>& extraHeaders = {}) {
-    CURL* curl = curl_easy_init();
+    CURL* curl = handle();
     if (!curl) throw Error("The HTTP client could not be started.");
 
     Response response;
@@ -30,6 +56,8 @@ Response send(const char* method, const std::string& url, const std::string* bod
     curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, collect);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response.body);
+    curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, header);
+    curl_easy_setopt(curl, CURLOPT_HEADERDATA, &response.etag);
     // Gives up on a stalled line, not a slow one: a book can take minutes.
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 30L);
     curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1L);
@@ -51,7 +79,6 @@ Response send(const char* method, const std::string& url, const std::string* bod
     CURLcode code = curl_easy_perform(curl);
     if (code == CURLE_OK) curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.status);
     if (headers) curl_slist_free_all(headers);
-    curl_easy_cleanup(curl);
     if (code != CURLE_OK) throw Error(std::string("The request failed: ") + curl_easy_strerror(code));
     return response;
 }
@@ -98,8 +125,8 @@ std::optional<std::string> download(const std::string& url, const SyncSettings& 
     return response.body;
 }
 
-void upload(const std::string& url, const std::string& contents, const SyncSettings& settings,
-            const std::string& type) {
+std::string upload(const std::string& url, const std::string& contents, const SyncSettings& settings,
+                   const std::string& type) {
     std::vector<std::string> headers = {"Content-Type: " + type};
     Response response = send("PUT", url, &contents, settings, headers);
     if (response.status == 409 || response.status == 404) {
@@ -107,26 +134,35 @@ void upload(const std::string& url, const std::string& contents, const SyncSetti
         response = send("PUT", url, &contents, settings, headers);
     }
     check(response.status);
+    return response.etag;
 }
 
-std::vector<std::string> list(const std::string& folderUrl, const SyncSettings& settings) {
-    Response response = send("PROPFIND", folderUrl, nullptr, settings, {"Depth: 1"});
+void remove(const std::string& url, const SyncSettings& settings) {
+    Response response = send("DELETE", url, nullptr, settings);
+    if (response.status == 404) return;
+    check(response.status);
+}
+
+std::vector<Entry> list(const std::string& url, const SyncSettings& settings) {
+    Response response = send("PROPFIND", url, nullptr, settings, {"Depth: 1"});
     if (response.status == 404) return {};
     check(response.status);
-    return fileNames(response.body);
+    return entries(response.body);
 }
 
-std::vector<std::string> fileNames(const std::string& multistatus) {
-    std::vector<std::string> names;
+std::vector<Entry> entries(const std::string& multistatus) {
+    std::vector<Entry> files;
     std::string href;
+    std::string etag;
     bool isFolder = false;
     std::string element;
     auto close = [&] {
         while (!href.empty() && href.back() == '/') href.pop_back();
         auto slash = href.rfind('/');
         std::string name = decode(slash == std::string::npos ? href : href.substr(slash + 1));
-        if (!isFolder && !name.empty()) names.push_back(name);
+        if (!isFolder && !name.empty()) files.push_back({name, Text::trim(etag)});
         href.clear();
+        etag.clear();
         isFolder = false;
     };
     XmlScanner::scan(multistatus, {
@@ -138,10 +174,11 @@ std::vector<std::string> fileNames(const std::string& multistatus) {
         [&](const std::string&) { element.clear(); },
         [&](const std::string& text) {
             if (element == "href") href += text;
+            if (element == "getetag") etag += text;
         },
     });
     if (!href.empty()) close();
-    return names;
+    return files;
 }
 
 std::string escape(const std::string& name) {

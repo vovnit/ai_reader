@@ -7,6 +7,7 @@ import { GroupStore } from "../Services/GroupStore.js";
 import { LibraryStore } from "../Services/LibraryStore.js";
 import { LookupCache } from "../Services/LookupCache.js";
 import { SettingsStore } from "../Services/Settings.js";
+import { SyncFileStore } from "../Services/SyncFileStore.js";
 
 /** `db` is an `IdbDatabase` (or its stand-in), `bundled` gives the bundled dictionary's Blob. */
 export function makeEnv({ db, storage, run = {}, bundled }) {
@@ -20,6 +21,7 @@ export function makeEnv({ db, storage, run = {}, bundled }) {
     dictionary,
     packs: new DictionaryPacks(db, dictionary),
     settings: new SettingsStore(storage, run),
+    syncFiles: new SyncFileStore(db),
   };
 }
 

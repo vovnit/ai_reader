@@ -11,7 +11,7 @@ struct LibraryView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if store.books.isEmpty {
+                if store.books.isEmpty && store.state.cloudBooks.isEmpty {
                     ContentUnavailableView(
                         "No books yet",
                         systemImage: "books.vertical",
@@ -66,7 +66,8 @@ struct LibraryView: View {
         }
     }
 
-    /// Each group under its name, then the books in none.
+    /// Each group under its name, then the books in none, then those in the
+    /// sync folder that are not here.
     private var shelf: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 24) {
@@ -80,6 +81,13 @@ struct LibraryView: View {
                     }
                 }
                 grid(store.state.books(in: nil))
+                let cloud = store.state.cloudBooks
+                if !cloud.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("In the sync folder").font(.headline)
+                        ForEach(cloud, id: \.name, content: cloudRow)
+                    }
+                }
             }
             .padding()
         }
@@ -127,10 +135,43 @@ struct LibraryView: View {
                     Button("Group…", systemImage: "rectangle.stack") {
                         store.send(.groupTapped(book))
                     }
-                    Button("Delete", systemImage: "trash", role: .destructive) {
-                        store.send(.deleteTapped(book))
+                    if store.state.isInCloud(book) {
+                        Button("Remove from this device", systemImage: "minus.circle") {
+                            store.send(.deleteTapped(book))
+                        }
+                        Button("Delete from the sync folder too…", systemImage: "trash", role: .destructive) {
+                            store.send(.deleteEverywhereTapped(book))
+                        }
+                    } else {
+                        Button("Delete", systemImage: "trash", role: .destructive) {
+                            store.send(.deleteTapped(book))
+                        }
                     }
                 }
+            }
+        }
+    }
+
+    /// A book in the sync folder only: fetched when tapped.
+    private func cloudRow(_ book: RemoteBook) -> some View {
+        let isDownloading = store.downloading.contains(book.name)
+        return Button {
+            store.send(.downloadTapped(book))
+        } label: {
+            HStack {
+                Label(book.title, systemImage: "icloud.and.arrow.down")
+                Spacer()
+                if isDownloading { ProgressView() }
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(isDownloading)
+        .contextMenu {
+            Button("Download", systemImage: "icloud.and.arrow.down") {
+                store.send(.downloadTapped(book))
+            }
+            Button("Delete from the sync folder…", systemImage: "trash", role: .destructive) {
+                store.send(.deleteRemoteTapped(book))
             }
         }
     }

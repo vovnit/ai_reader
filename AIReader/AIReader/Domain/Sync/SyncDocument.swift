@@ -1,11 +1,12 @@
 import AIReaderCore
 import Foundation
 
-/// What two devices agree on: one JSON file holding every book's place and
-/// group, and every word looked up with how it has fared in practice. Each
-/// record carries when it last changed, and the newer one wins when both
-/// devices have it. A word that was deleted stays as a tombstone, so the
-/// other device deletes it too instead of bringing it back.
+/// What two devices agree on: every book's place and group, and every word
+/// looked up with how it has fared in practice. Each record carries when it
+/// last changed, and the newer one wins when both devices have it. A word
+/// that was deleted stays as a tombstone, so the other device deletes it too
+/// instead of bringing it back. On the server the records are spread over
+/// many files of this form (`SyncParts`).
 ///
 /// Times are strings of the form `2026-09-16T10:00:00Z`, so they sort as
 /// text and read the same on a Kindle without a date library.
@@ -14,8 +15,6 @@ import Foundation
 /// through `Core/`, so the two apps cannot disagree about the file. This type
 /// is its Swift face; `SyncDocument+Core.swift` converts between the two.
 struct SyncDocument: Equatable, Sendable {
-    static let fileName = String(cString: AIReaderCore.SyncDocument.fileName)
-
     struct BookRecord: Equatable, Sendable {
         var key: String
         var title: String
@@ -63,13 +62,6 @@ struct SyncDocument: Equatable, Sendable {
     /// compare and encode the same.
     var sorted: SyncDocument {
         SyncDocument(core.sorted())
-    }
-
-    /// Both documents' records, the newer of each pair. A tombstone beats a
-    /// live record only when it is newer; a lookup made again after being
-    /// deleted comes back.
-    static func merge(_ local: SyncDocument, _ remote: SyncDocument) -> SyncDocument {
-        SyncDocument(AIReaderCore.SyncDocument.merge(local.core, remote.core))
     }
 
     // MARK: - Reading and writing

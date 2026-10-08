@@ -32,12 +32,17 @@ struct Book: Identifiable, Equatable, Sendable {
     var remoteName: String?
 }
 
-/// A file in the sync folder's `Books` that this device has met: fetched,
-/// sent, or found to be a book it already had. A book removed here stays
-/// met, so it is not fetched again.
+/// A file in the sync folder's `Books`, as the last sync listed it. Those
+/// no book here has as its `remoteName` can be fetched on request.
+///
+/// The table once held every name this device had fetched or sent, when
+/// sync fetched everything; the next sync replaces those with the listing.
 @Table("remoteBooks")
 struct RemoteBook: Equatable, Sendable {
     var name = ""
+
+    /// The file name without `.epub`: author and title, as the folder has it.
+    var title: String { String(name.dropLast(".epub".count)) }
 }
 
 extension Book {

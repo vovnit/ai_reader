@@ -5,8 +5,8 @@
 
 class QVBoxLayout;
 
-/// The root screen: the books on the shelf, grouped, and the way to
-/// settings and the words met so far.
+/// The root screen: the books on the shelf, grouped, those in the sync
+/// folder not fetched yet, and the way to settings and the words met so far.
 class LibraryView : public Screen {
 public:
     LibraryView(Env& env, Navigator& navigator);
@@ -22,6 +22,8 @@ private:
 
     void render();
     QWidget* row(const Book& book);
+    QWidget* cloudRow(const std::string& name);
+    void remove(const Book& book);
     QWidget* heading(const BookGroup& group, size_t count);
     void pickGroup(const Book& book, QWidget* anchor);
     void addBook();

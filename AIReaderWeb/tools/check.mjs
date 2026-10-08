@@ -11,9 +11,9 @@ import { checkGlossary } from "./checks/Glossary.mjs";
 import { checkOffline } from "./checks/Offline.mjs";
 import { checkPdf } from "./checks/Pdf.mjs";
 import { checkRelay } from "./checks/Relay.mjs";
-import { checkServer } from "./checks/Server.mjs";
+import { checkRecordsServer, checkServer } from "./checks/Server.mjs";
 import { checkStores } from "./checks/Stores.mjs";
-import { checkSync } from "./checks/Sync.mjs";
+import { checkSync, checkSyncParts } from "./checks/Sync.mjs";
 import { openAsBlob } from "node:fs";
 
 // A PDF is checked as the EPUB the library makes of it; the checks that
@@ -26,11 +26,13 @@ await checkAi();
 await checkContext();
 checkCards();
 await checkSync();
+checkSyncParts();
 await checkStores();
 await checkGlossary();
 await checkEpub(bookPath);
 await checkPdf(pdfPath);
 await checkServer(bookPath ? await openAsBlob(bookPath) : null);
+await checkRecordsServer();
 await checkRelay();
 await checkOffline();
 console.log(failures ? "FAILED" : "all checks passed");

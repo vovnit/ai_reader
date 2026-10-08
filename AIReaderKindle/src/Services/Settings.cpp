@@ -1,6 +1,7 @@
 #include "Settings.hpp"
 
 #include "../Domain/Books/RemoteBookName.hpp"
+#include "Domain/Sync/SyncParts.hpp"
 
 #include "Support/Json.hpp"
 #include "../Support/Text.hpp"
@@ -43,16 +44,22 @@ bool SyncSettings::isConfigured() const {
     return !Text::trim(url).empty();
 }
 
-std::string SyncSettings::fileUrl() const {
-    std::string base = Text::trim(url);
-    while (!base.empty() && base.back() == '/') base.pop_back();
-    return base + "/aireader-sync.json";
+std::string SyncSettings::partsUrl() const {
+    return folderUrl() + SyncParts::folder + "/";
+}
+
+std::string SyncSettings::oldFileUrl() const {
+    return folderUrl() + SyncParts::oldFile;
 }
 
 std::string SyncSettings::booksUrl() const {
+    return folderUrl() + RemoteBookName::folder + "/";
+}
+
+std::string SyncSettings::folderUrl() const {
     std::string base = Text::trim(url);
     while (!base.empty() && base.back() == '/') base.pop_back();
-    return base + "/" + RemoteBookName::folder + "/";
+    return base + "/";
 }
 
 /// TinyFish's search, which Monid lists at no charge: a GET whose query

@@ -71,9 +71,19 @@ GtkWidget* row(Env& env, Navigator& navigator, LibraryFeature& feature, const Bo
     GtkWidget* open = Widgets::flatButton(content, [&env, &navigator, book] { ReaderView::open(env, navigator, book); });
 
     GtkWidget* remove = Widgets::glyphButton("✕", [&navigator, &feature, book] {
-        Widgets::confirm(navigator.window(), "Remove “" + book.title + "”?",
-                         "The book file is deleted. Words looked up in it are kept.", "Remove",
-                         [&feature, book] { feature.remove(book); });
+        if (!feature.isInCloud(book)) {
+            Widgets::confirm(navigator.window(), "Remove “" + book.title + "”?",
+                             "The book file is deleted. Words looked up in it are kept.", "Remove",
+                             [&feature, book] { feature.remove(book); });
+            return;
+        }
+        const std::string here = "From this device only";
+        const std::string everywhere = "From this device and the sync folder";
+        Widgets::picker(navigator, "Remove “" + book.title + "”", {here, everywhere}, "",
+            [&feature, book, here](const std::string& choice) {
+                if (choice == here) feature.remove(book);
+                else feature.removeEverywhere(book);
+            });
     }, true);
     GtkWidget* group = Widgets::button("Group", [&navigator, &feature, book] { GroupView::pick(navigator, feature, book); });
     GtkWidget* holder = gtk_vbox_new(FALSE, Widgets::px(6));
@@ -82,6 +92,33 @@ GtkWidget* row(Env& env, Navigator& navigator, LibraryFeature& feature, const Bo
 
     GtkWidget* line = gtk_hbox_new(FALSE, Widgets::px(4));
     gtk_box_pack_start(GTK_BOX(line), open, TRUE, TRUE, 0);
+    gtk_box_pack_end(GTK_BOX(line), holder, FALSE, FALSE, 0);
+    return line;
+}
+
+/// A book in the sync folder only, and the ways to fetch it or delete it there.
+GtkWidget* cloudRow(Navigator& navigator, LibraryFeature& feature, const std::string& name) {
+    std::string title = Files::stem(name);
+    bool downloading = feature.isDownloading(name);
+    std::string text = Widgets::escape(title);
+    if (downloading) text += "\n" + Widgets::small("Downloading…");
+    GtkWidget* caption = Widgets::markup(text);
+    gtk_misc_set_alignment(GTK_MISC(caption), 0, 0.5);
+    gtk_misc_set_padding(GTK_MISC(caption), Widgets::px(6), Widgets::px(12));
+
+    GtkWidget* remove = Widgets::glyphButton("✕", [&navigator, &feature, name, title] {
+        Widgets::confirm(navigator.window(), "Delete “" + title + "” from the sync folder?",
+                         "Devices that already have it keep their copy.", "Delete",
+                         [&feature, name] { feature.removeRemote(name); });
+    }, true);
+    GtkWidget* download = Widgets::button("Download", [&feature, name] { feature.download(name); });
+    gtk_widget_set_sensitive(download, !downloading);
+    GtkWidget* holder = gtk_vbox_new(FALSE, Widgets::px(6));
+    gtk_box_pack_start(GTK_BOX(holder), remove, FALSE, FALSE, Widgets::px(8));
+    gtk_box_pack_start(GTK_BOX(holder), download, FALSE, FALSE, 0);
+
+    GtkWidget* line = gtk_hbox_new(FALSE, Widgets::px(4));
+    gtk_box_pack_start(GTK_BOX(line), caption, TRUE, TRUE, 0);
     gtk_box_pack_end(GTK_BOX(line), holder, FALSE, FALSE, 0);
     return line;
 }
@@ -122,7 +159,7 @@ void open(Env& env, Navigator& navigator) {
         GList* children = gtk_container_get_children(GTK_CONTAINER(list));
         for (GList* child = children; child; child = child->next) gtk_widget_destroy(GTK_WIDGET(child->data));
         g_list_free(children);
-        if (feature->books().empty()) {
+        if (feature->books().empty() && feature->cloudBooks().empty()) {
             gtk_box_pack_start(GTK_BOX(list), Widgets::markup("No books yet.\n\n" + Widgets::small(
                 "Tap Add to pick an <tt>.epub</tt> on this device, "
                 "or copy files into\n<tt>" + Widgets::escape(Paths::books()) + "</tt>\n"
@@ -141,9 +178,23 @@ void open(Env& env, Navigator& navigator) {
             shelve(books);
         }
         shelve(feature->booksIn(0));
+        // Then the books in the sync folder that are not here.
+        if (!feature->cloudBooks().empty()) {
+            GtkWidget* heading = Widgets::markup("<b>In the sync folder</b>");
+            gtk_misc_set_alignment(GTK_MISC(heading), 0, 0.5);
+            gtk_misc_set_padding(GTK_MISC(heading), Widgets::px(4), 0);
+            gtk_box_pack_start(GTK_BOX(list), heading, FALSE, FALSE, Widgets::px(6));
+        }
+        for (const auto& name : feature->cloudBooks()) {
+            gtk_box_pack_start(GTK_BOX(list), cloudRow(navigator, *feature, name), FALSE, FALSE, 0);
+            gtk_box_pack_start(GTK_BOX(list), Widgets::separator(), FALSE, FALSE, 0);
+        }
         gtk_widget_show_all(list);
     };
     feature->onChange = render;
+    feature->onFailure = [&navigator](const std::string& title, const std::string& message) {
+        Widgets::alert(navigator.window(), title, message);
+    };
 
     std::vector<GtkWidget*> actions = {
         Widgets::button("Exit", [] { gtk_main_quit(); }),

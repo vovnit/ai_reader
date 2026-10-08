@@ -3,6 +3,7 @@
 // offline use.
 import { Navigator } from "../Features/Common/Navigator.js";
 import { LibraryView } from "../Features/Library/LibraryView.js";
+import { keepQuirksIn } from "../Services/RequestQuirkStore.js";
 import { schema } from "../Services/Schema.js";
 import { SettingsStore } from "../Services/Settings.js";
 import { IdbDatabase } from "../Support/Idb.js";
@@ -22,6 +23,7 @@ function bundledDictionary() {
 
 async function start() {
   const db = await IdbDatabase.open(schema);
+  keepQuirksIn(localStorage);
   const env = makeEnv({ db, storage: localStorage, run: SettingsStore.runValues(location.search), bundled: bundledDictionary });
   const screens = new Navigator(document.getElementById("main"), document.getElementById("panel"));
   const library = new LibraryView(env, screens);

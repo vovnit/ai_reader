@@ -146,4 +146,23 @@ Applied apply(Env& env, const SyncDocument& merged) {
     return applied;
 }
 
+std::vector<SyncParts::File> known(Env& env, const std::string& folder) {
+    std::vector<SyncParts::File> files;
+    Statement select(env.database, "SELECT name, version, digest FROM syncFiles WHERE folder = ?");
+    select.bind(1, folder);
+    while (select.step()) files.push_back({select.text(0), select.text(1), select.text(2)});
+    return files;
+}
+
+void remember(Env& env, const std::string& folder, const std::vector<SyncParts::File>& files) {
+    // One write to the flash rather than one per file.
+    env.database.exec("BEGIN");
+    env.database.exec("DELETE FROM syncFiles");
+    for (const auto& file : files) {
+        Statement insert(env.database, "INSERT INTO syncFiles (folder, name, version, digest) VALUES (?, ?, ?, ?)");
+        insert.bind(1, folder).bind(2, file.name).bind(3, file.version).bind(4, file.digest).run();
+    }
+    env.database.exec("COMMIT");
+}
+
 }  // namespace SyncStore

@@ -2,7 +2,8 @@ import Foundation
 
 /// Parameters that some OpenAI-compatible services reject while others require
 /// them. A service names the offending parameter in its error, so a request can
-/// be adjusted and tried again.
+/// be adjusted and tried again; what a model needed is remembered by
+/// `RequestQuirkStore`.
 enum RequestQuirk: String, CaseIterable, Sendable {
     /// Newer OpenAI reasoning models take `max_completion_tokens` in place of
     /// `max_tokens`.
@@ -38,22 +39,5 @@ enum RequestQuirk: String, CaseIterable, Sendable {
             let param: String?
         }
         let error: Error
-    }
-}
-
-/// Remembers, for the rest of the session, which adjustments a given model
-/// needed, so the cost of discovering them is paid once rather than on every
-/// lookup.
-actor RequestQuirkStore {
-    static let shared = RequestQuirkStore()
-
-    private var known: [String: Set<RequestQuirk>] = [:]
-
-    func quirks(for model: String) -> Set<RequestQuirk> {
-        known[model] ?? []
-    }
-
-    func learn(_ quirk: RequestQuirk, for model: String) {
-        known[model, default: []].insert(quirk)
     }
 }

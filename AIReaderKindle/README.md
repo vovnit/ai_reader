@@ -141,23 +141,31 @@ nothing else, so it is not used.
 
 **Sync.** *Settings* takes a WebDAV folder and an account. From then on,
 reading positions, groups, looked-up words and how each has fared in practice
-are shared through one file in that folder — with the [iOS app](../README.md),
-the [Linux app](../AIReaderQt/README.md) and the [web app](../AIReaderWeb/README.md),
-which read and write the same file. The app syncs quietly when it opens and
+are shared through the files in that folder's `aireader-sync` — with the
+[iOS app](../README.md), the [Linux app](../AIReaderQt/README.md) and the
+[web app](../AIReaderWeb/README.md), which read and write the same files. Each
+record is kept in the file its title or word falls in, so a sync reads only
+the files another device has changed and sends only the ones its own changes
+fall in. The app syncs quietly when it opens and
 when a book is closed, and *Sync now* in Settings says what came and went.
 Books are matched by title and author, since neither the file nor the row is
 the same on two devices; a position travels as the chapter, how far into it,
 and the words at that point, so it is found again whatever the other device's
 rendering — a page here, a different page size there. Where both devices
 changed one thing, the later change wins; a word deleted on one device is
-deleted on the other rather than coming back.
+deleted on the other rather than coming back. Earlier versions kept
+everything in one file, `aireader-sync.json`: the first sync after an update
+moves it over, and it is read again whenever a device not yet updated
+changes it.
 
 The books themselves travel too, as EPUB files in the folder's `Books`: a
-book added on one device is sent there, and one found there is fetched and
-shelved in `/mnt/us/aireader/books`. Removing a book removes it from that device only — the file stays
-for the others, and is not fetched again. Web pages saved with the [browser
-extension](../BrowserExtension/README.md) land in the same folder and arrive
-the same way.
+book added on one device is sent there, and the ones there that the Kindle
+does not have are listed under the shelf; *Download* fetches one into
+`/mnt/us/aireader/books`. `✕` on a book that is there asks whether to remove
+it from this device only — it is listed again — or from the sync folder too;
+devices that already have it keep their copy. Web pages saved with the
+[browser extension](../BrowserExtension/README.md) land in the same folder
+and are listed the same way.
 
 **Settings.** Endpoint, token and model of any OpenAI-compatible service, with
 *Load models* to fill the picker. A second token is kept for OpenAI and used
@@ -197,7 +205,7 @@ files and `App/` know GTK.
 
 | Folder | What lives there |
 | --- | --- |
-| `../Core` | Shared with the iOS app, which compiles it through Swift's C++ interop: JSON, and the sync document with its merge. Standard library only. Included by path from there: `"Support/Json.hpp"`. |
+| `../Core` | Shared with the iOS app, which compiles it through Swift's C++ interop: JSON, and the sync document with its merge and the files it is spread over. Standard library only. Included by path from there: `"Support/Json.hpp"`. |
 | `src/Support` | An XML scanner, a ZIP reader over zlib, files, and running work off the main loop. |
 | `src/Domain` | Books (the package document, the navigation document or NCX, HTML to text, language detection, the reading place any device can find again), dictionaries (the lookup and its prompt summary, normalizing), the dictionary file formats, search (a phrase in a text, and the sentence around it), AI (messages, the prompts — explanation, chat, X-ray — the tools the model may call, the dictionary, the book and the web, the mock, parameter negotiation), cards (a flash card from a lookup, a round of the matching game), the key a book goes by across devices, and reading (pagination, illustrations and word/sentence resolution, on Pango and gdk-pixbuf). |
 | `src/Services` | SQLite (library and groups, lookup cache and the deleted lookups it remembers, card practice, dictionary packs, the packs themselves), the settings file, the e-ink panel (the page-turn slide of the MediaTek Kindles), one HTTP request on libcurl and, on it, the chat API, the web search through Monid and the WebDAV client, the corpus (the open book and its group, searched from any thread), the tool-calling loop that answers the model's dictionary, book search and web search calls, and sync (the store that turns the database into a document and back, and the round trip to the server). |
@@ -222,7 +230,8 @@ Everything is under `$AIREADER_HOME`: `/mnt/us/aireader` on the Kindle (set by
 | --- | --- |
 | `books/` | Where `.epub` files go. Read in place; nothing is unpacked. |
 | `dictionaries/` | Added packs and word lists. |
-| `library.sqlite3` | Books, positions and groups, lookups and how each has fared in practice, the lookups deleted (kept by name so a sync deletes them elsewhere too), the dictionary list. |
+| `library.sqlite3` | Books, positions and groups, lookups and how each has fared in practice, the lookups deleted (kept by name so a sync deletes them elsewhere too), what the last sync knew of each file in the sync folder, the dictionary list. |
+| `request-quirks.txt` | What each endpoint and model was found to need of a request — `max_completion_tokens`, its default temperature, no reasoning — so later starts ask the right way first. Safe to delete. |
 | `settings.ini` | Endpoint, model, `token`, `openai_token`, the answer `language`, the web search (`[web]`: `monid_token`, `provider`, `endpoint`, `input`), the sync folder (`[sync]`: `url`, `user`, `password`), reading style and `turn_animation`. There is no keychain on a Kindle, so the tokens and the password sit here too. Editable from a computer; the token starts as the development one the iOS app also uses. |
 | `anki-cards.txt` | The last export for Anki. |
 

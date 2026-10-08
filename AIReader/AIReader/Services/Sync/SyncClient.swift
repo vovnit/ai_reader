@@ -2,8 +2,8 @@ import ComposableArchitecture
 import Foundation
 import SQLiteData
 
-/// One round of syncing: exchange the books, then fetch the document, merge
-/// this device's records in, write the result back here and to the server.
+/// One round of syncing: exchange the books, then the records
+/// (`RecordSync`).
 struct SyncReport: Equatable, Sendable {
     var files = LibrarySync.Outcome()
     var applied = SyncStore.Applied()
@@ -11,7 +11,6 @@ struct SyncReport: Equatable, Sendable {
 
     var summary: String {
         var parts: [String] = []
-        if files.received > 0 { parts.append("\(files.received) new book\(files.received == 1 ? "" : "s")") }
         if applied.lookups > 0 { parts.append("\(applied.lookups) word\(applied.lookups == 1 ? "" : "s")") }
         if applied.books > 0 { parts.append("\(applied.books) book update\(applied.books == 1 ? "" : "s")") }
         let received = parts.isEmpty ? "Nothing new here" : "Received " + parts.joined(separator: ", ")
@@ -26,6 +25,10 @@ struct SyncReport: Equatable, Sendable {
 struct SyncClient: Sendable {
     var isConfigured: @Sendable () -> Bool = { false }
     var sync: @Sendable () async throws -> SyncReport
+    /// Fetches a book from the sync folder and shelves it.
+    var download: @Sendable (_ name: String) async throws -> Void
+    /// Deletes a book's file from the sync folder.
+    var deleteRemote: @Sendable (_ name: String) async throws -> Void
 }
 
 extension SyncClient: DependencyKey {
@@ -42,7 +45,14 @@ extension SyncClient: DependencyKey {
     }
 
     static var liveValue: Self {
-        Self(
+        @Sendable func configured() throws -> SyncSettings {
+            @Dependency(\.syncSettingsClient) var syncSettings
+            let settings = syncSettings.load()
+            guard settings.isConfigured else { throw SyncError.notConfigured }
+            guard settings.booksURL != nil else { throw SyncError.badURL }
+            return settings
+        }
+        return Self(
             isConfigured: {
                 @Dependency(\.syncSettingsClient) var syncSettings
                 return syncSettings.load().isConfigured
@@ -52,24 +62,22 @@ extension SyncClient: DependencyKey {
                 @Dependency(\.defaultDatabase) var database
                 let settings = syncSettings.load()
                 guard settings.isConfigured else { throw SyncError.notConfigured }
-                guard let url = settings.fileURL else { throw SyncError.badURL }
+                guard settings.partsURL != nil else { throw SyncError.badURL }
 
                 var report = SyncReport()
-                // Books first, so the places and groups of any that arrive
-                // are applied in this same round.
                 report.files = try await LibrarySync.run(settings: settings, database: database)
-
-                let remote = try await WebDAV.download(url, settings: settings)
-                    .map { try SyncDocument.decode($0) } ?? SyncDocument()
-                let local = try await database.read { db in try SyncStore.export(db) }
-                let merged = SyncDocument.merge(local, remote)
-
-                report.applied = try await database.write { db in try SyncStore.apply(merged, to: db) }
-                if merged != remote.sorted {
-                    try await WebDAV.upload(merged.encoded(), to: url, settings: settings)
-                    report.uploaded = true
-                }
+                let records = try await RecordSync.run(settings: settings, database: database)
+                report.applied = records.applied
+                report.uploaded = records.uploaded
                 return report
+            },
+            download: { name in
+                @Dependency(\.defaultDatabase) var database
+                try await LibrarySync.fetch(name, settings: configured(), database: database)
+            },
+            deleteRemote: { name in
+                @Dependency(\.defaultDatabase) var database
+                try await LibrarySync.delete(name, settings: configured(), database: database)
             }
         )
     }

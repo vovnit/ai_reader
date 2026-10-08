@@ -93,12 +93,18 @@ export class LibraryStore {
     return this.#update(id, { remoteName: name });
   }
 
-  /** Every file in the sync folder's `Books` this device has met, so a book removed here is not fetched again. */
-  async remoteNamesMet() {
+  /** The files in the sync folder's `Books`, as the last sync listed them; those no book here has as its `remoteName` can be fetched on request. */
+  async remoteNames() {
     return new Set((await this.#db.getAll("remoteBooks")).map((row) => row.name));
   }
 
-  meetRemote(name) {
-    return this.#db.put("remoteBooks", { name });
+  async setRemoteNames(names) {
+    const listed = new Set(names);
+    for (const name of await this.remoteNames()) if (!listed.has(name)) await this.#db.delete("remoteBooks", name);
+    await this.#db.putAll("remoteBooks", names.map((name) => ({ name })));
+  }
+
+  forgetRemote(name) {
+    return this.#db.delete("remoteBooks", name);
   }
 }

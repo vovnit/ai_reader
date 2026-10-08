@@ -18,7 +18,9 @@ density, so a page breaks the same way on both.
   `.epub` into `~/.aireader/books`, or makes an EPUB there of a `.pdf`;
   files copied there appear on *Refresh*.
   *Group* puts a book in a group (books in one are searched together); `✕`
-  removes a book or dissolves a group.
+  removes a book — from this device, or from the sync folder too — or
+  dissolves a group. Books in the sync folder that are not here are listed
+  below, with *Download*.
 - **Reader** — click a word to look it up, blank space to turn the page; the
   arrow keys, Page Up/Down, Space and the wheel turn pages too. The footer
   opens the menu: contents, the book's lookups, search (also Ctrl+F), X-ray,

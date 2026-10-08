@@ -6,6 +6,7 @@
 #include "Reader/ReaderView.hpp"
 #include "Services/EpubLoader.hpp"
 #include "Services/Paths.hpp"
+#include "Support/Files.hpp"
 #include "Settings/SettingsView.hpp"
 #include "Words/WordsView.hpp"
 
@@ -54,6 +55,7 @@ LibraryView::LibraryView(Env& env, Navigator& navigator)
     addAction("Add…", [this] { addBook(); });
 
     feature_.onChange = [this] { render(); };
+    feature_.onFailure = [this](const std::string& title, const std::string& message) { Ui::alert(this, title, message); };
     feature_.refresh();
     feature_.sync();
 }
@@ -65,7 +67,7 @@ void LibraryView::returned() {
 
 void LibraryView::render() {
     Ui::clear(list_);
-    if (feature_.books().empty()) {
+    if (feature_.books().empty() && feature_.cloudBooks().empty()) {
         list_->addWidget(Ui::rich("No books yet.<br><br>" + Ui::small(
             "Choose Add to pick an <tt>.epub</tt>, or copy files into<br><tt>" + Ui::escape(Paths::books())
             + "</tt><br>and choose Refresh.")));
@@ -83,6 +85,16 @@ void LibraryView::render() {
         shelve(books);
     }
     shelve(feature_.booksIn(0));
+    // Then the books in the sync folder that are not here.
+    if (!feature_.cloudBooks().empty()) {
+        QLabel* heading = Ui::rich("<b>In the sync folder</b>");
+        heading->setContentsMargins(6, 12, 0, 0);
+        list_->addWidget(heading);
+    }
+    for (const auto& name : feature_.cloudBooks()) {
+        list_->addWidget(cloudRow(name));
+        list_->addWidget(Ui::separator());
+    }
 }
 
 QWidget* LibraryView::row(const Book& book) {
@@ -108,13 +120,48 @@ QWidget* LibraryView::row(const Book& book) {
     QObject::connect(group, &QPushButton::clicked, this, [this, book, group] { pickGroup(book, group); });
     auto* remove = new QPushButton("✕");
     remove->setToolTip("Remove the book");
-    QObject::connect(remove, &QPushButton::clicked, this, [this, book] {
+    QObject::connect(remove, &QPushButton::clicked, this, [this, book] { this->remove(book); });
+    layout->addWidget(group);
+    layout->addWidget(remove);
+    return line;
+}
+
+void LibraryView::remove(const Book& book) {
+    if (!feature_.isInCloud(book)) {
         if (Ui::confirm(this, "Remove “" + book.title + "”?",
                         "The book file is deleted. Words looked up in it are kept.", "Remove")) {
             feature_.remove(book);
         }
+        return;
+    }
+    int choice = Ui::choose(this, "Remove “" + book.title + "”?",
+                            "Its copy in the sync folder can stay for your other devices, or go too. "
+                            "Devices that already have it keep theirs. Words looked up in it are kept.",
+                            "From this device", "From the sync folder too");
+    if (choice == 1) feature_.remove(book);
+    if (choice == 2) feature_.removeEverywhere(book);
+}
+
+QWidget* LibraryView::cloudRow(const std::string& name) {
+    auto* line = new QWidget;
+    auto* layout = new QHBoxLayout(line);
+    layout->setContentsMargins(6, 6, 0, 6);
+    std::string title = Files::stem(name);
+    bool downloading = feature_.isDownloading(name);
+    layout->addWidget(Ui::rich(Ui::escape(title) + (downloading ? "<br>" + Ui::small("Downloading…") : QString())), 1);
+
+    auto* download = new QPushButton("Download");
+    download->setEnabled(!downloading);
+    QObject::connect(download, &QPushButton::clicked, this, [this, name] { feature_.download(name); });
+    auto* remove = new QPushButton("✕");
+    remove->setToolTip("Delete it from the sync folder");
+    QObject::connect(remove, &QPushButton::clicked, this, [this, name, title] {
+        if (Ui::confirm(this, "Delete “" + title + "” from the sync folder?",
+                        "Devices that already have it keep their copy.", "Delete")) {
+            feature_.removeRemote(name);
+        }
     });
-    layout->addWidget(group);
+    layout->addWidget(download);
     layout->addWidget(remove);
     return line;
 }

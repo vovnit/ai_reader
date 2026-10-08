@@ -105,16 +105,27 @@ void LibraryStore::setRemoteName(long long id, const std::string& name) {
     update.bind(1, name).bind(2, id).run();
 }
 
-std::set<std::string> LibraryStore::remoteNamesMet() {
+std::set<std::string> LibraryStore::remoteNames() {
     std::set<std::string> names;
     Statement query(database_, "SELECT name FROM remoteBooks");
     while (query.step()) names.insert(query.text(0));
     return names;
 }
 
-void LibraryStore::meetRemote(const std::string& name) {
-    Statement insert(database_, "INSERT OR IGNORE INTO remoteBooks (name) VALUES (?)");
-    insert.bind(1, name).run();
+void LibraryStore::setRemoteNames(const std::vector<std::string>& names) {
+    // One write to the flash rather than one per name.
+    database_.exec("BEGIN");
+    database_.exec("DELETE FROM remoteBooks");
+    for (const auto& name : names) {
+        Statement insert(database_, "INSERT OR IGNORE INTO remoteBooks (name) VALUES (?)");
+        insert.bind(1, name).run();
+    }
+    database_.exec("COMMIT");
+}
+
+void LibraryStore::forgetRemote(const std::string& name) {
+    Statement remove(database_, "DELETE FROM remoteBooks WHERE name = ?");
+    remove.bind(1, name).run();
 }
 
 void LibraryStore::refresh(const std::vector<std::string>& folders) {

@@ -19,7 +19,9 @@ apps do, and syncs with them and the iOS app through the same WebDAV folder.
 - **Library** — the shelf, each group under its name. *Add…* picks `.epub`
   files, or drop them on the window; a `.pdf` is made into an EPUB as it is
   added, the same way the other apps make one. *Group…* puts a book in a group (books
-  in one are searched together); *Remove* takes it off this device.
+  in one are searched together); *Remove* takes it off this device, or out of
+  the sync folder too. Books in the sync folder that are not here are listed
+  below the shelf, with *Download*.
 - **Reader** — click a word to look it up, blank space to turn the page; the
   arrow keys, Page Up/Down, Space, the wheel and a swipe turn pages too,
   Ctrl+F (⌘F) searches. *Menu* holds contents, the book's lookups, search,
@@ -123,8 +125,8 @@ Everything stays in this browser, for this site:
 
 | | |
 | --- | --- |
-| Books (their EPUBs and covers), groups, lookups and practice, deleted lookups, the books met in the sync folder, added dictionaries | IndexedDB, `aireader` (`src/Services/Schema.js`) |
-| Endpoint, model, tokens, sync folder, user name and password, reading style | `localStorage` — not encrypted; a WebDAV account used only for AIReader is the sensible choice |
+| Books (their EPUBs and covers), groups, lookups and practice, deleted lookups, the names of the books in the sync folder as last listed, what the last sync knew of each file of records there, added dictionaries | IndexedDB, `aireader` (`src/Services/Schema.js`) |
+| Endpoint, model, tokens, sync folder, user name and password, reading style, what each model was found to need of a request | `localStorage` — not encrypted; a WebDAV account used only for AIReader is the sensible choice |
 | The app and the bundled dictionary, for offline use | The service worker's cache |
 
 The browser is asked to keep the library when space runs short once a book
@@ -141,7 +143,7 @@ everything below runs under Node, which is how it is checked.
 | Folder | What lives there |
 | --- | --- |
 | `src/Support` | A tolerant XML scanner, ZIP reading and inflating through the browser's own `DecompressionStream`, text files in any encoding, a read-only SQLite reader, and IndexedDB with promises. |
-| `src/Domain` | Books (package, navigation, chapter text, language, reading place, book key, file names), the AI prompts and the mock, the dictionary shape and formats, search, cards, reading style and word boundaries, and the sync document. |
+| `src/Domain` | Books (package, navigation, chapter text, language, reading place, book key, file names), the AI prompts and the mock, the dictionary shape and formats, search, cards, reading style and word boundaries, and the sync document with the files it is kept in. |
 | `src/Services` | The stores over IndexedDB, settings, the dictionaries, the EPUB loader, the corpus, the chat API and the tool-calling loop, web search, speech, WebDAV and sync. |
 | `src/Features` | One folder per screen: a feature holding its state and actions, and a view that renders it. |
 | `src/App` | `main.js`, which opens the library and the shelf, and `Env.js`, which makes the stores. |

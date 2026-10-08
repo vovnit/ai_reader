@@ -1,6 +1,7 @@
-// The shelf, each group under its name. A book opens the reader; its
-// buttons put it in a group or take it off this device.
-import { confirmAction } from "../Common/Dialogs.js";
+// The shelf, each group under its name, then the books in the sync folder
+// that are not here. A book opens the reader; its buttons put it in a group
+// or take it off this device, and its file out of the sync folder.
+import { chooseAction, confirmAction } from "../Common/Dialogs.js";
 import { pickFiles } from "../Common/Files.js";
 import { Screen } from "../Common/Screen.js";
 import { button, h, note } from "../Common/Ui.js";
@@ -8,7 +9,7 @@ import { ReaderView } from "../Reader/ReaderView.js";
 import { SettingsView } from "../Settings/SettingsView.js";
 import { WordsView } from "../Words/WordsView.js";
 import { GroupView } from "./GroupView.js";
-import { LibraryFeature } from "./LibraryFeature.js";
+import { LibraryFeature, remoteTitle } from "./LibraryFeature.js";
 
 export class LibraryView extends Screen {
   backName = "Library";
@@ -77,13 +78,34 @@ export class LibraryView extends Screen {
         button("Remove", () => this.#remove(book))));
   }
 
+  /** A book in the sync folder only: fetched on request. */
+  #cloudRow(name) {
+    const downloading = this.feature.downloading.has(name);
+    return h("li", { class: "book" },
+      h("span", { class: "remote" }, h("strong", {}, remoteTitle(name)), downloading ? h("small", {}, "Downloading…") : null),
+      h("span", { class: "row-actions" },
+        button("Download", () => this.feature.download(name), { disabled: downloading }),
+        button("Delete…", () => this.#removeRemote(name))));
+  }
+
   async #remove(book) {
-    const ok = await confirmAction({
+    if (!this.feature.isInCloud(book)) {
+      const ok = await confirmAction({ title: `Remove “${book.title}”?`, message: "It is removed from this device. Words looked up in it are kept.", confirm: "Remove" });
+      if (ok) await this.feature.remove(book);
+      return;
+    }
+    const choice = await chooseAction({
       title: `Remove “${book.title}”?`,
-      message: "It is removed from this device. Words looked up in it are kept, and its copy in the sync folder stays for your other devices.",
-      confirm: "Remove",
+      message: "Its copy in the sync folder can stay for your other devices, or go too. Devices that already have it keep theirs. Words looked up in it are kept.",
+      choices: [{ value: "here", label: "From this device" }, { value: "everywhere", label: "From the sync folder too" }],
     });
-    if (ok) await this.feature.remove(book);
+    if (choice === "here") await this.feature.remove(book);
+    if (choice === "everywhere") await this.feature.removeEverywhere(book);
+  }
+
+  async #removeRemote(name) {
+    const ok = await confirmAction({ title: `Delete “${remoteTitle(name)}” from the sync folder?`, message: "Devices that already have it keep their copy.", confirm: "Delete" });
+    if (ok) await this.feature.removeRemote(name);
   }
 
   async #dissolve(group) {
@@ -92,7 +114,7 @@ export class LibraryView extends Screen {
   }
 
   #render() {
-    const { books, groups, isAdding, message } = this.feature;
+    const { books, cloudBooks, groups, isAdding, message } = this.feature;
     const sections = groups
       .filter((group) => this.feature.booksIn(group.id).length)
       .map((group) => h("section", {},
@@ -100,10 +122,11 @@ export class LibraryView extends Screen {
         h("ul", { class: "books" }, this.feature.booksIn(group.id).map((book) => this.#row(book)))));
     const loose = this.feature.booksIn(0);
     if (loose.length) sections.push(h("section", {}, sections.length ? h("h2", {}, "No group") : null, h("ul", { class: "books" }, loose.map((book) => this.#row(book)))));
+    if (cloudBooks.length) sections.push(h("section", {}, h("h2", {}, "In the sync folder"), h("ul", { class: "books" }, cloudBooks.map((name) => this.#cloudRow(name)))));
     this.setBody(
       isAdding ? note("Adding…") : null,
       message ? h("p", { class: "error message" }, message) : null,
-      books.length ? sections : note("No books yet. Choose Add… to pick an .epub or a .pdf, or drop one here. Books in your sync folder arrive on their own."),
+      sections.length ? sections : note("No books yet. Choose Add… to pick an .epub or a .pdf, or drop one here. Books in your sync folder are listed here to download."),
     );
   }
 }

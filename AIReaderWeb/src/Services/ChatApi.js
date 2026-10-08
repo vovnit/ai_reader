@@ -2,10 +2,9 @@
 // service. Failures throw with a message fit to show.
 import { fromJson, toJson } from "../Domain/AI/ChatMessage.js";
 import { mockModels, mockReply } from "../Domain/AI/MockAI.js";
-import {
-  completionTokens, defaultTemperature, learnQuirk, noReasoning, quirkCount, quirkNamed, quirksFor,
-} from "../Domain/AI/RequestQuirks.js";
+import { completionTokens, defaultTemperature, noReasoning, quirkCount, quirkNamed } from "../Domain/AI/RequestQuirks.js";
 import { bearer, errorMessage, send } from "./Http.js";
+import { forgetQuirks, learnQuirk, quirksFor } from "./RequestQuirkStore.js";
 import { aiToken, chatUrl, modelsUrl, usesMock } from "./Settings.js";
 
 function requestBody(settings, messages, tools, jsonMode, maxTokens, quirks) {
@@ -48,6 +47,9 @@ export async function chat(settings, messages, tools = [], jsonMode = false, max
         learnQuirk(quirk, signature);
         continue;
       }
+      // Refused over something already adjusted: what was remembered no
+      // longer fits, so the next request finds out afresh.
+      if (quirk) forgetQuirks(signature);
     }
     if (status < 200 || status >= 300) throw new Error(`The request failed (${status}): ${errorMessage(text)}`);
     let json;

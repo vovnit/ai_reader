@@ -1,8 +1,8 @@
 import ComposableArchitecture
 import Foundation
 
-/// Where the sync file lives: a WebDAV folder and the account that may write
-/// to it. Nothing is synced until a URL is given.
+/// Where sync keeps its files: a WebDAV folder and the account that may
+/// write to it. Nothing is synced until a URL is given.
 struct SyncSettings: Equatable, Sendable {
     var url = ""
     var username = ""
@@ -27,11 +27,14 @@ struct SyncSettings: Equatable, Sendable {
         folderURL?.appending(path: RemoteBookName.folder, directoryHint: .isDirectory)
     }
 
-    /// The sync file inside the folder.
-    var fileURL: URL? {
-        var base = url.trimmingCharacters(in: .whitespacesAndNewlines)
-        while base.hasSuffix("/") { base.removeLast() }
-        return URL(string: "\(base)/\(SyncDocument.fileName)")
+    /// The folder of record files inside the sync folder (`SyncParts`).
+    var partsURL: URL? {
+        folderURL?.appending(path: SyncParts.folder, directoryHint: .isDirectory)
+    }
+
+    /// The one file older versions kept the records in.
+    var oldFileURL: URL? {
+        folderURL?.appending(path: SyncParts.oldFile, directoryHint: .notDirectory)
     }
 }
 

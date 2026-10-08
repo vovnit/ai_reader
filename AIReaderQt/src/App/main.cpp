@@ -6,6 +6,7 @@
 #include "Services/Env.hpp"
 #include "Services/Migrations.hpp"
 #include "Services/Paths.hpp"
+#include "Services/RequestQuirkStore.hpp"
 #include "Support/Files.hpp"
 
 #include <QAbstractEventDispatcher>
@@ -68,6 +69,7 @@ int main(int argc, char** argv) {
     locateFiles();
     ChatApi::initialize();
     Paths::prepare();
+    RequestQuirkStore::shared().keepIn(Paths::requestQuirks());
     Database database(Paths::database());
     if (!Migrations::migrate(database)) {
         std::fprintf(stderr, "aireader: could not open %s: %s\n", Paths::database().c_str(), database.lastError().c_str());
