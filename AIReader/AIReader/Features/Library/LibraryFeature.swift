@@ -207,10 +207,6 @@ struct LibraryFeature {
                 }
                 return .none
 
-            case .photoTapped:
-                state.photo = PhotoFeature.State()
-                return .none
-
             case .subtitlesTapped:
                 state.subtitles = SubtitlesFeature.State()
                 return .none
@@ -223,16 +219,13 @@ struct LibraryFeature {
                 state.words = nil
                 return .none
 
-            case .alert, .binding, .groupPicker, .photo, .reader, .settings, .subtitles, .words:
+            case .alert, .binding, .groupPicker, .photo, .photoTapped, .reader, .settings, .subtitles, .words:
                 return .none
             }
         }
         .ifLet(\.$alert, action: \.alert)
         .ifLet(\.$groupPicker, action: \.groupPicker) {
             GroupPickerFeature()
-        }
-        .ifLet(\.$photo, action: \.photo) {
-            PhotoFeature()
         }
         .ifLet(\.$reader, action: \.reader) {
             ReaderFeature()
@@ -245,6 +238,16 @@ struct LibraryFeature {
         }
         .ifLet(\.$words, action: \.words) {
             WordsFeature()
+        }
+        // Apart from the chain above, which the type checker gives up on
+        // with one more presentation in it.
+        Reduce { state, action in
+            guard case .photoTapped = action else { return .none }
+            state.photo = PhotoFeature.State()
+            return .none
+        }
+        .ifLet(\.$photo, action: \.photo) {
+            PhotoFeature()
         }
     }
 
