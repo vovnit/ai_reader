@@ -23,6 +23,7 @@ struct LibraryFeature {
         var downloading: Set<String> = []
         @Presents var alert: AlertState<Alert>?
         @Presents var groupPicker: GroupPickerFeature.State?
+        @Presents var photo: PhotoFeature.State?
         @Presents var reader: ReaderFeature.State?
         @Presents var settings: SettingsFeature.State?
         @Presents var subtitles: SubtitlesFeature.State?
@@ -66,6 +67,8 @@ struct LibraryFeature {
         case filesPicked(Result<[URL], any Error>)
         case groupPicker(PresentationAction<GroupPickerFeature.Action>)
         case groupTapped(Book)
+        case photo(PresentationAction<PhotoFeature.Action>)
+        case photoTapped
         case reader(PresentationAction<ReaderFeature.Action>)
         case settings(PresentationAction<SettingsFeature.Action>)
         case settingsTapped
@@ -204,6 +207,10 @@ struct LibraryFeature {
                 }
                 return .none
 
+            case .photoTapped:
+                state.photo = PhotoFeature.State()
+                return .none
+
             case .subtitlesTapped:
                 state.subtitles = SubtitlesFeature.State()
                 return .none
@@ -216,13 +223,16 @@ struct LibraryFeature {
                 state.words = nil
                 return .none
 
-            case .alert, .binding, .groupPicker, .reader, .settings, .subtitles, .words:
+            case .alert, .binding, .groupPicker, .photo, .reader, .settings, .subtitles, .words:
                 return .none
             }
         }
         .ifLet(\.$alert, action: \.alert)
         .ifLet(\.$groupPicker, action: \.groupPicker) {
             GroupPickerFeature()
+        }
+        .ifLet(\.$photo, action: \.photo) {
+            PhotoFeature()
         }
         .ifLet(\.$reader, action: \.reader) {
             ReaderFeature()

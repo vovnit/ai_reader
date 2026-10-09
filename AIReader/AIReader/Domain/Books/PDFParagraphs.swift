@@ -209,8 +209,8 @@ enum PDFParagraphs {
     }
 
     /// A paragraph with a line added; a word broken with a hyphen at the
-    /// line's end is mended.
-    private static func joined(_ paragraph: String, _ line: String) -> String {
+    /// line's end is mended. A photographed page's lines are joined the same way.
+    static func joined(_ paragraph: String, _ line: String) -> String {
         for hyphen in ["-", "\u{2010}", "\u{00AD}"] where paragraph.unicodeScalars.last.map(String.init) == hyphen {
             if hyphen == "\u{00AD}" || startsLowercase(line) {
                 var mended = paragraph

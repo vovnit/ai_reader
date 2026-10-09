@@ -6,6 +6,8 @@
 	<array>
 		<string>_xbmc-jsonrpc-h._tcp</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Photographs a page of a printed book, so the word your finger points at can be explained.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Finds Kodi on your network to follow its subtitles.</string>
 </dict>

@@ -28,6 +28,9 @@ struct LibraryView: View {
                 }
                 Button("Settings", systemImage: "gearshape") { store.send(.settingsTapped) }
                 Button("Words", systemImage: "character.book.closed") { store.send(.wordsTapped) }
+                #if os(iOS)
+                Button("Photo of a page", systemImage: "camera.viewfinder") { store.send(.photoTapped) }
+                #endif
                 #if os(macOS)
                 Button("Subtitles", systemImage: "captions.bubble") { openWindow(id: SubtitlesView.windowID) }
                 #else
@@ -50,6 +53,11 @@ struct LibraryView: View {
             .sheet(item: $store.scope(state: \.words, action: \.words)) { words in
                 WordsView(store: words)
             }
+            #if os(iOS)
+            .fullScreenCover(item: $store.scope(state: \.photo, action: \.photo)) { photo in
+                PhotoView(store: photo)
+            }
+            #endif
             .sheet(item: $store.scope(state: \.subtitles, action: \.subtitles)) { subtitles in
                 NavigationStack {
                     SubtitlesView(store: subtitles)
