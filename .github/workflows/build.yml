@@ -111,8 +111,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         # The release may already exist, written by hand on GitHub; then
-        # the files join it and its text is kept.
+        # the files join it and its text is kept. One made here is a
+        # pre-release, as every release so far has been.
         run: |
           gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
-            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --generate-notes
+            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --generate-notes --prerelease
           gh release upload "$GITHUB_REF_NAME" files/* --repo "$GITHUB_REPOSITORY" --clobber

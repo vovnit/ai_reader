@@ -23,6 +23,7 @@ struct LibraryFeature {
         var downloading: Set<String> = []
         @Presents var alert: AlertState<Alert>?
         @Presents var groupPicker: GroupPickerFeature.State?
+        @Presents var photo: PhotoFeature.State?
         @Presents var reader: ReaderFeature.State?
         @Presents var settings: SettingsFeature.State?
         @Presents var subtitles: SubtitlesFeature.State?
@@ -66,6 +67,8 @@ struct LibraryFeature {
         case filesPicked(Result<[URL], any Error>)
         case groupPicker(PresentationAction<GroupPickerFeature.Action>)
         case groupTapped(Book)
+        case photo(PresentationAction<PhotoFeature.Action>)
+        case photoTapped
         case reader(PresentationAction<ReaderFeature.Action>)
         case settings(PresentationAction<SettingsFeature.Action>)
         case settingsTapped
@@ -216,7 +219,7 @@ struct LibraryFeature {
                 state.words = nil
                 return .none
 
-            case .alert, .binding, .groupPicker, .reader, .settings, .subtitles, .words:
+            case .alert, .binding, .groupPicker, .photo, .photoTapped, .reader, .settings, .subtitles, .words:
                 return .none
             }
         }
@@ -235,6 +238,16 @@ struct LibraryFeature {
         }
         .ifLet(\.$words, action: \.words) {
             WordsFeature()
+        }
+        // Apart from the chain above, which the type checker gives up on
+        // with one more presentation in it.
+        Reduce { state, action in
+            guard case .photoTapped = action else { return .none }
+            state.photo = PhotoFeature.State()
+            return .none
+        }
+        .ifLet(\.$photo, action: \.photo) {
+            PhotoFeature()
         }
     }
 
