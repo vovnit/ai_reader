@@ -14,22 +14,26 @@ enum PointedWord {
     /// Nil when no finger was seen, or none points near the text — a hand
     /// holding the book rather than pointing into it.
     static func find(in photo: PhotoText) -> Place? {
+        photo.fingers.compactMap { aim(of: $0, in: photo) }.min { $0.score < $1.score }?.place
+    }
+
+    /// The word one finger points at, and how far the finger is from
+    /// pointing straight at it, in pixels.
+    static func aim(of finger: PhotoText.Finger, in photo: PhotoText) -> (place: Place, score: CGFloat)? {
         let heights = photo.lines.flatMap { $0.words.map(\.box.height) }.sorted()
         guard !heights.isEmpty else { return nil }
         let lineHeight = heights[heights.count / 2]
 
         var best: (place: Place, score: CGFloat)?
-        for finger in photo.fingers {
-            for (lineIndex, line) in photo.lines.enumerated() {
-                for (wordIndex, word) in line.words.enumerated() {
-                    guard let score = score(word.box, from: finger, lineHeight: lineHeight),
-                          score < best?.score ?? .infinity
-                    else { continue }
-                    best = (Place(line: lineIndex, word: wordIndex), score)
-                }
+        for (lineIndex, line) in photo.lines.enumerated() {
+            for (wordIndex, word) in line.words.enumerated() {
+                guard let score = score(word.box, from: finger, lineHeight: lineHeight),
+                      score < best?.score ?? .infinity
+                else { continue }
+                best = (Place(line: lineIndex, word: wordIndex), score)
             }
         }
-        return best?.place
+        return best
     }
 
     /// How far the box is from the fingertip, counting a step aside from

@@ -52,10 +52,48 @@ private enum PhotoReading {
         hands.maximumHandCount = 2
         try? handler.perform([hands])
 
-        return PhotoText(
+        var photo = PhotoText(
             lines: (text.results ?? []).compactMap { line($0, size) },
             fingers: (hands.results ?? []).compactMap { finger($0, size) }
         )
+        // A single finger coming in from the photo's edge shows no hand to
+        // recognise, so it is looked for in the pixels.
+        if PointedWord.find(in: photo) == nil, let pixels = smallImage(source),
+           let finger = FingerFinder.find(in: pixels, lines: photo.lines, photoSize: size) {
+            photo.fingers.append(finger)
+        }
+        return photo
+    }
+
+    /// The photo turned upright and shrunk to about 256 pixels on its long
+    /// side: ImageIO makes a quick copy a little larger, and averaging that
+    /// down keeps the colours true.
+    private static func smallImage(_ source: CGImageSource) -> RGBImage? {
+        let options = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 1024,
+        ] as CFDictionary
+        guard let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, options),
+              let context = CGContext(
+                  data: nil, width: thumbnail.width, height: thumbnail.height, bitsPerComponent: 8, bytesPerRow: 0,
+                  space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+              )
+        else { return nil }
+        context.draw(thumbnail, in: CGRect(x: 0, y: 0, width: thumbnail.width, height: thumbnail.height))
+        guard let data = context.data else { return nil }
+        let bytes = data.assumingMemoryBound(to: UInt8.self)
+        var values: [Float] = []
+        values.reserveCapacity(thumbnail.width * thumbnail.height * 3)
+        for y in 0..<thumbnail.height {
+            for x in 0..<thumbnail.width {
+                let pixel = y * context.bytesPerRow + 4 * x
+                values.append(Float(bytes[pixel]))
+                values.append(Float(bytes[pixel + 1]))
+                values.append(Float(bytes[pixel + 2]))
+            }
+        }
+        return RGBImage(width: thumbnail.width, height: thumbnail.height, values: values).shrunk(toLongSide: 256)
     }
 
     /// Vision measures the photo turned upright, and a camera often stores
@@ -81,7 +119,15 @@ private enum PhotoReading {
             }
             return true
         }
-        return PhotoText.Line(text: text, words: words)
+        // From the line's corners, which follow it however the page is turned.
+        let topLeft = pixels(observation.topLeft, size), topRight = pixels(observation.topRight, size)
+        let bottomLeft = pixels(observation.bottomLeft, size), bottomRight = pixels(observation.bottomRight, size)
+        let side = CGVector(
+            dx: (topLeft.x - bottomLeft.x + topRight.x - bottomRight.x) / 2,
+            dy: (topLeft.y - bottomLeft.y + topRight.y - bottomRight.y) / 2
+        )
+        let height = max((side.dx * side.dx + side.dy * side.dy).squareRoot(), 1)
+        return PhotoText.Line(text: text, words: words, height: height, up: CGVector(dx: side.dx / height, dy: side.dy / height))
     }
 
     /// The index finger, when its tip is seen. It points from the nearest
