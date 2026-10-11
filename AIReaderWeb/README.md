@@ -6,8 +6,9 @@ offline dictionary, and a model turns those entries into a short
 explanation of what the word means *in that sentence*.
 
 It is a progressive web app. Opened once, it works offline — the library,
-the reader, the dictionaries; only the model and sync need the network, and
-without the model a clicked word shows what the dictionaries say — and
+the reader, the dictionaries; only the model, sync and the first photo in a
+language need the network, and without the model a clicked word shows what
+the dictionaries say — and
 it can be installed from the browser's menu as an app of its own, which then
 opens `.epub` files from the system's file manager (Chrome and Edge).
 
@@ -21,7 +22,17 @@ apps do, and syncs with them and the iOS app through the same WebDAV folder.
   added, the same way the other apps make one. *Group…* puts a book in a group (books
   in one are searched together); *Remove* takes it off this device, or out of
   the sync folder too. Books in the sync folder that are not here are listed
-  below the shelf, with *Download*.
+  below the shelf, with *Download*. *Photo* is for a book on paper.
+- **Photo** — a printed page photographed with a finger just under a word:
+  the text is read in the browser by Tesseract.js, the finger found by its
+  colour and shape (as the iOS app finds one when Vision sees no hand), and
+  the word explained as a clicked one is, with *Next photo* beside it. On a
+  phone *Photo* opens the camera; elsewhere it picks a picture. A page is
+  read in the language the last one was in — at first, the language of the
+  book read last — and again in its own when its text says otherwise. The
+  first photo in a language fetches that language's model from jsDelivr, 1
+  to 3 MB, which the browser keeps. The photo is not kept or sent anywhere;
+  the model gets only the word and its sentence.
 - **Reader** — click a word to look it up, blank space to turn the page; the
   arrow keys, Page Up/Down, Space, the wheel and a swipe turn pages too,
   Ctrl+F (⌘F) searches. *Menu* holds contents, the book's lookups, search,
@@ -41,7 +52,8 @@ apps do, and syncs with them and the iOS app through the same WebDAV folder.
 ## Running it
 
 There is no build step: the folder is the app, plain HTML, CSS and
-JavaScript modules, with no dependencies.
+JavaScript modules. Its one dependency, Tesseract.js for reading photos, is
+kept in `vendor/tesseract` as its packages ship it.
 
 ```sh
 ./build.sh serve

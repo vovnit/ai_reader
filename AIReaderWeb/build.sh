@@ -12,7 +12,7 @@
 #   ./build.sh dist             the same as dist/AIReader-web.zip
 set -e
 root="$(cd "$(dirname "$0")" && pwd)"
-files="index.html app.css manifest.webmanifest sw.js icon.svg icon-192.png icon-512.png dictionary.sqlite3 src"
+files="index.html app.css manifest.webmanifest sw.js icon.svg icon-192.png icon-512.png dictionary.sqlite3 src vendor"
 
 site() {
     rm -rf "$root/dist/site"

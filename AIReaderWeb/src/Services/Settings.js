@@ -1,8 +1,10 @@
-// The reader's settings: the model, the web search, the sync folder and the
-// reading style. Kept in the browser's local storage — tokens and the sync
-// password too, as the Kindle app keeps them in its settings file; the
-// browser does not encrypt it. Values given in the page's address for one
-// run (`?aiEndpoint=mock://ai`) win over the saved ones without replacing them.
+// The reader's settings: the model, the web search, the sync folder, the
+// reading style, and the language of the last page photographed, which the
+// next photo is read in first. Kept in the browser's local storage — tokens
+// and the sync password too, as the Kindle app keeps them in its settings
+// file; the browser does not encrypt it. Values given in the page's address
+// for one run (`?aiEndpoint=mock://ai`) win over the saved ones without
+// replacing them.
 import { defaultStyle, sanitizeStyle } from "../Domain/Reading/ReadingStyle.js";
 import { booksFolder } from "../Domain/Books/RemoteBookName.js";
 import { oldSyncFile, partsFolder } from "../Domain/Sync/SyncParts.js";
@@ -118,5 +120,14 @@ export class SettingsStore {
 
   saveStyle(style) {
     this.#write("style", style);
+  }
+
+  /** The language the last photographed page was in, a two-letter code; "" before the first photo. */
+  photoLanguage() {
+    return this.#read("photo", { language: "" }).language;
+  }
+
+  savePhotoLanguage(language) {
+    this.#write("photo", { language });
   }
 }

@@ -119,6 +119,14 @@ these, open every copy:
   with the mock's answer to it; the words come from `BookWords`, by each app's
   own word boundaries (Pango splits at an apostrophe, the others do not). A
   book's glossary is the dictionary named "<title> glossary" everywhere.
+- **A photographed page.** The finger finder and the word it points at —
+  `RGBImage`, `SkinMask`, `FingerShape`, `FingerFinder`, `PointedWord`,
+  `PhotoPassage` — are alike in `AIReader/AIReader/Domain/Photo` (with
+  `Support/RGBImage.swift`) and `AIReaderWeb/src/Domain/Photo` (with
+  `Support/RgbImage.js`), and the flow around them is each app's
+  `PhotoFeature`. Only the reading differs: Vision on iOS
+  (`PhotoReaderClient.swift`), Tesseract.js on the web (`PhotoReader.js`,
+  `TesseractPage.js`).
 - **The bundled dictionary's credits** — its sources and their license, which
   the license requires be shown — on each app's Dictionaries screen and in the
   top-level README. A pack built from other sources changes all of them.
@@ -174,7 +182,9 @@ under Node and is checked there. Records live in IndexedDB, settings in
 `localStorage`. Dictionary packs are read by `Support/SqliteFile.js`, a
 read-only reader of the SQLite file format, and pages are laid out by the
 browser in CSS columns, every text node knowing its chapter offset.
-`dictionary.sqlite3` there is a link to the iOS app's copy.
+`dictionary.sqlite3` there is a link to the iOS app's copy. Photos are read
+by Tesseract.js, the one dependency, kept unchanged in `vendor/tesseract`;
+each language's model is fetched from jsDelivr when a photo first needs it.
 
 **AI endpoints.** The apps talk to any OpenAI-compatible endpoint. Do not
 special-case a provider; if a service rejects a parameter, negotiate from the
@@ -259,7 +269,7 @@ text selected); sharing from the selection's own menu delivers the bare text.
   run repeats the work.
 - The web app's `sw.js` lists every file it keeps for offline use; a new file
   missing from the list is missing offline, and `AIReaderWeb/build.sh check`
-  fails on it.
+  fails on it. `vendor/` is the exception: kept once a photo has used it.
 - A web page reaches only services that allow its origin (CORS). Mistral,
   OpenAI and OpenRouter do; Nextcloud's WebDAV and Monid do not. Hosted on
   Cloudflare, `AIReaderWeb/relay.js` relays the hosts named in the Worker's

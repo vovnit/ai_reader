@@ -108,7 +108,10 @@ spoon, can be. The screen then shows only the explanation, with *Next photo*
 beside *Pronounce* and *Done* at its foot, within reach of the hand holding the
 phone, as the library's controls are. The photo itself is not kept or sent
 anywhere; the model gets only the word and its sentence. On the iPhone and
-iPad.
+iPad, and in the [web app](AIReaderWeb/README.md), which reads the text with
+Tesseract.js and, with no Vision to recognise a hand, looks for the finger by
+its colour and shape alone; there the first photo in a language fetches that
+language's model, 1 to 3 MB, once.
 
 **Hearing it.** The word or the whole sentence can be spoken, in the language
 the EPUB declares. On-device, free.
