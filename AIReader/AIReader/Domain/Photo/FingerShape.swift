@@ -6,8 +6,8 @@ import Foundation
 /// photo's edge, up the page or across it, and ends in a round cap inside it.
 struct FingerShape {
     let tip: CGPoint
-    /// The way to the word: leaning twice as much to the page's up as to
-    /// the finger's own axis, since readers hold the finger under the word.
+    /// The way to the word: halfway between the finger's own axis and the
+    /// page's up, since readers hold the finger under the word.
     let direction: CGVector
 
     /// `pixels` are the region's, as (x, y) in a photo `width` by `height`;
@@ -28,20 +28,21 @@ struct FingerShape {
             let major = Self.spread(end).major
             axis = major.x * axis.x + major.y * axis.y > 0 ? major : (-major.x, -major.y)
         }
-        // Hanging down the page: a picture or the room, not a pointing finger.
-        guard axis.x * up.dx + axis.y * up.dy >= -0.25 else { return nil }
+        // Up the page or across it, at most 30 degrees down; what hangs
+        // further down is a picture or the room, not a pointing finger.
+        guard axis.x * up.dx + axis.y * up.dy >= -0.5 else { return nil }
 
         let front = Self.front(points, axis)
         let depths = points.map { Self.depth($0, axis, front) }
         let slices = Self.slices(depths)
         guard let wide = Self.width(slices, start: across), wide >= 2 * lineHeight,
               Self.fit(points, depths, axis, front, wide, width: width, height: height) >= fit,
-              // An eighth of a width behind the tip a half disc is two
-              // thirds as wide as the finger; a box or a band is as wide.
-              Double(slices[Int(wide / 8)]) <= 0.8 * wide
+              // An eighth of a width behind the tip a fingertip measures
+              // under nine tenths of its width; a box or a band as wide.
+              Double(slices[Int(wide / 8)]) <= 0.92 * wide
         else { return nil }
 
-        let lead = Self.unit(axis.x + 2 * up.dx, axis.y + 2 * up.dy)
+        let lead = Self.unit(axis.x + up.dx, axis.y + up.dy)
         let cap = zip(points, depths).filter { $0.1 < wide / 2 }.map(\.0)
         let reach = cap.map { $0.x * lead.x + $0.y * lead.y }
         let farthest = reach.max() ?? 0

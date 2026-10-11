@@ -101,7 +101,8 @@ in a book. A hand in view is found by Vision; a single finger coming in from
 the edge of the picture, with no hand to recognise, by its colour against the
 page's own white and its shape — a band wider than the lines that ends in a
 round tip below a word — so a ribbon, a pen or a coloured box is not taken for
-one. The page's text stays beneath the explanation, to tap another word
+one, though something as round and as warm in colour, an eraser or a wooden
+spoon, can be. The page's text stays beneath the explanation, to tap another word
 in — when no finger was seen, or it was taken to mean the wrong word. The
 photo itself is not kept or sent anywhere; the model gets only the word and
 its sentence. On the iPhone and iPad.
