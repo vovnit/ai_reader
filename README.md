@@ -103,10 +103,11 @@ hand to recognise, by its colour against the
 page's own white and its shape — a band wider than the lines that ends in a
 round tip below a word — so a ribbon, a pen or a coloured box is not taken for
 one, though something as round and as warm in colour, an eraser or a wooden
-spoon, can be. The page's text stays beneath the explanation, to tap another word
-in — when no finger was seen, or it was taken to mean the wrong word. The
-photo itself is not kept or sent anywhere; the model gets only the word and
-its sentence. On the iPhone and iPad.
+spoon, can be. The screen then shows only the explanation, with *Next photo*
+beside *Pronounce* and *Done* at its foot, within reach of the hand holding the
+phone, as the library's controls are. The photo itself is not kept or sent
+anywhere; the model gets only the word and its sentence. On the iPhone and
+iPad.
 
 **Hearing it.** The word or the whole sentence can be spoken, in the language
 the EPUB declares. On-device, free.

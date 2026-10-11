@@ -2,9 +2,18 @@ import ComposableArchitecture
 import SwiftUI
 
 /// The explanation panel for a tapped word: what it means here and what its
-/// dictionary form is.
-struct LookupView: View {
+/// dictionary form is. Its controls sit at the foot of the screen on a phone,
+/// within reach of the hand holding it.
+struct LookupView<Controls: View>: View {
     @Bindable var store: StoreOf<LookupFeature>
+    /// More for the bar, beside Pronounce and Done: on the photo screen,
+    /// the next photo.
+    let controls: Controls
+
+    init(store: StoreOf<LookupFeature>, @ViewBuilder controls: () -> Controls) {
+        self.store = store
+        self.controls = controls()
+    }
 
     var body: some View {
         NavigationStack(path: $store.scope(state: \.path, action: \.path)) {
@@ -24,12 +33,18 @@ struct LookupView: View {
             }
             .navigationTitle(store.context.word)
             .toolbar {
-                Button("Pronounce", systemImage: "speaker.wave.2") {
-                    store.send(.speakTapped(store.context.word))
+                #if os(iOS)
+                ToolbarItemGroup(placement: .bottomBar) {
+                    pronounce
+                    Spacer()
+                    controls
+                    done
                 }
-                // A side panel, and a Mac sheet, have no edge to drag away by.
-                Button("Done") { store.send(.doneTapped) }
-                    .keyboardShortcut(.cancelAction)
+                #else
+                pronounce
+                controls
+                done
+                #endif
             }
         } destination: { store in
             switch store.case {
@@ -40,6 +55,18 @@ struct LookupView: View {
         }
         .presentationDetents([.medium, .large])
         .task { await store.send(.task).finish() }
+    }
+
+    private var pronounce: some View {
+        Button("Pronounce", systemImage: "speaker.wave.2") {
+            store.send(.speakTapped(store.context.word))
+        }
+    }
+
+    /// A side panel, and a Mac sheet, have no edge to drag away by.
+    private var done: some View {
+        Button("Done") { store.send(.doneTapped) }
+            .keyboardShortcut(.cancelAction)
     }
 
     @ViewBuilder
@@ -126,5 +153,11 @@ struct LookupView: View {
         .buttonStyle(.bordered)
         .font(.footnote)
         .labelStyle(.titleOnly)
+    }
+}
+
+extension LookupView where Controls == EmptyView {
+    init(store: StoreOf<LookupFeature>) {
+        self.init(store: store) { EmptyView() }
     }
 }

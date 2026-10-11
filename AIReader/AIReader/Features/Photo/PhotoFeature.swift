@@ -4,8 +4,8 @@ import Foundation
 /// A word on a printed page: the reader photographs the page with a finger
 /// under the word, the photo's text is read on the device, and the word the
 /// finger points at is explained in its sentence — the same panel a book
-/// gives. The text stays to tap another word in, when the finger was missed
-/// or meant another. There is no book, so the lookup is filed under none.
+/// gives, and from there the next photo. There is no book, so the lookup is
+/// filed under none.
 @Reducer
 struct PhotoFeature {
     @ObservableState
@@ -14,7 +14,6 @@ struct PhotoFeature {
         var isTakingPhoto = true
         var isReading = false
         var passage: PhotoPassage?
-        var chunks: [WordContext.Chunk] = []
         var language: String?
         var errorMessage: String?
         @Presents var lookup: LookupFeature.State?
@@ -24,8 +23,7 @@ struct PhotoFeature {
         case photoTaken(Data)
         case cameraCancelled
         case read(Result<PhotoText, any Error>)
-        case retakeTapped
-        case wordTapped(utf16Offset: Int)
+        case nextPhotoTapped
         case doneTapped
         case lookup(PresentationAction<LookupFeature.Action>)
     }
@@ -40,13 +38,16 @@ struct PhotoFeature {
             case let .photoTaken(image):
                 state.isTakingPhoto = false
                 state.isReading = true
+                state.passage = nil
                 state.errorMessage = nil
+                state.lookup = nil
                 return .run { send in
                     await send(.read(Result { try await reader.read(image: image) }))
                 }
 
             case .cameraCancelled:
-                // Before any photo there is nothing to go back to.
+                // Before any photo there is nothing to go back to; after one,
+                // its word is still there.
                 guard state.passage != nil || state.errorMessage != nil else {
                     return .run { _ in await dismiss() }
                 }
@@ -57,13 +58,10 @@ struct PhotoFeature {
                 state.isReading = false
                 let passage = PhotoPassage(photo)
                 guard !passage.text.isEmpty else {
-                    state.passage = nil
-                    state.chunks = []
                     state.errorMessage = "No text was found in the photo."
                     return .none
                 }
                 state.passage = passage
-                state.chunks = WordContext(text: passage.text).chunks
                 state.language = TextLanguage.detect(in: passage.text)
                 if let offset = passage.pointedOffset { explain(at: offset, &state) }
                 return .none
@@ -73,15 +71,15 @@ struct PhotoFeature {
                 state.errorMessage = error.localizedDescription
                 return .none
 
-            case .retakeTapped:
+            case .nextPhotoTapped:
                 state.isTakingPhoto = true
                 return .none
 
-            case let .wordTapped(offset):
-                explain(at: offset, &state)
-                return .none
-
             case .doneTapped:
+                return .run { _ in await dismiss() }
+
+            case .lookup(.dismiss):
+                // The explanation is the whole screen, so its Done closes it.
                 return .run { _ in await dismiss() }
 
             case .lookup:

@@ -8,6 +8,14 @@ struct LibraryView: View {
 
     private let columns = [GridItem(.adaptive(minimum: 110), spacing: 16)]
 
+    private static var controls: ToolbarItemPlacement {
+        #if os(iOS)
+        .bottomBar
+        #else
+        .automatic
+        #endif
+    }
+
     var body: some View {
         NavigationStack {
             Group {
@@ -23,20 +31,23 @@ struct LibraryView: View {
             }
             .navigationTitle("Library")
             .toolbar {
-                if store.isSyncing {
-                    ProgressView()
+                // At the foot of a phone's screen, within reach of the hand holding it.
+                ToolbarItemGroup(placement: Self.controls) {
+                    if store.isSyncing {
+                        ProgressView()
+                    }
+                    Button("Settings", systemImage: "gearshape") { store.send(.settingsTapped) }
+                    Button("Words", systemImage: "character.book.closed") { store.send(.wordsTapped) }
+                    #if os(iOS)
+                    Button("Photo of a page", systemImage: "camera.viewfinder") { store.send(.photoTapped) }
+                    #endif
+                    #if os(macOS)
+                    Button("Subtitles", systemImage: "captions.bubble") { openWindow(id: SubtitlesView.windowID) }
+                    #else
+                    Button("Subtitles", systemImage: "captions.bubble") { store.send(.subtitlesTapped) }
+                    #endif
+                    Button("Add book", systemImage: "plus") { store.send(.addBookTapped) }
                 }
-                Button("Settings", systemImage: "gearshape") { store.send(.settingsTapped) }
-                Button("Words", systemImage: "character.book.closed") { store.send(.wordsTapped) }
-                #if os(iOS)
-                Button("Photo of a page", systemImage: "camera.viewfinder") { store.send(.photoTapped) }
-                #endif
-                #if os(macOS)
-                Button("Subtitles", systemImage: "captions.bubble") { openWindow(id: SubtitlesView.windowID) }
-                #else
-                Button("Subtitles", systemImage: "captions.bubble") { store.send(.subtitlesTapped) }
-                #endif
-                Button("Add book", systemImage: "plus") { store.send(.addBookTapped) }
             }
             .fileImporter(
                 isPresented: $store.isImporterPresented,
