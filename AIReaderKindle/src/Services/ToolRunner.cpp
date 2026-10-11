@@ -75,7 +75,7 @@ ChatMessage converse(
     Json all = offered(tools, settings, available);
     std::optional<BookPassage> window = available.scope.passage;
     for (int round = 0; round <= budget; ++round) {
-        ChatMessage reply = ChatApi::chat(settings, messages, all, jsonMode);
+        ChatMessage reply = ChatApi::chat(settings, messages, round < budget ? all : Json::array(), jsonMode);
         if (reply.toolCalls.empty()) return reply;
         messages.push_back(reply);
         for (const auto& call : reply.toolCalls) {

@@ -45,7 +45,8 @@ to its lemma, collects the articles, and sends them with the surrounding
 sentence to the model. The answer gives the lemma, a note on the form in the
 text, the meaning that fits *here*, and a translation of the sentence. If the
 entries do not fit, the model can call the dictionary again for another form;
-if nothing fits at all it guesses, says so, and reports its confidence. Answers
+if nothing fits at all, or three rounds of looking have turned up nothing,
+it guesses, says so, and reports its confidence. Answers
 are cached, so the same word in the same sentence is paid for once.
 *Dictionary entry* opens the article the answer was drawn from, as the
 dictionary has it — every sense, and which dictionary it came from. It is
