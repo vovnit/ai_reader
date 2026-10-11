@@ -38,10 +38,12 @@ function photoLine(found) {
     text += spelling;
   }
   if (!words.length) return null;
-  // As tall as its words' boxes: the finger finder was tuned on lines
-  // measured so.
-  const height = Math.max(median(words.map((word) => word.box.height)), 1);
-  return { text, words, height, up: up(found.baseline) };
+  const facing = up(found.baseline);
+  // As tall as its words' boxes, the finger finder having been tuned on
+  // lines measured so; measured across the line, since on a page turned on
+  // its side a box's height is the word's length.
+  const across = words.map(({ box }) => Math.abs(facing.dx) * box.width + Math.abs(facing.dy) * box.height);
+  return { text, words, height: Math.max(median(across), 1), up: facing };
 }
 
 /**

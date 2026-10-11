@@ -10,8 +10,8 @@ const vendor = new URL("../../vendor/tesseract/", import.meta.url).href;
 /** Tesseract's names for the languages `detectLanguage` tells apart. */
 const models = { en: "eng", fr: "fra", de: "deu", es: "spa", it: "ita", pt: "por", ru: "rus", nl: "nld" };
 // A phone's photo is 4000 pixels long; Tesseract reads a page's print as
-// well at half that, in a fraction of the time.
-const longSide = 2048;
+// well at 1600, in a fraction of the time (measured on the finder's cases).
+const longSide = 1600;
 const lstmOnly = 1;
 // Columns, captions and a page's edge are found as Vision finds them;
 // Tesseract.js's own default reads the photo as one block of text.
