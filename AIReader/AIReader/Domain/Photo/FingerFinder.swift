@@ -29,7 +29,7 @@ enum FingerFinder {
             var best: (finger: PhotoText.Finger, aim: CGFloat)?
             // A finger is wider than two lines of text and longer than it is wide.
             let area = Int(((2 * lineHeight * scale) * (2 * lineHeight * scale)).rounded(.up))
-            for region in regions(of: mask, brighterThan: floor, minimumArea: area) {
+            for region in candidates(in: mask, brighterThan: floor, minimumArea: area) {
                 guard let shape = FingerShape(
                     pixels: region, width: mask.width, height: mask.height, fit: fit,
                     lineHeight: Double(lineHeight * scale), up: CGVector(dx: up.dx / length, dy: up.dy / length)
@@ -51,8 +51,10 @@ enum FingerFinder {
 
     /// The smooth skin-coloured regions, each cut from its neighbours where
     /// a weak edge joins them, then grown back over the outline, the nail
-    /// and the folds the cut and the smoothness took.
-    private static func regions(of mask: SkinMask, brighterThan floor: Float, minimumArea: Int) -> [[(x: Int, y: Int)]] {
+    /// and the folds the cut and the smoothness took; and each one's whole
+    /// skin-coloured area too, since on print with little texture to judge
+    /// by, smoothness keeps only part of a finger lit from the side.
+    private static func candidates(in mask: SkinMask, brighterThan floor: Float, minimumArea: Int) -> [[(x: Int, y: Int)]] {
         let skin = zip(mask.skin, mask.brightness).map { $0 && $1 > floor }
         var core = zip(mask.smooth, skin).map { $0 && $1 }
         for _ in 0..<2 { core = step(core, mask.width, mask.height, grow: false) }
@@ -74,12 +76,31 @@ enum FingerFinder {
                 }
             }
             guard area >= minimumArea else { continue }
+            var grown = region
             for _ in 0..<3 {
-                region = zip(step(region, mask.width, mask.height, grow: true), zip(skin, region)).map { $0 && $1.0 || $1.1 }
+                grown = zip(step(grown, mask.width, mask.height, grow: true), zip(skin, grown)).map { $0 && $1.0 || $1.1 }
             }
-            found.append(region.indices.filter { region[$0] }.map { (x: $0 % mask.width, y: $0 / mask.width) })
+            let whole = flood(skin, from: region, mask.width, mask.height)
+            for candidate in whole == grown ? [grown] : [grown, whole] {
+                found.append(candidate.indices.filter { candidate[$0] }.map { (x: $0 % mask.width, y: $0 / mask.width) })
+            }
         }
         return found
+    }
+
+    /// The part of `mask` joined to `seed` through its four neighbours.
+    static func flood(_ mask: [Bool], from seed: [Bool], _ width: Int, _ height: Int) -> [Bool] {
+        var out = zip(seed, mask).map { $0 && $1 }
+        var stack = out.indices.filter { out[$0] }
+        while let i = stack.popLast() {
+            let x = i % width, y = i / width
+            for (nx, ny) in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
+            where nx >= 0 && nx < width && ny >= 0 && ny < height {
+                let j = ny * width + nx
+                if mask[j], !out[j] { out[j] = true; stack.append(j) }
+            }
+        }
+        return out
     }
 
     /// The mask grown or shrunk by a pixel toward its four neighbours.

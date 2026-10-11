@@ -13,13 +13,16 @@ struct FingerShape {
     /// `pixels` are the region's, as (x, y) in a photo `width` by `height`;
     /// `fit` is how closely the end must match an ideal finger, from 0 to 1.
     init?(pixels: [(x: Int, y: Int)], width: Int, height: Int, fit: Double, lineHeight: Double, up: CGVector) {
-        let points = pixels.map { (x: Double($0.x), y: Double($0.y)) }
-        let entry = points.filter { $0.x < 2 || $0.y < 2 || $0.x >= Double(width - 2) || $0.y >= Double(height - 2) }
+        let entry = pixels.filter { $0.x < 2 || $0.y < 2 || $0.x >= width - 2 || $0.y >= height - 2 }
         guard !entry.isEmpty else { return nil }
+        let door = Self.mean(entry.map { (x: Double($0.x), y: Double($0.y)) })
+        let end = Self.end(of: pixels, from: entry, width: width, height: height, reach: 12 * lineHeight)
+        guard end.count >= 3 else { return nil }
+        let points = end.map { (x: Double($0.x), y: Double($0.y)) }
 
-        // From where it enters toward its middle, then along the far end
-        // alone, not the hand behind it.
-        let centre = Self.mean(points), door = Self.mean(entry)
+        // From where it enters toward its end's middle, then along the far
+        // end alone, not the hand behind it.
+        let centre = Self.mean(points)
         var axis = Self.unit(centre.x - door.x, centre.y - door.y)
         let across = (12 * max(0, Self.spread(points).least)).squareRoot()
         for _ in 0..<2 {
@@ -52,6 +55,46 @@ struct FingerShape {
         else { return nil }
         tip = CGPoint(x: foremost.x + lead.x, y: foremost.y + lead.y)
         direction = CGVector(dx: lead.x, dy: lead.y)
+    }
+
+    /// The finger's end: what lies within `reach` of the point farthest from
+    /// the photo's edge through the region, and joins it there. That point is
+    /// a thumb's tip, not the top of the hand holding the book beside it,
+    /// which runs off the edge itself; `reach`, twelve lines, is more than a
+    /// width and a third of the widest finger.
+    private static func end(of pixels: [(x: Int, y: Int)], from entry: [(x: Int, y: Int)],
+                            width: Int, height: Int, reach: Double) -> [(x: Int, y: Int)] {
+        var steps = [Int](repeating: -1, count: width * height)
+        var inRegion = [Bool](repeating: false, count: width * height)
+        for pixel in pixels { inRegion[pixel.y * width + pixel.x] = true }
+        var queue = entry.map { $0.y * width + $0.x }
+        for i in queue { steps[i] = 0 }
+        var head = 0
+        while head < queue.count {
+            let i = queue[head]
+            head += 1
+            let x = i % width, y = i / width
+            for (nx, ny) in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
+            where nx >= 0 && nx < width && ny >= 0 && ny < height {
+                let j = ny * width + nx
+                if inRegion[j], steps[j] < 0 { steps[j] = steps[i] + 1; queue.append(j) }
+            }
+        }
+        let farthest = queue.map { steps[$0] }.max() ?? 0
+        let far = mean(queue.filter { steps[$0] == farthest }.map { (x: Double($0 % width), y: Double($0 / width)) })
+
+        var near = [Bool](repeating: false, count: width * height)
+        for pixel in pixels where ((Double(pixel.x) - far.x) * (Double(pixel.x) - far.x)
+                                   + (Double(pixel.y) - far.y) * (Double(pixel.y) - far.y)).squareRoot() <= reach {
+            near[pixel.y * width + pixel.x] = true
+        }
+        let start = Int(far.y.rounded(.toNearestOrEven)) * width + Int(far.x.rounded(.toNearestOrEven))
+        if near[start] {
+            var seed = [Bool](repeating: false, count: width * height)
+            seed[start] = true
+            near = FingerFinder.flood(near, from: seed, width, height)
+        }
+        return near.indices.filter { near[$0] }.map { (x: $0 % width, y: $0 / width) }
     }
 
     /// The finger's width: the typical slice of its far end, measured again

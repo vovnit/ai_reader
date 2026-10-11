@@ -98,7 +98,8 @@ toolbar, opens the camera. Photograph the page with a finger just under the
 word you mean: the text is read off the photo on the device, the finger found
 in it, and the word it points at explained in its sentence, like a word tapped
 in a book. A hand in view is found by Vision; a single finger coming in from
-the edge of the picture, with no hand to recognise, by its colour against the
+the edge of the picture, or the thumb of the hand holding the book, with no
+hand to recognise, by its colour against the
 page's own white and its shape — a band wider than the lines that ends in a
 round tip below a word — so a ribbon, a pen or a coloured box is not taken for
 one, though something as round and as warm in colour, an eraser or a wooden
