@@ -2,28 +2,38 @@ import ComposableArchitecture
 import Foundation
 
 /// A word on a printed page: the reader photographs the page with a finger
-/// under the word, the photo's text is read on the device, and the word the
-/// finger points at is explained in its sentence — the same panel a book
-/// gives, and from there the next photo. There is no book, so the lookup is
-/// filed under none.
+/// under the word, or picks a photo from the library, the photo's text is
+/// read on the device, and the word the finger points at is explained in its
+/// sentence — the same panel a book gives, and from there the next photo.
+/// Where no finger points at a word, the text is shown to tap one in. There
+/// is no book, so the lookup is filed under none.
 @Reducer
 struct PhotoFeature {
+    enum Source: Equatable {
+        case camera, library
+    }
+
     @ObservableState
     struct State: Equatable {
-        /// The camera is the first thing shown.
-        var isTakingPhoto = true
+        /// Where the next photo comes from while it is being picked; the
+        /// camera is the first thing shown.
+        var source: Source? = .camera
         var isReading = false
         var passage: PhotoPassage?
         var language: String?
         var errorMessage: String?
+        /// The photo's text is shown, and the lookup is of a word tapped in it.
+        var isChoosingWord = false
         @Presents var lookup: LookupFeature.State?
     }
 
     enum Action {
         case photoTaken(Data)
-        case cameraCancelled
+        case pickerCancelled
         case read(Result<PhotoText, any Error>)
         case nextPhotoTapped
+        case libraryTapped
+        case wordTapped(utf16Offset: Int)
         case doneTapped
         case lookup(PresentationAction<LookupFeature.Action>)
     }
@@ -36,22 +46,20 @@ struct PhotoFeature {
         Reduce { state, action in
             switch action {
             case let .photoTaken(image):
-                state.isTakingPhoto = false
+                state.source = nil
                 state.isReading = true
                 state.passage = nil
                 state.errorMessage = nil
+                state.isChoosingWord = false
                 state.lookup = nil
                 return .run { send in
                     await send(.read(Result { try await reader.read(image: image) }))
                 }
 
-            case .cameraCancelled:
-                // Before any photo there is nothing to go back to; after one,
-                // its word is still there.
-                guard state.passage != nil || state.errorMessage != nil else {
-                    return .run { _ in await dismiss() }
-                }
-                state.isTakingPhoto = false
+            case .pickerCancelled:
+                // Before any photo, the way to the library or out; after
+                // one, its word is still there.
+                state.source = nil
                 return .none
 
             case let .read(.success(photo)):
@@ -64,6 +72,7 @@ struct PhotoFeature {
                 state.passage = passage
                 state.language = TextLanguage.detect(in: passage.text)
                 if let offset = passage.pointedOffset { explain(at: offset, &state) }
+                state.isChoosingWord = state.lookup == nil
                 return .none
 
             case let .read(.failure(error)):
@@ -72,14 +81,25 @@ struct PhotoFeature {
                 return .none
 
             case .nextPhotoTapped:
-                state.isTakingPhoto = true
+                state.source = .camera
+                return .none
+
+            case .libraryTapped:
+                state.source = .library
+                return .none
+
+            case let .wordTapped(offset):
+                explain(at: offset, &state)
                 return .none
 
             case .doneTapped:
                 return .run { _ in await dismiss() }
 
             case .lookup(.dismiss):
-                // The explanation is the whole screen, so its Done closes it.
+                // A tapped word's explanation lies over the text, to tap the
+                // next; a pointed word's is the whole screen, so its Done
+                // closes it.
+                guard !state.isChoosingWord else { return .none }
                 return .run { _ in await dismiss() }
 
             case .lookup:

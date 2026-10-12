@@ -2,15 +2,22 @@
 import SwiftUI
 import UIKit
 
-/// The system camera, handing back the photo as a JPEG. Where there is no
-/// camera, as in the simulator, the photo library instead.
+/// The system camera, or the photo library, handing back the photo as a
+/// JPEG. Where there is no camera, as in the simulator, the library always.
 struct CameraView: UIViewControllerRepresentable {
+    let source: PhotoFeature.Source
     let onPhoto: (Data) -> Void
     let onCancel: () -> Void
 
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
-        picker.sourceType = UIImagePickerController.isSourceTypeAvailable(.camera) ? .camera : .photoLibrary
+        if source == .camera, UIImagePickerController.isSourceTypeAvailable(.camera) {
+            picker.sourceType = .camera
+            // A flash glares off a page's paper; the reader can still turn it on.
+            picker.cameraFlashMode = .off
+        } else {
+            picker.sourceType = .photoLibrary
+        }
         picker.delegate = context.coordinator
         return picker
     }

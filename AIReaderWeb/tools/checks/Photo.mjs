@@ -173,6 +173,9 @@ async function checkFeature() {
   reader.answer = { lines, fingers: [] };
   await feature.read(new Blob(["photo"]));
   check("without a finger there is the text and no lookup", feature.passage?.text && !feature.lookup && !feature.error);
+  const tapped = feature.wordAt(feature.passage.text.indexOf("chat") + 1);
+  check("a word tapped in that text is taken with its sentence", tapped?.word === "chat" && tapped.sentence.endsWith("son chat.") && tapped.language === "fr", JSON.stringify(tapped));
+  check("a tap between words is no word", feature.wordAt(feature.passage.text.indexOf(" chat")) === null);
   reader.answer = { lines: [], fingers: [] };
   await feature.read(new Blob(["photo"]));
   check("a photo without text says so", feature.error === "No text was found in the photo." && !feature.passage);

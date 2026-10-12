@@ -26,8 +26,10 @@ apps do, and syncs with them and the iOS app through the same WebDAV folder.
 - **Photo** — a printed page photographed with a finger just under a word:
   the text is read in the browser by Tesseract.js, the finger found by its
   colour and shape (as the iOS app finds one when Vision sees no hand), and
-  the word explained as a clicked one is, with *Next photo* beside it. On a
-  phone *Photo* opens the camera; elsewhere it picks a picture. A page is
+  the word explained as a clicked one is, with *Next photo* beside it. With
+  no finger, the photo's text is shown to click a word in. On a phone *Take
+  photo* opens the camera, whose flash the phone decides, and *Choose photo*
+  the gallery; elsewhere both pick a picture. A page is
   read in the language the last one was in — at first, the language of the
   book read last — and again in its own when its text says otherwise. The
   first photo in a language fetches that language's model from jsDelivr, 1

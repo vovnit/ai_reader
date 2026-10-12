@@ -106,7 +106,10 @@ round tip below a word — so a ribbon, a pen or a coloured box is not taken for
 one, though something as round and as warm in colour, an eraser or a wooden
 spoon, can be. The screen then shows only the explanation, with *Next photo*
 beside *Pronounce* and *Done* at its foot, within reach of the hand holding the
-phone, as the library's controls are. The photo itself is not kept or sent
+phone, as the library's controls are. Where no finger points at a word, the
+photo's text is shown instead, to tap a word in. *Choose photo* reads one from
+the library rather than the camera, whose flash starts off, a flash glaring on
+paper. The photo itself is not kept or sent
 anywhere; the model gets only the word and its sentence. On the iPhone and
 iPad, and in the [web app](AIReaderWeb/README.md), which reads the text with
 Tesseract.js and, with no Vision to recognise a hand, looks for the finger by

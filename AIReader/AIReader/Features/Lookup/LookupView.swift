@@ -7,7 +7,7 @@ import SwiftUI
 struct LookupView<Controls: View>: View {
     @Bindable var store: StoreOf<LookupFeature>
     /// More for the bar, beside Pronounce and Done: on the photo screen,
-    /// the next photo.
+    /// the next photo and one from the library.
     let controls: Controls
 
     init(store: StoreOf<LookupFeature>, @ViewBuilder controls: () -> Controls) {
