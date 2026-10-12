@@ -172,7 +172,9 @@ and are listed the same way.
 whenever the endpoint is `api.openai.com`, so switching services does not mean
 retyping. A Monid token, with the search provider, endpoint and input,
 lets the model search the web (above). *Dictionaries* lists the packs and
-lets each be switched off. *Add*
+lets each be switched off or removed with `✕`. Removing the bundled one only
+takes it off the list, since the package keeps its file; *Restore built-in
+dictionary* lists it again. *Add*
 picks a dictionary anywhere on the device through the same file picker and
 copies it into `/mnt/us/aireader/dictionaries` (a StarDict set travels
 together, whichever of its files was picked); *Scan folder* registers whatever

@@ -1,14 +1,16 @@
-// The dictionaries the app searches: the bundled one, plus any the reader
-// adds. A pack this app understands is kept as it is; the other formats are
-// converted on the way in, which for a large dictionary takes a while. A
-// pack is `{ id, name, kind, fileName, targetLanguage, definitionLanguage,
-// isEnabled, addedAt }`, its kind `bundled`, `file` or `converted`.
+// The dictionaries the app searches: the bundled one, unless the reader
+// removed it, plus any they add. A pack this app understands is kept as it
+// is; the other formats are converted on the way in, which for a large
+// dictionary takes a while. A pack is `{ id, name, kind, fileName,
+// targetLanguage, definitionLanguage, isEnabled, addedAt }`, its kind
+// `bundled`, `file` or `converted`.
 import { convertDictionary } from "../Domain/Formats/DictionaryConverter.js";
 import { defaultName, dictionarySources, stem } from "../Domain/Formats/DictionaryFormat.js";
 import { normalizeWord } from "../Domain/Dictionary/WordNormalizer.js";
 import { SqliteFile } from "../Support/SqliteFile.js";
 import { now } from "../Support/Text.js";
 import { packMetadata } from "./DictionaryDatabase.js";
+import { bundledPack } from "./Schema.js";
 
 const byAge = (a, b) => (a.addedAt < b.addedAt ? -1 : a.addedAt > b.addedAt ? 1 : a.id - b.id);
 
@@ -34,13 +36,21 @@ export class DictionaryPacks {
     if (pack) await this.#db.put("dictionaryPacks", { ...pack, isEnabled });
   }
 
-  /** Removes the pack and what it holds. The bundled pack cannot be removed. */
+  /**
+   * Removes the pack and what it holds. The bundled pack holds nothing here:
+   * only its record goes, and its file stays with the app to restore it from.
+   */
   async remove(pack) {
-    if (pack.kind === "bundled") return;
     await this.#db.delete("dictionaryPacks", pack.id);
     await this.#db.delete("dictionaryFiles", pack.id);
     if (pack.kind === "converted") await this.#db.deleteRange("dictionaryArticles", [pack.id, ""], [pack.id, []]);
     this.#dictionary.close(pack.id);
+  }
+
+  /** Lists the bundled pack again, as a new library has it, unless it is listed. */
+  async restoreBundled() {
+    if ((await this.all()).some((pack) => pack.kind === "bundled")) return;
+    await this.#db.put("dictionaryPacks", bundledPack());
   }
 
   /**

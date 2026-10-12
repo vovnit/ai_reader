@@ -8,8 +8,8 @@
 class QPushButton;
 class QVBoxLayout;
 
-/// The dictionaries lookups search: the bundled one and any added, each of
-/// them switched on or off.
+/// The dictionaries lookups search: the bundled one, unless removed, and any
+/// added, each of them switched on or off.
 class DictionariesView : public Screen {
 public:
     DictionariesView(Env& env, Navigator& navigator);

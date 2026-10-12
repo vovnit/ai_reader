@@ -25,6 +25,11 @@ DictionariesView::DictionariesView(Env& env, Navigator& navigator)
 void DictionariesView::render() {
     Ui::clear(list_);
     for (const auto& pack : feature_.packs()) list_->addWidget(row(pack));
+    if (feature_.canRestoreBundled()) {
+        auto* restore = new QPushButton("Restore built-in dictionary");
+        QObject::connect(restore, &QPushButton::clicked, this, [this] { feature_.restoreBundled(); });
+        list_->addWidget(restore, 0, Qt::AlignLeft);
+    }
     list_->addWidget(Ui::separator());
     list_->addWidget(Ui::note(
         "Add a dictionary from anywhere: a pack (<tt>.sqlite3</tt>), a word list (<tt>.tsv</tt>, <tt>.csv</tt>: one "
@@ -53,12 +58,10 @@ QWidget* DictionariesView::row(const DictionaryPack& pack) {
     if (!detail.empty()) text += "<br>" + Ui::small(Ui::escape(detail));
     layout->addWidget(Ui::rich(text), 1);
 
-    if (!pack.isBundled()) {
-        auto* remove = new QPushButton("✕");
-        remove->setToolTip("Remove the dictionary");
-        QObject::connect(remove, &QPushButton::clicked, this, [this, pack] { feature_.remove(pack); });
-        layout->addWidget(remove);
-    }
+    auto* remove = new QPushButton("✕");
+    remove->setToolTip("Remove the dictionary");
+    QObject::connect(remove, &QPushButton::clicked, this, [this, pack] { feature_.remove(pack); });
+    layout->addWidget(remove);
     return line;
 }
 

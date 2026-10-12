@@ -1,4 +1,5 @@
-// The dictionaries, each one switched on or off; added ones can be removed.
+// The dictionaries, each one switched on or off and each one removable; the
+// one that ships with the app can be brought back.
 import { formatLabels } from "../../Domain/Formats/DictionaryFormat.js";
 import { packLanguages } from "../../Services/DictionaryPacks.js";
 import { confirmAction } from "../Common/Dialogs.js";
@@ -32,13 +33,14 @@ export class DictionariesView extends Screen {
   }
 
   #render() {
-    const { packs, isAdding, message } = this.feature;
+    const { packs, isAdding, message, canRestoreBundled } = this.feature;
     this.setBody(
       h("ul", { class: "packs" }, packs.map((pack) => h("li", {},
         h("label", {},
           h("input", { type: "checkbox", checked: pack.isEnabled, onchange: () => this.feature.toggle(pack) }),
           h("span", {}, h("strong", {}, pack.name), h("small", {}, [packLanguages(pack), pack.kind === "bundled" ? "Ships with the app" : pack.fileName].filter(Boolean).join(" · ")))),
-        pack.kind === "bundled" ? null : button("Remove", () => this.#remove(pack), { class: "link" })))),
+        button("Remove", () => this.#remove(pack), { class: "link" })))),
+      canRestoreBundled ? h("div", { class: "buttons" }, button("Restore built-in dictionary", () => this.feature.restoreBundled())) : null,
       isAdding ? note("Adding… a large dictionary takes a while.") : null,
       message ? h("p", { class: "message" }, message) : null,
       note(`Add a dictionary: a pack (.sqlite3), a word list (.tsv, .csv: one word and its meaning per line), `

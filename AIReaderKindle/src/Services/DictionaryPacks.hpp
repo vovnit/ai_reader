@@ -7,10 +7,11 @@
 #include <string>
 #include <vector>
 
-/// The dictionaries the app searches: the bundled one, plus any the reader
-/// has put in the dictionaries folder. Packs this app understands are taken
-/// as they are; the other formats are converted into one on the way in,
-/// which for a large dictionary takes a while.
+/// The dictionaries the app searches: the bundled one, unless the reader has
+/// removed it, plus any the reader has put in the dictionaries folder. Packs
+/// this app understands are taken as they are; the other formats are
+/// converted into one on the way in, which for a large dictionary takes a
+/// while.
 class DictionaryPacks {
 public:
     explicit DictionaryPacks(Database& database) : database_(database) {}
@@ -18,8 +19,10 @@ public:
     std::vector<DictionaryPack> all();
     std::vector<DictionaryPack> enabled();
     void setEnabled(long long id, bool isEnabled);
-    /// Removes the pack and its file. The bundled pack cannot be removed.
+    /// Removes the pack and its file; for the bundled pack, only its record.
     void remove(const DictionaryPack& pack);
+    /// Lists the bundled pack again, as a new library has it, unless it is listed.
+    void restoreBundled();
 
     /// Registers every dictionary in the folder that is not yet in the list.
     /// Returns how many were added; problems are described in `errors`.

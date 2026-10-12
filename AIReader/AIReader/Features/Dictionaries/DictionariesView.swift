@@ -11,6 +11,9 @@ struct DictionariesView: View {
                 ForEach(store.packs) { pack in
                     row(pack)
                 }
+                if !store.hasBundledPack {
+                    Button("Restore built-in dictionary") { store.send(.restoreTapped) }
+                }
                 if store.isImporting {
                     HStack(spacing: 10) {
                         ProgressView()
@@ -53,10 +56,8 @@ struct DictionariesView: View {
                 .onTapGesture { store.send(.toggled(pack)) }
         }
         .swipeActions {
-            if !pack.isBundled {
-                Button("Delete", systemImage: "trash", role: .destructive) {
-                    store.send(.deleteTapped(pack))
-                }
+            Button("Delete", systemImage: "trash", role: .destructive) {
+                store.send(.deleteTapped(pack))
             }
         }
     }

@@ -47,7 +47,9 @@ apps do, and syncs with them and the iOS app through the same WebDAV folder.
 - **Words** — every word looked up, the practice game, and export for Anki.
 - **Settings** — the OpenAI-compatible endpoint and model, web search, and
   WebDAV sync; **Dictionaries** adds packs, word lists, Lingvo DSL, StarDict
-  and XDXF.
+  and XDXF, and removes any of them. Removing the bundled one only takes it
+  off the list, since the app keeps its file; *Restore built-in dictionary*
+  lists it again.
 
 ## Running it
 
@@ -180,9 +182,9 @@ other apps.
 runs the Kindle check's cases against this code under Node 22.12 or later —
 the HTML reduction, places, search, the mock, the prompts, cards, the sync
 document and its merge, the stores, the dictionary converters, the bundled
-dictionary through the SQLite reader, an EPUB through the loader, a PDF
-made into an EPUB, given or put together by the check — and fails if the
-service worker's file list misses a file. With a WebDAV
+dictionary through the SQLite reader, removed and restored, an EPUB through
+the loader, a PDF made into an EPUB, given or put together by the check —
+and fails if the service worker's file list misses a file. With a WebDAV
 server named:
 
 ```sh

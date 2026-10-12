@@ -1,9 +1,10 @@
 // The stores over the database, the settings and the dictionaries — the
 // Kindle check's cases, plus the bundled dictionary read by the web app's
-// own SQLite reader.
+// own SQLite reader, removed and restored.
 import { gzipSync } from "node:zlib";
 import { stripDsl } from "../../src/Domain/Formats/DSLDictionaryReader.js";
 import { dictionarySources } from "../../src/Domain/Formats/DictionaryFormat.js";
+import { DictionariesFeature } from "../../src/Features/Dictionaries/DictionariesFeature.js";
 import { decode } from "../../src/Support/TextFile.js";
 import { packLanguages } from "../../src/Services/DictionaryPacks.js";
 import { SettingsStore, aiToken, defaultWeb } from "../../src/Services/Settings.js";
@@ -58,6 +59,7 @@ export async function checkStores() {
     && avait.articles.some((article) => article.lemma === "avoir" && article.senses.length > 0), JSON.stringify(avait).slice(0, 300));
   check("an entry is the lemma's own articles", (await env.dictionary.articlesFor("avoir", packs)).every((article) => article.lemma === "avoir")
     && (await env.dictionary.articlesFor("avoir", packs)).length > 0);
+  await checkBundledRemoved();
 
   const storage = new MemoryStorage();
   const settings = new SettingsStore(storage);
@@ -112,4 +114,27 @@ export async function checkStores() {
   const lingvo = (await env.packs.all()).find((pack) => pack.name === "Petit Lingvo");
   await env.packs.remove(lingvo);
   check("removing a converted pack removes its articles", !(await env.dictionary.lookup("pomme", [lingvo])).articles.length);
+}
+
+/** The bundled pack removed and restored: only its record goes, and it comes back as a new library has it. */
+async function checkBundledRemoved() {
+  const env = await freshEnv();
+  const avoir = async () => (await env.dictionary.lookup("Avait,", await env.packs.enabled())).forms.some((form) => form.lemma === "avoir");
+  const withoutIdentity = ({ id, addedAt, ...pack }) => JSON.stringify(pack);
+  const feature = new DictionariesFeature(env);
+  await feature.reload();
+  const seeded = withoutIdentity(feature.packs[0]);
+  check("restoring is not offered while the bundled pack is listed", !feature.canRestoreBundled);
+  await feature.remove(feature.packs[0]);
+  check("the bundled pack can be removed", !(await env.packs.all()).length && feature.canRestoreBundled);
+  check("lookups no longer use a removed bundled pack", !(await avoir()));
+
+  const restoring = feature.restoreBundled();
+  check("restoring hides its button at once", !feature.canRestoreBundled);
+  await restoring;
+  await feature.restoreBundled();
+  const [restored, ...others] = await env.packs.all();
+  check("restoring lists it once, as a new library has it", !others.length && withoutIdentity(restored) === seeded && restored.kind === "bundled"
+    && restored.name === "Bundled dictionary" && restored.isEnabled && packLanguages(restored) === "fr → ru" && !feature.canRestoreBundled, JSON.stringify(restored));
+  check("a restored bundled pack is searched again", await avoir());
 }

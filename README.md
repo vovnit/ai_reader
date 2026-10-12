@@ -218,17 +218,16 @@ can be added under *Settings → Dictionaries*: pick a `.sqlite3` file and it is
 copied in, its metadata read, and its languages shown. A pack whose
 `schema_version` is not `2` is rejected rather than half-imported. Every enabled
 pack is searched and the results are merged; when more than one answers, each
-article says which pack it came from. The bundled pack can be disabled but not
-deleted.
+article says which pack it came from. Any pack can be switched off or removed,
+the bundled one too: removing it takes only its record off the list, since the
+app still ships the file, and while it is missing the Dictionaries screen offers
+*Restore built-in dictionary*, which lists it again, switched on.
 
-To build a pack for another language pair, from `DictionaryTool/`:
-
-```bash
-python3 process_dictionaries.py --target-language fr --definition-language en
-```
-
-It downloads its sources (Lexique4, Wiktionary extracts) next to itself, several
-gigabytes that git ignores.
+[`DictionaryTool/`](DictionaryTool/README.md) builds the other packs to add —
+French–French, English–Russian and English–English, and the French–Russian
+one itself — a download and a command each; its README has them, with what
+each needs. It downloads its sources (Lexique 4, Wiktionary extracts from
+kaikki.org) next to itself, several gigabytes that git ignores.
 
 The language the *answers* are written in is the one named under **Explain in**
 in Settings (Russian until changed), not the dictionary's.
