@@ -6,17 +6,20 @@ at runtime.
 
 ## Minimal Integration
 
-1. Build the language pair and add the resulting file to the app bundle:
+1. Build a pack, as the README's *Building a pack for the apps* describes:
 
    ```bash
    python3 process_dictionaries.py \
      --target-language fr \
-     --definition-language en \
-     --output dictionary.sqlite3
+     --definition-language ru \
+     --output "French-Russian.sqlite3"
    ```
 
-   If the app runtime has no zlib decoder, add `--no-compression`. This makes
-   the file larger but stores definition payloads as plain JSON.
+   This French-Russian pack is built into the apps; the others are files a
+   reader adds on a Dictionaries screen, which copies the file in and names
+   the pack after it. If the app runtime has no zlib decoder, add
+   `--no-compression`. This makes the file larger but stores definition
+   payloads as plain JSON.
 
 2. Open the database read-only. If the platform cannot open a bundled asset as
    a normal file (notably Android), copy it once to the app's private files or
@@ -28,8 +31,8 @@ at runtime.
    SELECT key, value FROM metadata;
    ```
 
-   Require `schema_version = 2`, check that `target_language` and
-   `definition_language` are the pair expected by the app, and read
+   Require `schema_version = 2`, read `target_language` and
+   `definition_language`, the pair the pack holds, and read
    `payload_encoding`, which is either `json` or `json+zlib`.
 
 4. Normalize user input before querying: convert to Unicode NFC, map typographic
@@ -70,9 +73,10 @@ at runtime.
    the app to render.
 
 Keep one read-only connection open or use the platform's normal connection
-pool. No schema creation, import, or migration is needed. To ship a dictionary
-update, replace the complete file while no connection is using it; do not write
-to or migrate the packaged database in place.
+pool. No schema creation, import, or migration is needed. A newer pack replaces
+the old file whole, while no connection is using it: the built-in one with a new
+build of the apps, an added one by removing it in the app and adding the new
+file. Do not write to or migrate a pack in place.
 
 ## Optional Form Details
 

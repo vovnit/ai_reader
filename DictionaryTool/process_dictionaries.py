@@ -257,19 +257,26 @@ def build_processed_dictionary(
         with wiktionary_path.open("rb") as source:
             for line_count, line in enumerate(source, start=1):
                 bytes_scanned += len(line)
-                if language_pattern.search(line[:1024]):
-                    target_record_count += 1
+                # The whole line, as the English edition writes a record's
+                # lang_code after its forms, kilobytes in. A match may be
+                # nested (a translation, a descendant), so the parsed
+                # record's own lang_code decides.
+                if language_pattern.search(line):
                     try:
                         record = json.loads(line)
-                        word = normalize(record["word"]).normalized
+                        is_target = record.get("lang_code") == target_language
+                        word = normalize(record["word"]).normalized if is_target else ""
                     except (
                         json.JSONDecodeError,
+                        AttributeError,
                         KeyError,
                         TypeError,
                         UnicodeDecodeError,
                     ):
                         malformed_count += 1
                     else:
+                        if is_target:
+                            target_record_count += 1
                         if word and (effective_lossless or word in lemma_ids):
                             lemma_id = lemma_ids.setdefault(word, len(lemma_ids) + 1)
                             payload = json.dumps(
@@ -342,6 +349,12 @@ def build_processed_dictionary(
                         "INSERT INTO entries VALUES (?, ?, ?)", entry_batch
                     )
 
+        if definition_count == 0:
+            # An empty pack would add to an app and find nothing, silently.
+            raise ProcessingError(
+                "Found no {} entries in {}, so no pack was written."
+                .format(target_language, wiktionary_path)
+            )
         database.executemany(
             "INSERT INTO lemmas (id, word) VALUES (?, ?)",
             ((lemma_id, word) for word, lemma_id in lemma_ids.items()),

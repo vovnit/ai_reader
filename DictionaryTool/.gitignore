@@ -2,10 +2,13 @@ Lexique4/**
 wikidict-ru/**
 *-extract.jsonl
 *-extract.jsonl.metadata.json
-.fr-extract-index.sqlite3
-.fr-extract-index.sqlite3.tmp
-.*-extract-*-index.sqlite3
-.*-extract-*-index.sqlite3.tmp
-.mobile-dictionary*.sqlite3
-.mobile-dictionary*.sqlite3.tmp
+# Packs and lookup indexes written here, hidden or not: a pack is tens to
+# hundreds of megabytes and belongs to whoever built it
+*.sqlite3
+*.sqlite3.tmp
+# What a download stages, left behind when it is killed
+*.part
+*.download
+.Lexique4.zip
+.Lexique4-extract/
 __pycache__/

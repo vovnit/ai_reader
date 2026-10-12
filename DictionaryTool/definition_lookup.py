@@ -129,12 +129,16 @@ class DefinitionLookup:
                     if not line:
                         break
                     line_count += 1
-                    if self.language_pattern.search(line[:1024]):
+                    # As in process_dictionaries.py: the whole line, and only
+                    # a record whose own lang_code is the target.
+                    if self.language_pattern.search(line):
                         try:
                             record = json.loads(line)
-                            word = normalize(record["word"]).normalized
+                            is_target = record.get("lang_code") == self.target_language
+                            word = normalize(record["word"]).normalized if is_target else ""
                         except (
                             json.JSONDecodeError,
+                            AttributeError,
                             KeyError,
                             TypeError,
                             UnicodeDecodeError,
