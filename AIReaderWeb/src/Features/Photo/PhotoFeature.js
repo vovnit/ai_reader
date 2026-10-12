@@ -11,6 +11,8 @@ import { Feature } from "../Common/Feature.js";
 import { LookupFeature } from "../Lookup/LookupFeature.js";
 
 export class PhotoFeature extends Feature {
+  /** Whether a photo has been given to read yet. */
+  hasPhoto = false;
   /** "preparing" while the language's model is fetched and started, "reading" while the photo is read, else "". */
   status = "";
   error = "";
@@ -34,6 +36,7 @@ export class PhotoFeature extends Feature {
   /** Reads the photo `file` and explains the word pointed at. A photo taken while another is read is read after it; one taken after that wins. */
   read(file) {
     const photo = ++this.#photos;
+    this.hasPhoto = true;
     this.status = "reading";
     this.changed();
     this.#queue = this.#queue.then(() => (photo === this.#photos ? this.#read(file) : undefined));
