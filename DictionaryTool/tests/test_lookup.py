@@ -1,6 +1,7 @@
 import contextlib
 import io
 import json
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -142,6 +143,32 @@ class LookupTests(unittest.TestCase):
             )
 
         self.assertEqual(len(definitions.find(["cheval"])["cheval"]), 1)
+
+    def test_index_holds_whole_records_of_the_target_language_only(self):
+        with self.wiktionary_path.open("a", encoding="utf-8") as destination:
+            for record in (
+                # The English edition's order: lang_code after the forms.
+                {
+                    "forms": [{"form": "chevaux", "tags": ["plural"]}] * 60,
+                    "word": "cheval",
+                    "lang_code": "fr",
+                    "senses": [{"glosses": ["Grand mammifère domestiqué."]}],
+                },
+                # A German word whose translations name French.
+                {
+                    "word": "Pferd",
+                    "lang_code": "de",
+                    "translations": [{"lang_code": "fr", "word": "cheval"}],
+                    "senses": [{"glosses": ["Cheval."]}],
+                },
+            ):
+                destination.write(json.dumps(record, ensure_ascii=False) + "\n")
+        definitions = DefinitionLookup(self.wiktionary_path, self.index_path)
+
+        self.assertEqual(len(definitions.find(["cheval"])["cheval"]), 1)
+        with sqlite3.connect(str(self.index_path)) as database:
+            words = {word for (word,) in database.execute("SELECT word FROM entries")}
+        self.assertEqual(words, {"manger", "bonjour", "cheval"})
 
     def test_selects_target_language_from_definition_source(self):
         lookup = DictionaryLookup(

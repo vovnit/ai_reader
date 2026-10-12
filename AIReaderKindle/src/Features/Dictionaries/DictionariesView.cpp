@@ -25,12 +25,10 @@ GtkWidget* row(DictionariesFeature& feature, const DictionaryPack& pack) {
     if (!detail.empty()) text += "\n" + Widgets::small(Widgets::escape(detail));
     gtk_box_pack_start(GTK_BOX(line), Widgets::markup(text), TRUE, TRUE, 0);
 
-    if (!pack.isBundled()) {
-        GtkWidget* remove = Widgets::glyphButton("✕", [&feature, pack] {
-            Widgets::later([&feature, pack] { feature.remove(pack); });
-        }, true);
-        gtk_box_pack_end(GTK_BOX(line), remove, FALSE, FALSE, 0);
-    }
+    GtkWidget* remove = Widgets::glyphButton("✕", [&feature, pack] {
+        Widgets::later([&feature, pack] { feature.remove(pack); });
+    }, true);
+    gtk_box_pack_end(GTK_BOX(line), remove, FALSE, FALSE, 0);
     return line;
 }
 
@@ -60,6 +58,11 @@ void open(Env& env, Navigator& navigator) {
         g_list_free(children);
         for (const auto& pack : feature->packs()) {
             gtk_box_pack_start(GTK_BOX(list), row(*feature, pack), FALSE, FALSE, 0);
+        }
+        if (feature->canRestoreBundled()) {
+            gtk_box_pack_start(GTK_BOX(list), Widgets::button("Restore built-in dictionary", [feature] {
+                Widgets::later([feature] { feature->restoreBundled(); });
+            }), FALSE, FALSE, 0);
         }
         gtk_box_pack_start(GTK_BOX(list), Widgets::separator(), FALSE, FALSE, Widgets::px(6));
         gtk_box_pack_start(GTK_BOX(list), Widgets::markup(Widgets::small(

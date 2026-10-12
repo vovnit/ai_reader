@@ -1,10 +1,12 @@
 // The shelf, each group under its name, then the books in the sync folder
 // that are not here. A book opens the reader; its buttons put it in a group
-// or take it off this device, and its file out of the sync folder.
+// or take it off this device, and its file out of the sync folder. Photo
+// takes a picture of a printed page, for the word a finger points at.
 import { chooseAction, confirmAction } from "../Common/Dialogs.js";
 import { pickFiles } from "../Common/Files.js";
 import { Screen } from "../Common/Screen.js";
 import { button, h, note } from "../Common/Ui.js";
+import { PhotoView, takePhoto } from "../Photo/PhotoView.js";
 import { ReaderView } from "../Reader/ReaderView.js";
 import { SettingsView } from "../Settings/SettingsView.js";
 import { WordsView } from "../Words/WordsView.js";
@@ -20,6 +22,7 @@ export class LibraryView extends Screen {
     this.env = env;
     this.feature = new LibraryFeature(env);
     this.addAction("Add…", () => this.#pick());
+    this.addAction("Photo", () => this.#photo(), { title: "Photo of a page: the word under your finger, explained" });
     this.addAction("Words", () => navigator.push(new WordsView(env, navigator, null)));
     this.addAction("Settings", () => navigator.push(new SettingsView(env, navigator)));
     this.#acceptDrops();
@@ -44,6 +47,11 @@ export class LibraryView extends Screen {
   async #pick() {
     const files = await pickFiles({ accept: ".epub,application/epub+zip,.pdf,application/pdf" });
     if (files.length) await this.feature.add(files);
+  }
+
+  async #photo() {
+    const photo = await takePhoto();
+    if (photo) this.navigator.push(new PhotoView(this.env, this.navigator, photo));
   }
 
   #acceptDrops() {

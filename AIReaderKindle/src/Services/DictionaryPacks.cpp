@@ -39,11 +39,19 @@ void DictionaryPacks::setEnabled(long long id, bool isEnabled) {
 }
 
 void DictionaryPacks::remove(const DictionaryPack& pack) {
-    if (pack.isBundled()) return;
     Statement remove(database_, "DELETE FROM dictionaryPacks WHERE id = ?");
     remove.bind(1, pack.id).run();
+    // The bundled file belongs to the package, and the pack can be restored from it.
+    if (pack.isBundled()) return;
     DictionaryDatabase::shared().close(DictionaryDatabase::path(pack));
     Files::remove(DictionaryDatabase::path(pack));
+}
+
+void DictionaryPacks::restoreBundled() {
+    for (const auto& pack : all()) {
+        if (pack.isBundled()) return;
+    }
+    Migrations::addBundledPack(database_);
 }
 
 void DictionaryPacks::insert(const DictionaryPack& pack) {

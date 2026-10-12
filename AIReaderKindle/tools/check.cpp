@@ -811,6 +811,23 @@ static void checkDatabase(const std::string& folder) {
     env.packs.setEnabled(packs[0].id, false);
     check("packs can be disabled", env.packs.enabled().empty());
     env.packs.setEnabled(packs[0].id, true);
+    {
+        // Against a stand-in file: a remove that deleted the shipped file
+        // would otherwise delete the iOS app's copy, and with it gone
+        // checkBundledDictionary would skip, and the run would pass.
+        const char* shipped = g_getenv("AIREADER_DATA_DIR");
+        std::string data = shipped ? shipped : "";
+        g_setenv("AIREADER_DATA_DIR", folder.c_str(), TRUE);
+        Files::write(Paths::bundledDictionary(), "");
+        env.packs.remove(packs[0]);
+        check("the bundled pack can be removed, its file kept", env.packs.all().empty() && Files::exists(Paths::bundledDictionary()));
+        if (shipped) g_setenv("AIREADER_DATA_DIR", data.c_str(), TRUE); else g_unsetenv("AIREADER_DATA_DIR");
+    }
+    env.packs.restoreBundled();
+    env.packs.restoreBundled();
+    packs = env.packs.all();
+    check("restoring lists it once, as a new library has it", packs.size() == 1 && packs[0].isBundled() && packs[0].isEnabled
+          && packs[0].name == "Bundled dictionary" && packs[0].languages() == "fr → ru");
 
     AiSettings ai{"mock://ai", "t1", "t2", "mock-medium"};
     env.settings.saveAi(ai);
@@ -1366,11 +1383,23 @@ static void checkAddFile(const std::string& folder) {
           errors.empty() ? "" : errors[0]);
 }
 
-static void checkBundledDictionary() {
+static void checkBundledDictionary(const std::string& folder) {
     std::string path = Paths::bundledDictionary();
     if (!Files::exists(path)) {
         std::printf("skip  bundled dictionary (set AIREADER_DATA_DIR to the folder holding dictionary.sqlite3)\n");
         return;
+    }
+    {
+        // The record goes by hand: remove() is checked against a stand-in
+        // (checkDatabase), and this file is the iOS app's own copy.
+        Files::ensureDirectory(folder);
+        Database database(Files::join(folder, "library.sqlite3"));
+        Migrations::migrate(database);
+        DictionaryPacks packs(database);
+        database.exec("DELETE FROM dictionaryPacks");
+        packs.restoreBundled();
+        DictionaryLookup again = DictionaryDatabase::shared().lookup("maisons", packs.enabled());
+        check("a restored bundled pack is searched again", !again.articles.empty() && again.articles[0].lemma == "maison", again.summary());
     }
     DictionaryPack bundled;
     bundled.name = "Bundled";
@@ -1598,7 +1627,7 @@ int main(int argc, char** argv) {
     checkAddFile(Files::join(scratch, "home"));
     checkGlossaryList(Files::join(scratch, "glossary"));
     checkPdf(Files::join(scratch, "pdf-sample"));
-    checkBundledDictionary();
+    checkBundledDictionary(Files::join(scratch, "bundled"));
     // A PDF is checked as the EPUB the library makes of it.
     std::string book = argc > 1 ? argv[1] : "";
     if (Files::extension(book) == "pdf") book = checkPdfFile(book, Files::join(scratch, "pdf"));

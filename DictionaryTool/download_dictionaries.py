@@ -1,10 +1,12 @@
 import argparse
 import gzip
+import http.client
 import json
 import os
 import shutil
 import stat
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -26,12 +28,22 @@ WIKTIONARY_URL_TEMPLATE = (
     "https://kaikki.org/dictionary/downloads/{language}/"
     "{language}-extract.jsonl.gz"
 )
+# Kaikki publishes no en-extract. The whole English edition is 2.8 GiB packed,
+# mostly other languages' words; its file of English words alone is 0.5 GiB
+# and is all en-en needs.
+WIKTIONARY_URLS = {
+    "en": "https://kaikki.org/dictionary/English/kaikki.org-dictionary-English.jsonl.gz",
+}
 WIKIDICT_RU_URL_TEMPLATE = (
     "https://raw.githubusercontent.com/open-dict-data/wikidict-ru/master/"
     "data/{filename}"
 )
 LEXIQUE_HEADER = "1_Mot\t2_Phono\t3_Phono_IPA\t4_Lemme"
 CHUNK_SIZE = 1024 * 1024
+DOWNLOAD_ATTEMPTS = 5
+# Seconds between attempts: retried at once, a dropped network fails all of
+# them within a second and throws away what was downloaded.
+RETRY_PAUSE = 10
 
 
 class DownloadError(RuntimeError):
@@ -51,6 +63,7 @@ def download_file(
     url: str,
     destination: Path,
     reporter: Callable[[str], None] = print,
+    attempts: int = DOWNLOAD_ATTEMPTS,
 ) -> None:
     destination = Path(destination)
     temporary_path = destination.with_name(destination.name + ".part")
@@ -59,58 +72,98 @@ def download_file(
     except FileNotFoundError:
         pass
 
-    request = urllib.request.Request(
-        url, headers={"User-Agent": "MultilingualDictionaryTool/1.0"}
-    )
     reporter("Downloading {}".format(url))
-    downloaded = 0
-    total = None
     try:
-        with urllib.request.urlopen(request, timeout=60) as response, temporary_path.open("wb") as output:
-            content_length = response.headers.get("Content-Length")
-            total = int(content_length) if content_length else None
-            next_progress = 10
-            while True:
-                chunk = response.read(CHUNK_SIZE)
-                if not chunk:
-                    break
-                output.write(chunk)
-                downloaded += len(chunk)
-                if total:
-                    percent = min(100, int(downloaded * 100 / total))
-                    if percent >= next_progress:
-                        reporter(
-                            "  {:3d}% ({}/{})".format(
-                                percent, human_size(downloaded), human_size(total)
-                            )
-                        )
-                        next_progress = percent + 10
-                elif downloaded // (100 * CHUNK_SIZE) > (downloaded - len(chunk)) // (100 * CHUNK_SIZE):
-                    reporter("  downloaded {}".format(human_size(downloaded)))
-    except (OSError, urllib.error.URLError) as error:
+        _download_resuming(url, temporary_path, reporter, attempts)
+        if temporary_path.stat().st_size == 0:
+            raise DownloadError("Download produced an empty file: {}".format(url))
+    except BaseException:
         try:
             temporary_path.unlink()
         except FileNotFoundError:
             pass
-        raise DownloadError("Failed to download {}: {}".format(url, error)) from error
-
-    if total is not None and downloaded != total:
-        try:
-            temporary_path.unlink()
-        except FileNotFoundError:
-            pass
-        raise DownloadError(
-            "Incomplete download from {}: expected {}, received {}"
-            .format(url, human_size(total), human_size(downloaded))
-        )
-    if not temporary_path.is_file() or temporary_path.stat().st_size == 0:
-        try:
-            temporary_path.unlink()
-        except FileNotFoundError:
-            pass
-        raise DownloadError("Download produced an empty file: {}".format(url))
+        raise
     os.replace(str(temporary_path), str(destination))
     reporter("Downloaded {} to {}".format(human_size(destination.stat().st_size), destination))
+
+
+def _download_resuming(
+    url: str,
+    path: Path,
+    reporter: Callable[[str], None],
+    attempts: int,
+) -> None:
+    """Fetches url into path. A large download is often cut off short of its
+    end, so each further attempt asks only for the rest."""
+    total = None
+    version = None
+    for attempt in range(1, attempts + 1):
+        downloaded = path.stat().st_size if path.exists() else 0
+        headers = {"User-Agent": "MultilingualDictionaryTool/1.0"}
+        if downloaded:
+            headers["Range"] = "bytes={}-".format(downloaded)
+            if version:
+                # A file republished since the first attempt comes whole.
+                headers["If-Range"] = version
+        try:
+            request = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(request, timeout=60) as response:
+                # Anything but 206 is the whole file again: the server
+                # ignored the range, or the file changed.
+                resumed = downloaded > 0 and response.status == 206
+                if not resumed:
+                    downloaded = 0
+                    content_length = response.headers.get("Content-Length")
+                    total = int(content_length) if content_length else None
+                    version = response.headers.get("ETag") or response.headers.get(
+                        "Last-Modified"
+                    )
+                with path.open("ab" if resumed else "wb") as output:
+                    _copy_with_progress(response, output, downloaded, total, reporter)
+        except urllib.error.HTTPError as error:
+            # A 4xx answer would only be repeated; a 5xx says to try later.
+            if error.code < 500:
+                raise DownloadError("Failed to download {}: {}".format(url, error)) from error
+            problem = str(error)
+        except (OSError, http.client.HTTPException) as error:
+            problem = str(error) or type(error).__name__
+        else:
+            if total is None or path.stat().st_size == total:
+                return
+            problem = "expected {}".format(human_size(total))
+        received = human_size(path.stat().st_size if path.exists() else 0)
+        if attempt == attempts:
+            raise DownloadError(
+                "Failed to download {}: {} received in {} attempts ({})"
+                .format(url, received, attempts, problem)
+            )
+        reporter("  stopped at {} ({}); resuming".format(received, problem))
+        time.sleep(RETRY_PAUSE)
+
+
+def _copy_with_progress(
+    response,
+    output,
+    downloaded: int,
+    total: Optional[int],
+    reporter: Callable[[str], None],
+) -> None:
+    while True:
+        chunk = response.read(CHUNK_SIZE)
+        if not chunk:
+            return
+        output.write(chunk)
+        before, downloaded = downloaded, downloaded + len(chunk)
+        if total and downloaded * 10 // total > before * 10 // total:
+            reporter(
+                "  {:3d}% ({}/{})".format(
+                    min(100, downloaded * 100 // total),
+                    human_size(downloaded),
+                    human_size(total),
+                )
+            )
+        elif not total and downloaded // (100 * CHUNK_SIZE) > before // (100 * CHUNK_SIZE):
+            reporter("  downloaded {}".format(human_size(downloaded)))
 
 
 def safe_extract(archive: zipfile.ZipFile, destination: Path) -> None:
@@ -280,7 +333,9 @@ def install_wiktionary(
         )
         return
 
-    url = WIKTIONARY_URL_TEMPLATE.format(language=definition_language)
+    url = WIKTIONARY_URLS.get(definition_language) or WIKTIONARY_URL_TEMPLATE.format(
+        language=definition_language
+    )
     staging_path = destination.with_name(
         ".{}-extract.jsonl.download".format(definition_language)
     )

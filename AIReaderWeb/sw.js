@@ -1,7 +1,9 @@
 // Keeps the app for offline use. Everything is fetched from the network
 // when it can be, so a new version shows on the next load, and from the
 // copy kept here when it cannot. The dictionary, large and rarely changed,
-// comes from the copy first and is refreshed behind it.
+// comes from the copy first and is refreshed behind it; so does the text
+// reader in vendor/, kept once a photo has needed it rather than fetched
+// for everyone.
 
 const cacheName = "aireader";
 const dictionary = "./dictionary.sqlite3";
@@ -52,6 +54,12 @@ const files = [
   "./src/Domain/Formats/DictionaryFormat.js",
   "./src/Domain/Formats/StarDictReader.js",
   "./src/Domain/Formats/XDXFDictionaryReader.js",
+  "./src/Domain/Photo/FingerFinder.js",
+  "./src/Domain/Photo/FingerShape.js",
+  "./src/Domain/Photo/PhotoPassage.js",
+  "./src/Domain/Photo/PointedWord.js",
+  "./src/Domain/Photo/SkinMask.js",
+  "./src/Domain/Photo/TesseractPage.js",
   "./src/Domain/Reading/BookWords.js",
   "./src/Domain/Reading/ChapterParagraphs.js",
   "./src/Domain/Reading/ReadingStyle.js",
@@ -83,6 +91,8 @@ const files = [
   "./src/Features/Menu/DisplayFeature.js",
   "./src/Features/Menu/DisplayView.js",
   "./src/Features/Menu/MenuView.js",
+  "./src/Features/Photo/PhotoFeature.js",
+  "./src/Features/Photo/PhotoView.js",
   "./src/Features/Reader/PageFlow.js",
   "./src/Features/Reader/ReaderFeature.js",
   "./src/Features/Reader/ReaderView.js",
@@ -107,6 +117,7 @@ const files = [
   "./src/Services/LibraryStore.js",
   "./src/Services/LookupCache.js",
   "./src/Services/PdfImporter.js",
+  "./src/Services/PhotoReader.js",
   "./src/Services/RequestQuirkStore.js",
   "./src/Services/Relay.js",
   "./src/Services/Schema.js",
@@ -127,6 +138,7 @@ const files = [
   "./src/Support/PdfFont.js",
   "./src/Support/PdfObject.js",
   "./src/Support/PdfPageText.js",
+  "./src/Support/RgbImage.js",
   "./src/Support/SqliteFile.js",
   "./src/Support/Text.js",
   "./src/Support/TextFile.js",
@@ -177,5 +189,6 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   // What the site relays is the reader's own data, never kept here.
   if (event.request.method !== "GET" || url.origin !== location.origin || url.pathname.endsWith("/relay")) return;
-  event.respondWith(url.pathname.endsWith("/dictionary.sqlite3") ? kept(event.request) : fresh(event.request));
+  const large = url.pathname.endsWith("/dictionary.sqlite3") || url.pathname.includes("/vendor/");
+  event.respondWith(large ? kept(event.request) : fresh(event.request));
 });

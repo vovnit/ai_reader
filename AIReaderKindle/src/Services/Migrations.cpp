@@ -13,6 +13,14 @@ std::string now() {
     return result;
 }
 
+bool addBundledPack(Database& database) {
+    Statement insert(database,
+        "INSERT INTO dictionaryPacks (name, fileName, targetLanguage, definitionLanguage, addedAt)"
+        " VALUES (?, NULL, ?, ?, ?)");
+    insert.bind(1, "Bundled dictionary").bind(2, "fr").bind(3, "ru").bind(4, now());
+    return insert.run();
+}
+
 bool migrate(Database& database) {
     if (!database.isOpen()) return false;
     int version = database.userVersion();
@@ -54,15 +62,7 @@ bool migrate(Database& database) {
             "  isEnabled INTEGER NOT NULL DEFAULT 1,"
             "  addedAt TEXT NOT NULL"
             ")");
-        if (!ok) return false;
-
-        // The pack that ships with the app, so it appears in the list beside
-        // any the reader adds.
-        Statement insert(database,
-            "INSERT INTO dictionaryPacks (name, fileName, targetLanguage, definitionLanguage, addedAt)"
-            " VALUES (?, NULL, ?, ?, ?)");
-        insert.bind(1, "Bundled dictionary").bind(2, "fr").bind(3, "ru").bind(4, now());
-        if (!insert.run()) return false;
+        if (!ok || !addBundledPack(database)) return false;
         database.setUserVersion(1);
     }
 

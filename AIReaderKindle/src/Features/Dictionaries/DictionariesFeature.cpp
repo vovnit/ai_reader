@@ -2,6 +2,8 @@
 
 #include "../../Support/Text.hpp"
 
+#include <algorithm>
+
 DictionariesFeature::DictionariesFeature(Env& env) : env_(env) {
     packs_ = env_.packs.all();
 }
@@ -13,6 +15,15 @@ void DictionariesFeature::toggle(const DictionaryPack& pack) {
 
 void DictionariesFeature::remove(const DictionaryPack& pack) {
     env_.packs.remove(pack);
+    reload();
+}
+
+bool DictionariesFeature::canRestoreBundled() const {
+    return std::none_of(packs_.begin(), packs_.end(), [](const DictionaryPack& pack) { return pack.isBundled(); });
+}
+
+void DictionariesFeature::restoreBundled() {
+    env_.packs.restoreBundled();
     reload();
 }
 

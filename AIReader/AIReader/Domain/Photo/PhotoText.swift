@@ -14,6 +14,11 @@ struct PhotoText: Equatable, Sendable {
     struct Line: Equatable, Sendable {
         var text: String
         var words: [Word]
+        /// How tall the line is and which way its top faces, one pixel
+        /// long: the true ones, from its corners, however the page is
+        /// turned in the photo; its words' boxes only bound them.
+        var height: CGFloat
+        var up: CGVector
     }
 
     /// The tip of an index finger, and the way it points: from the joint

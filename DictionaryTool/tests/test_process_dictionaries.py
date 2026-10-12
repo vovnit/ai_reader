@@ -215,6 +215,81 @@ class ProcessDictionaryTests(unittest.TestCase):
         self.assertEqual(summary["wikidict_entries"], 1)
         self.assertEqual(summary["malformed_wikidict_rows"], 1)
 
+    def test_reads_a_record_whose_lang_code_comes_after_a_kilobyte(self):
+        # As the English edition writes its records: forms first.
+        with self.wiktionary_path.open("a", encoding="utf-8") as source:
+            source.write(
+                json.dumps(
+                    {
+                        "forms": [{"form": "chevaux", "tags": ["plural"]}] * 60,
+                        "word": "cheval",
+                        "lang_code": "fr",
+                        "senses": [{"glosses": ["Grand mammifère domestiqué."]}],
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n"
+            )
+        output = self.data_dir / "late.sqlite3"
+
+        build_processed_dictionary(
+            output, self.lexique_path, self.wiktionary_path, reporter=lambda message: None
+        )
+
+        result = DictionaryLookup(database_path=output).lookup("chevaux")
+        self.assertEqual(
+            result["lemmas"][0]["entries"][0]["definitions"][0]["glosses"],
+            ["Grand mammifère domestiqué."],
+        )
+
+    def test_keeps_only_records_of_the_target_language_itself(self):
+        # A Russian word whose translations name English: not an English word.
+        russian_source = self.data_dir / "ru-extract.jsonl"
+        records = [
+            {
+                "word": "волк",
+                "lang_code": "ru",
+                "translations": [{"lang_code": "en", "word": "wolf"}],
+                "senses": [{"glosses": ["Хищное млекопитающее."]}],
+            },
+            {"word": "wolf", "lang_code": "en", "senses": [{"glosses": ["Волк."]}]},
+        ]
+        russian_source.write_text(
+            "".join(json.dumps(record, ensure_ascii=False) + "\n" for record in records),
+            encoding="utf-8",
+        )
+        output = self.data_dir / "en-ru.sqlite3"
+
+        summary = build_processed_dictionary(
+            output,
+            self.lexique_path,
+            russian_source,
+            target_language="en",
+            definition_language="ru",
+            reporter=lambda message: None,
+        )
+        processed = DictionaryLookup(database_path=output)
+
+        self.assertTrue(processed.lookup("wolf")["found"])
+        self.assertFalse(processed.lookup("волк")["found"])
+        self.assertEqual(summary["definition_entries"], 1)
+        self.assertEqual(summary["target_records"], 1)
+
+    def test_refuses_to_write_an_empty_pack(self):
+        output = self.data_dir / "empty.sqlite3"
+
+        with self.assertRaisesRegex(ProcessingError, "no pack was written"):
+            build_processed_dictionary(
+                output,
+                self.lexique_path,
+                self.wiktionary_path,
+                target_language="es",
+                definition_language="fr",
+                reporter=lambda message: None,
+            )
+        self.assertFalse(output.exists())
+        self.assertFalse(output.with_name(output.name + ".tmp").exists())
+
     def test_pack_builder_rejects_mislabeled_source(self):
         with self.assertRaisesRegex(DictionaryDataError, "fr definitions, not ru"):
             build_processed_dictionary(

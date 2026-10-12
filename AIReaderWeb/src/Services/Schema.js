@@ -3,6 +3,19 @@
 // function to the end, never change one that has shipped.
 import { now } from "../Support/Text.js";
 
+/** The pack that ships with the app, as the first migration lists it in a new library and as restoring it lists it again. */
+export function bundledPack() {
+  return {
+    name: "Bundled dictionary",
+    kind: "bundled",
+    fileName: "",
+    targetLanguage: "fr",
+    definitionLanguage: "ru",
+    isEnabled: true,
+    addedAt: now(),
+  };
+}
+
 export const schema = {
   name: "aireader",
   migrations: [
@@ -33,15 +46,7 @@ export const schema = {
       db.createObjectStore("dictionaryFiles");
       db.createObjectStore("dictionaryArticles", { keyPath: ["packId", "word"] });
       // The pack that ships with the app, so it appears beside any added.
-      packs.put({
-        name: "Bundled dictionary",
-        kind: "bundled",
-        fileName: "",
-        targetLanguage: "fr",
-        definitionLanguage: "ru",
-        isEnabled: true,
-        addedAt: now(),
-      });
+      packs.put(bundledPack());
     },
     (db) => {
       // What this device last knew of each file in the sync folder's

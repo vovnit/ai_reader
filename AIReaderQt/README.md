@@ -32,7 +32,9 @@ density, so a page breaks the same way on both.
 - **Words** — every word looked up, the practice game, and export for Anki.
 - **Settings** — the OpenAI-compatible endpoint and model, web search, and
   WebDAV sync with the iOS, Kindle and web apps; **Dictionaries** adds packs, word
-  lists, Lingvo DSL, StarDict and XDXF.
+  lists, Lingvo DSL, StarDict and XDXF, and `✕` removes one. Removing the
+  bundled one only takes it off the list, since the install keeps its file;
+  *Restore built-in dictionary* lists it again.
 
 Everything lives in `~/.aireader` (or `$AIREADER_HOME`), the same place as
 the Kindle app's desktop build, so the two share a library.

@@ -3,7 +3,101 @@
 This command-line tool selects a target language from a Wiktionary extract and
 returns definitions in the language of that Wiktionary edition. French targets
 also use Lexique4 for form-to-lemma resolution. It writes stable, structured
-JSON to standard output and operational progress to standard error.
+JSON to standard output and operational progress to standard error. It also
+builds the dictionary packs the apps look words up in.
+
+## Building a pack for the apps
+
+A pack is one SQLite file. The pack of French words with Russian definitions is
+built into every app. Three more are for a reader to build here, on a computer,
+and add to an app as a file: French-French, English-Russian and
+English-English. Building the French-Russian one gives a newer copy of the
+built-in pack.
+
+It takes Python 3 and nothing to install. In this folder, each pack is a
+download and a build:
+
+```bash
+# French-Russian, the one built into the apps, and English-Russian: one download
+python3 download_dictionaries.py --definition-language ru
+python3 process_dictionaries.py --target-language fr --definition-language ru --output "French-Russian.sqlite3"
+python3 process_dictionaries.py --target-language en --definition-language ru --output "English-Russian.sqlite3"
+
+# French-French
+python3 download_dictionaries.py --definition-language fr
+python3 process_dictionaries.py --target-language fr --definition-language fr --output "French-French.sqlite3"
+
+# English-English
+python3 download_dictionaries.py --definition-language en
+python3 process_dictionaries.py --target-language en --definition-language en --output "English-English.sqlite3"
+```
+
+Always pass `--output`: an app names the pack after its file, and without it
+the pack is written as a hidden `.mobile-dictionary….sqlite3`.
+
+What each needs, measured in October 2026 on a four-core Linux machine:
+
+| Pack | Download | Disk at peak | Build | Pack size | Entries |
+| --- | --- | --- | --- | --- | --- |
+| French-Russian | 295 MiB | 2.8 GiB | 15 s | 16.7 MiB | 23,556 |
+| English-Russian | the same | the same | 12 s | 16.8 MiB | 72,228 |
+| French-French | 703 MiB | 7.1 GiB | 1 min | 39.2 MiB | 91,309 |
+| English-English | 499 MiB | 3.6 GiB | 1.5 min | 298.3 MiB | 1,492,363 |
+
+- **Download.** The first download also fetches Lexique 4 (47 MiB), which only
+  the French packs use. Each archive is unpacked next to the scripts, so at its
+  peak the disk holds the archive and the unpacked file together; the unpacked
+  file stays until you delete it (Russian 2.5 GiB, French 6.4 GiB, English
+  3.1 GiB). Here a download and its unpacking took a minute or so; a slower
+  connection takes longer. A download cut off part-way resumes where it
+  stopped, up to five attempts ten seconds apart.
+- **Build.** The times are for a source the disk has just written; read from
+  a cold disk, French-Russian took 104 s. The four builds needed under 200 MiB
+  of memory.
+
+Then:
+
+- **Check it** before adding it:
+  `python3 lookup.py mangent --database "French-French.sqlite3"`.
+- **Add it** on any app's Dictionaries screen with Add… (*Add dictionary* on
+  iOS, *Add* on the Kindle). The app copies the file in, and the file's name
+  becomes the pack's: `French-French.sqlite3` is listed as French-French.
+- **Delete the sources** once their packs are built. With little disk, build
+  in this order and delete each before the next download:
+
+  ```bash
+  rm -rf ru-extract.jsonl ru-extract.jsonl.metadata.json  # after French-Russian and English-Russian
+  rm -rf fr-extract.jsonl fr-extract.jsonl.metadata.json  # after French-French
+  rm -rf en-extract.jsonl en-extract.jsonl.metadata.json  # after English-English
+  rm -rf Lexique4                                         # last: each download fetches it again
+  ```
+
+  `lookup.py` without `--database` also leaves an index beside each source,
+  a hidden `.…-index.sqlite3`; delete those too.
+
+What the packs hold:
+
+- The French packs carry Lexique's 189,861 written forms, so an inflected word
+  finds its lemma: *mangent* finds manger. They keep only the entries of
+  Lexique's lemmas; `--lossless` keeps every French headword, which makes
+  French-French about 500 MiB.
+- The English packs have no table of forms. An inflected word is found only
+  where Wiktionary has an entry for it: English-English has *went* (simple past
+  of go) and *dogs* (plural of dog), English-Russian has few such entries, and
+  *dogs* finds nothing there. English-English keeps every headword, phrases and
+  inflected forms among them, which is why it is large.
+- Kaikki publishes no extract of the English Wiktionary as it does of the
+  other editions. The whole edition is 2.8 GiB packed, mostly other languages'
+  words, so the tool downloads only its file of English words. English
+  definitions therefore serve English words only: `--definition-language en`
+  with any other `--target-language` finds nothing, and writes no pack.
+
+A pack is licensed CC BY-SA 4.0, as its sources are: Wiktionary, by its
+contributors, by way of kaikki.org, and for the French packs Lexique 4, by
+Boris New, Christophe Pallier and others (lexique.org). When you share a pack,
+name them and the license, as the apps' Dictionaries screens do for the
+built-in one — for example, "From Lexique 4 (lexique.org) and the French
+Wiktionary (fr.wiktionary.org, by way of kaikki.org), licensed CC BY-SA 4.0."
 
 ## Pipeline
 
@@ -23,8 +117,9 @@ Shared data locations and data errors are defined in `dictionary_data.py`.
 
 `--target-language` selects the language of the words. `--definition-language`
 selects the Wiktionary edition that supplies the definitions. If its extract is
-missing, lookup downloads the matching compressed Kaikki extract, validates its
-edition metadata, and installs it atomically. It uses definitions authored in
+missing, lookup downloads the matching compressed Kaikki extract (for English,
+Kaikki's file of English words), validates its edition metadata, and installs it
+atomically. It uses definitions authored in
 that edition; it does not machine-translate another edition's definitions.
 
 French words with Russian definitions:
@@ -39,9 +134,9 @@ This resolves the French form through Lexique4, then searches French entries in
 Russian Wiktionary. An explicitly supplied mismatched source, such as
 `fr-extract.jsonl` with `--definition-language ru`, is rejected.
 
-With the currently downloaded Russian edition, a compact `ru -> fr` processed
-pack is 16.6 MiB and contains 23,455 definition entries reachable through
-French Lexique lemmas.
+From the October 2026 Russian edition, the compact French-Russian pack is
+16.7 MiB and contains 23,556 definition entries reachable through French
+Lexique lemmas.
 
 The prepared source is from French Wiktionary, so German words with French
 definitions can be queried directly:
@@ -77,9 +172,9 @@ Definition payloads are minified JSON compressed independently with zlib. Use
 to atomically replace an existing output. The source dictionaries are never
 modified.
 
-For the currently prepared data, compact mode produces a 39.2 MiB database
-with 189,861 form rows and 91,957 definition entries. Lossless mode produces a
-501.4 MiB database with all 2,111,601 French definition entries.
+From the October 2026 French edition, compact mode produces a 39.2 MiB
+database with 189,861 form rows and 91,309 definition entries. Lossless mode
+produces a 502.0 MiB database with all 2,112,351 French definition entries.
 
 Use either processed database directly:
 
@@ -99,8 +194,8 @@ python3 lookup.py "Haus" --database .mobile-dictionary-fr-de.sqlite3
 ```
 
 Non-French targets currently retain all matching headwords because no compact
-morphology source is configured. With the prepared data, the `fr -> de` pack is
-141.7 MiB and contains 538,753 definition entries.
+morphology source is configured. From the October 2026 French edition, the
+German-French pack is 139.5 MiB and contains 530,413 definition entries.
 
 ## Usage
 
@@ -113,7 +208,8 @@ python3 lookup.py "mangent"
 
 The first definition lookup builds a language-specific index. This is a one-time
 scan of the large JSONL source; subsequent lookups use direct byte offsets.
-Rebuild it after manual source changes with `--rebuild-index`.
+Rebuild it after manual source changes, or after this tool changes how it
+reads a source, with `--rebuild-index`.
 
 To validate existing data or download missing data:
 
@@ -191,11 +287,12 @@ novel, six or seven times that.
 ## Licenses
 
 Lexique 4 and the Wiktionary extracts are licensed CC BY-SA 4.0, and a pack
-built from them is too: whatever ships one names its sources and that license,
-as the apps' Dictionaries screens do for the bundled pack. Wikidict is CC0.
+built from them is too: whoever ships or shares one names its sources and that
+license, as the apps' Dictionaries screens do for the built-in pack. Wikidict
+is CC0.
 
 ## Tests
 
 ```bash
-python3 -m unittest discover -v
+python3 -m unittest discover -s tests -t .
 ```

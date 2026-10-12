@@ -55,8 +55,11 @@ const finished = (text) => /[.!?:;")\]…»”]$/.test(text);
 const startsLowercase = (text) => /^\p{Ll}/u.test(text);
 const startsLetter = (text) => /^\p{L}/u.test(text);
 
-/** A paragraph with a line added; a word broken with a hyphen at the line's end is mended. */
-function joined(paragraph, line) {
+/**
+ * A paragraph with a line added; a word broken with a hyphen at the line's
+ * end is mended. A photographed page's lines are joined the same way.
+ */
+export function joined(paragraph, line) {
   for (const hyphen of ["-", "‐", "­"]) {
     if (paragraph.endsWith(hyphen) && (hyphen === "­" || startsLowercase(line))) return paragraph.slice(0, -1) + line;
   }

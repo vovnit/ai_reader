@@ -89,4 +89,10 @@ snap build-docker/shots/15-settings.png
 click Dictionaries…
 wait 800
 snap build-docker/shots/16-dictionaries.png
+click ✕
+wait 300
+snap build-docker/shots/17-dictionary-removed.png
+click Restore built-in dictionary
+wait 300
+snap build-docker/shots/18-dictionary-restored.png
 quit

@@ -45,7 +45,8 @@ to its lemma, collects the articles, and sends them with the surrounding
 sentence to the model. The answer gives the lemma, a note on the form in the
 text, the meaning that fits *here*, and a translation of the sentence. If the
 entries do not fit, the model can call the dictionary again for another form;
-if nothing fits at all it guesses, says so, and reports its confidence. Answers
+if nothing fits at all, or three rounds of looking have turned up nothing,
+it guesses, says so, and reports its confidence. Answers
 are cached, so the same word in the same sentence is paid for once.
 *Dictionary entry* opens the article the answer was drawn from, as the
 dictionary has it — every sense, and which dictionary it came from. It is
@@ -97,10 +98,20 @@ extension searches the same way; the token lives in the keychain.
 toolbar, opens the camera. Photograph the page with a finger just under the
 word you mean: the text is read off the photo on the device, the finger found
 in it, and the word it points at explained in its sentence, like a word tapped
-in a book. The page's text stays beneath the explanation, to tap another word
-in — when no finger was seen, or it was taken to mean the wrong word. The
-photo itself is not kept or sent anywhere; the model gets only the word and
-its sentence. On the iPhone and iPad.
+in a book. A hand in view is found by Vision; a single finger coming in from
+the edge of the picture, or the thumb of the hand holding the book, with no
+hand to recognise, by its colour against the
+page's own white and its shape — a band wider than the lines that ends in a
+round tip below a word — so a ribbon, a pen or a coloured box is not taken for
+one, though something as round and as warm in colour, an eraser or a wooden
+spoon, can be. The screen then shows only the explanation, with *Next photo*
+beside *Pronounce* and *Done* at its foot, within reach of the hand holding the
+phone, as the library's controls are. The photo itself is not kept or sent
+anywhere; the model gets only the word and its sentence. On the iPhone and
+iPad, and in the [web app](AIReaderWeb/README.md), which reads the text with
+Tesseract.js and, with no Vision to recognise a hand, looks for the finger by
+its colour and shape alone; there the first photo in a language fetches that
+language's model, 1 to 3 MB, once.
 
 **Hearing it.** The word or the whole sentence can be spoken, in the language
 the EPUB declares. On-device, free.
@@ -180,8 +191,8 @@ the rest would port to another UI layer unchanged.
 | --- | --- |
 | `App` | The entry point: prepares the database and the root store. |
 | `Database` | `appDatabase()` — connection, configuration, migrations. |
-| `Support` | Inflate and deflate, an XML scanner, a ZIP reader, text files, image loading, and the keychain. |
-| `Domain` | The material and pure logic over it: books (the package, the document with its chapters, the reading place, the book key, groups), the dictionary shape and formats, search (a phrase in a text, and the sentence around it), the AI prompts — explanation, chat, X-ray — the tools the model may call and the mock, cards (a flash card from a lookup, a round of the matching game, the Anki file), a photographed page (its lines, and the word a finger points at) and the sync document with its merge and the files it is kept in. |
+| `Support` | Inflate and deflate, an XML scanner, a ZIP reader, text files, image loading, a small RGB image for looking at pixels, and the keychain. |
+| `Domain` | The material and pure logic over it: books (the package, the document with its chapters, the reading place, the book key, groups), the dictionary shape and formats, search (a phrase in a text, and the sentence around it), the AI prompts — explanation, chat, X-ray — the tools the model may call and the mock, cards (a flash card from a lookup, a round of the matching game, the Anki file), a photographed page (its lines, the finger in it when Vision sees no hand, and the word it points at) and the sync document with its merge and the files it is kept in. |
 | `Services` | Anything reaching disk, network, database or keychain: the library, groups and cards in SQLite, the lookup cache, the corpus (the open book and its group, searched from any task), the chat API and the tool-calling loop, the dictionary packs, speech, reading a photo's text and fingers with Vision, and sync (the WebDAV client, the store that turns the database into a document and back, and the exchange of the books themselves). |
 | `Features` | One folder per screen: a reducer and its views — library and group picker, reader, lookup with the dictionary entry, menu, search, X-ray, chat, words and practice, photo of a page, settings, dictionaries. |
 | `App` | The entry point: prepares the database and the root store. |
@@ -207,17 +218,16 @@ can be added under *Settings → Dictionaries*: pick a `.sqlite3` file and it is
 copied in, its metadata read, and its languages shown. A pack whose
 `schema_version` is not `2` is rejected rather than half-imported. Every enabled
 pack is searched and the results are merged; when more than one answers, each
-article says which pack it came from. The bundled pack can be disabled but not
-deleted.
+article says which pack it came from. Any pack can be switched off or removed,
+the bundled one too: removing it takes only its record off the list, since the
+app still ships the file, and while it is missing the Dictionaries screen offers
+*Restore built-in dictionary*, which lists it again, switched on.
 
-To build a pack for another language pair, from `DictionaryTool/`:
-
-```bash
-python3 process_dictionaries.py --target-language fr --definition-language en
-```
-
-It downloads its sources (Lexique4, Wiktionary extracts) next to itself, several
-gigabytes that git ignores.
+[`DictionaryTool/`](DictionaryTool/README.md) builds the other packs to add —
+French–French, English–Russian and English–English, and the French–Russian
+one itself — a download and a command each; its README has them, with what
+each needs. It downloads its sources (Lexique 4, Wiktionary extracts from
+kaikki.org) next to itself, several gigabytes that git ignores.
 
 The language the *answers* are written in is the one named under **Explain in**
 in Settings (Russian until changed), not the dictionary's.

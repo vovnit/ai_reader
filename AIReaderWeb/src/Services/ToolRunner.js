@@ -16,7 +16,11 @@ import { chat } from "./ChatApi.js";
 import { usesMock, webConfigured } from "./Settings.js";
 import { searchWeb } from "./WebSearch.js";
 
-/** How many rounds of tool calls the model gets before it must answer. */
+/**
+ * How many rounds of tool calls the model gets before it must answer. The
+ * request after them offers no tools, so it answers from what it found,
+ * guessing if it must, rather than the lookup failing.
+ */
 export const budget = 3;
 
 /** `window` is how much of the book around the passage the model has read so far, widened by each `expand_context` call. */
@@ -61,7 +65,7 @@ export async function converse(settings, messages, tools, jsonMode, available) {
   const passage = available.scope?.passage;
   const window = passage ? { ...passage } : null;
   for (let round = 0; round <= budget; round++) {
-    const reply = await chat(settings, messages, offered, jsonMode);
+    const reply = await chat(settings, messages, round < budget ? offered : [], jsonMode);
     if (!reply.toolCalls.length) return reply;
     messages.push(reply);
     for (const call of reply.toolCalls) messages.push(toolResult(await answer(call, settings, available, window), call.id));

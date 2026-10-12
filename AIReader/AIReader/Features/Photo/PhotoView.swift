@@ -2,8 +2,8 @@
 import ComposableArchitecture
 import SwiftUI
 
-/// The camera, then the text read off the photo with a word to tap, and the
-/// explanation of the word pointed at over it.
+/// The camera, then the explanation of the word the finger points at, with
+/// the next photo a tap away at the foot of the screen.
 struct PhotoView: View {
     @Bindable var store: StoreOf<PhotoFeature>
 
@@ -11,47 +11,42 @@ struct PhotoView: View {
         if store.isTakingPhoto {
             CameraView { store.send(.photoTaken($0)) } onCancel: { store.send(.cameraCancelled) }
                 .ignoresSafeArea()
+        } else if let lookup = store.scope(state: \.lookup, action: \.lookup.presented) {
+            LookupView(store: lookup) {
+                nextPhoto
+            }
         } else {
             NavigationStack {
-                content
+                status
                     .navigationTitle("Photo")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
+                        ToolbarItemGroup(placement: .bottomBar) {
                             Button("Done") { store.send(.doneTapped) }
-                        }
-                        ToolbarItem(placement: .primaryAction) {
-                            Button("Retake", systemImage: "camera") { store.send(.retakeTapped) }
+                            Spacer()
+                            nextPhoto
                         }
                     }
-            }
-            .sheet(item: $store.scope(state: \.$lookup, action: \.lookup)) { lookup in
-                LookupView(store: lookup)
             }
         }
     }
 
+    private var nextPhoto: some View {
+        Button("Next photo", systemImage: "camera") { store.send(.nextPhotoTapped) }
+    }
+
     @ViewBuilder
-    private var content: some View {
+    private var status: some View {
         if store.isReading {
             ProgressView("Reading the photo…")
         } else if let message = store.errorMessage {
             ContentUnavailableView("Nothing to read", systemImage: "text.viewfinder", description: Text(message))
         } else {
-            ScrollView {
-                WordFlowView(chunks: store.chunks) { store.send(.wordTapped(utf16Offset: $0)) }
-                    .font(.title3)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-            }
-            .safeAreaInset(edge: .bottom) {
-                Text(store.passage?.pointedOffset == nil
-                    ? "No finger was seen pointing at a word. Tap one to explain it."
-                    : "Tap a word to explain it")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .padding(.bottom)
-            }
+            ContentUnavailableView(
+                "No word pointed at",
+                systemImage: "hand.point.up.left",
+                description: Text("Hold a finger just below the word you mean, and take the photo again.")
+            )
         }
     }
 }

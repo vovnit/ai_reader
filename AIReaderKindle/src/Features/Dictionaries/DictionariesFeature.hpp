@@ -7,8 +7,8 @@
 #include <string>
 #include <vector>
 
-/// The dictionaries the app searches: the bundled one, plus any the reader
-/// has copied into the dictionaries folder.
+/// The dictionaries the app searches: the bundled one, unless the reader has
+/// removed it, plus any the reader has copied into the dictionaries folder.
 class DictionariesFeature {
 public:
     explicit DictionariesFeature(Env& env);
@@ -16,6 +16,9 @@ public:
     const std::vector<DictionaryPack>& packs() const { return packs_; }
     void toggle(const DictionaryPack& pack);
     void remove(const DictionaryPack& pack);
+    /// True once the reader has removed the bundled pack, which the app still ships.
+    bool canRestoreBundled() const;
+    void restoreBundled();
     /// Registers what is new in the folder. Returns a message to show.
     std::string addFromFolder();
     /// Brings one dictionary in from anywhere on disk. Returns a message to show.

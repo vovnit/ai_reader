@@ -18,7 +18,8 @@ import { normalizeWord } from "../../src/Domain/Dictionary/WordNormalizer.js";
 import { selectionAt } from "../../src/Domain/Reading/WordContext.js";
 import { findInText } from "../../src/Domain/Search/BookSearch.js";
 import { defaultAi, defaultWeb, mockEndpoint, webConfigured, webRequest } from "../../src/Services/Settings.js";
-import { converse } from "../../src/Services/ToolRunner.js";
+import { budget, converse } from "../../src/Services/ToolRunner.js";
+import { createServer } from "node:http";
 import { check } from "./Check.mjs";
 
 const sampleLookup = () => ({
@@ -26,6 +27,36 @@ const sampleLookup = () => ({
   forms: [{ lemma: "maison", partOfSpeech: "NOM", gender: "f", number: "p", features: [] }],
   articles: [{ lemma: "maison", partOfSpeech: "noun", senses: ["дом", "здание"], source: "Bundled" }],
 });
+
+/**
+ * A model that calls a tool for as long as one is offered, as one may when
+ * the dictionary has nothing for a word: the last request offers none, so
+ * it answers instead of the lookup failing.
+ */
+async function checkLastRound(none) {
+  const asks = [];
+  const server = createServer((request, response) => {
+    let body = "";
+    request.on("data", (chunk) => (body += chunk));
+    request.on("end", () => {
+      const sent = JSON.parse(body);
+      asks.push(sent);
+      const message = sent.tools
+        ? { role: "assistant", content: null, tool_calls: [{ id: `call-${asks.length}`, type: "function", function: { name: dictionaryToolName, arguments: '{"word":"realize"}' } }] }
+        : { role: "assistant", content: '{"lemma":"realize","form_note":"","meaning":"понять","guessed":true,"confidence":0.4}' };
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ choices: [{ message }] }));
+    });
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const asked = [system(explanationSystem("Russian")), user(explanationQuestion("realized", "That, I realized, was my mistake.", lookupSummary(none)))];
+  const settings = { ...defaultAi, endpoint: `http://127.0.0.1:${server.address().port}`, apiKey: "k" };
+  const reply = await converse(settings, asked, explanationTools, true, { scope: {}, packs: [], dictionary: { lookup: async () => none } });
+  server.close();
+  check("a model still calling tools answers when the last request offers none", asks.length === budget + 1
+    && asks.slice(0, budget).every((ask) => ask.tools) && !asks[budget].tools && !asks[budget].tool_choice
+    && decodeExplanation(reply.content ?? "")?.guessed, JSON.stringify(asks.map((ask) => Boolean(ask.tools))));
+}
 
 export async function checkAi() {
   const summary = lookupSummary(sampleLookup());
@@ -72,6 +103,7 @@ export async function checkAi() {
   const answer = await converse({ ...defaultAi, endpoint: mockEndpoint }, conversation, chatTools, false, { scope: {}, packs: [] });
   check("tool runner offers and answers the web under the mock", conversation.length === 4 && conversation[3].role === "tool"
     && conversation[3].content.startsWith("Pages found for “Alain-Fournier”") && answer.content.includes("2 страниц"), answer.content);
+  await checkLastRound(none);
 
   check("quirk: max_tokens", quirkNamed('{"error":{"message":"Unsupported parameter","param":"max_tokens"}}') === completionTokens);
   check("quirk: temperature", quirkNamed('{"error":{"message":"x","param":"temperature"}}') === defaultTemperature);

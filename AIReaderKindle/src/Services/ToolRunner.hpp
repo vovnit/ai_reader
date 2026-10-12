@@ -27,6 +27,8 @@ struct Tools {
 };
 
 /// How many rounds of tool calls the model gets before it must answer.
+/// The request after them offers no tools, so it answers from what it
+/// found, guessing if it must, rather than the lookup failing.
 constexpr int budget = 3;
 
 ChatMessage converse(
