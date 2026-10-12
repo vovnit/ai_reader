@@ -6,7 +6,7 @@ import { chooseAction, confirmAction } from "../Common/Dialogs.js";
 import { pickFiles } from "../Common/Files.js";
 import { Screen } from "../Common/Screen.js";
 import { button, h, note } from "../Common/Ui.js";
-import { PhotoView, takePhoto } from "../Photo/PhotoView.js";
+import { PhotoView } from "../Photo/PhotoView.js";
 import { ReaderView } from "../Reader/ReaderView.js";
 import { SettingsView } from "../Settings/SettingsView.js";
 import { WordsView } from "../Words/WordsView.js";
@@ -49,9 +49,11 @@ export class LibraryView extends Screen {
     if (files.length) await this.feature.add(files);
   }
 
-  async #photo() {
-    const photo = await takePhoto();
-    if (photo) this.navigator.push(new PhotoView(this.env, this.navigator, photo));
+  #photo() {
+    const view = new PhotoView(this.env, this.navigator);
+    this.navigator.push(view);
+    // Still within the tap, which is what lets the browser open the camera.
+    view.takePhoto();
   }
 
   #acceptDrops() {
