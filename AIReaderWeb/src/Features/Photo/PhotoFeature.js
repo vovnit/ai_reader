@@ -2,8 +2,8 @@
 // under the word, the photo's text is read on the device, and the word the
 // finger points at is explained in its sentence — the lookup a book gives,
 // and from there the next photo. Where no finger points at a word, the text
-// is shown to tap one in. There is no book, so the lookup is filed under
-// none. The iOS app's PhotoFeature.
+// read is shown over the photo to tap one in. There is no book, so the
+// lookup is filed under none. The iOS app's PhotoFeature.
 import { detectLanguage, languageCode } from "../../Domain/Books/LanguageDetector.js";
 import { photoPassage } from "../../Domain/Photo/PhotoPassage.js";
 import { selectionAt } from "../../Domain/Reading/WordContext.js";
@@ -19,6 +19,8 @@ export class PhotoFeature extends Feature {
   error = "";
   /** The photo's text, and where in it the pointed word starts; null before a photo is read. */
   passage = null;
+  /** The photo file the passage was read from. */
+  photo = null;
   /** What the pointed word means here; null when no finger pointed at a word. */
   lookup = null;
   /** The language the photo was read in. */
@@ -50,6 +52,7 @@ export class PhotoFeature extends Feature {
     this.#stopLookup();
     this.lookup = null;
     this.passage = null;
+    this.photo = null;
     this.error = "";
     this.status = "reading";
     this.changed();
@@ -75,6 +78,7 @@ export class PhotoFeature extends Feature {
         this.error = "No text was found in the photo.";
       } else {
         this.passage = passage;
+        this.photo = file;
         this.#explain(passage);
       }
     } catch (error) {

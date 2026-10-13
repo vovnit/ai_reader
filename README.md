@@ -107,7 +107,8 @@ one, though something as round and as warm in colour, an eraser or a wooden
 spoon, can be. The screen then shows only the explanation, with *Next photo*
 beside *Pronounce* and *Done* at its foot, within reach of the hand holding the
 phone, as the library's controls are. Where no finger points at a word, the
-photo's text is shown instead, to tap a word in. *Choose photo* reads one from
+photo is shown instead with the text read laid over its print, to tap a word
+where it is printed. *Choose photo* reads one from
 the library rather than the camera, whose flash starts off, a flash glaring on
 paper. The photo itself is not kept or sent
 anywhere; the model gets only the word and its sentence. On the iPhone and

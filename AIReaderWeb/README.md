@@ -27,7 +27,8 @@ apps do, and syncs with them and the iOS app through the same WebDAV folder.
   the text is read in the browser by Tesseract.js, the finger found by its
   colour and shape (as the iOS app finds one when Vision sees no hand), and
   the word explained as a clicked one is, with *Next photo* beside it. With
-  no finger, the photo's text is shown to click a word in. On a phone *Take
+  no finger, the photo is shown with the text read laid over its print, to
+  click a word where it is printed. On a phone *Take
   photo* opens the camera, whose flash the phone decides, and *Choose photo*
   the gallery; elsewhere both pick a picture. A page is
   read in the language the last one was in — at first, the language of the

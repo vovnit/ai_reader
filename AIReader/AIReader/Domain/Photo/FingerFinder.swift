@@ -20,7 +20,7 @@ enum FingerFinder {
         let lineHeight = heights[heights.count / 2]
         let up = lines.reduce(CGVector.zero) { CGVector(dx: $0.dx + $1.up.dx, dy: $0.dy + $1.up.dy) }
         let length = max((up.dx * up.dx + up.dy * up.dy).squareRoot(), 1e-6)
-        let text = PhotoText(lines: lines, fingers: [])
+        let text = PhotoText(lines: lines, fingers: [], size: photoSize)
 
         // A light finger first, then a dark one, taking in dimmer pixels but
         // asking for a closer likeness, since more of a dark background can

@@ -25,10 +25,11 @@ export class PhotoReader {
   #current = null;
 
   /**
-   * `{ lines, fingers }` of the photo `file`, in the pixels of the copy that
-   * was read; its page is in `language`, a two-letter code. `onStatus` hears
-   * "preparing" while the language's model is fetched and started, then
-   * "reading". Throws why the photo cannot be read.
+   * `{ lines, fingers, size }` of the photo `file`: places in the pixels of
+   * the copy that was read, `size` that copy's. Its page is in `language`, a
+   * two-letter code. `onStatus` hears "preparing" while the language's model
+   * is fetched and started, then "reading". Throws why the photo cannot be
+   * read.
    */
   async read(file, language, onStatus = () => {}) {
     const page = await upright(file);
@@ -52,7 +53,7 @@ export class PhotoReader {
     const lines = tesseractLines(data.blocks ?? []);
     const size = { width: page.width, height: page.height };
     const finger = findFinger(RgbImage.fromRgba(page.pixels, page.width, page.height).shrunk(256), lines, size);
-    return { lines, fingers: finger ? [finger] : [] };
+    return { lines, fingers: finger ? [finger] : [], size };
   }
 
   /** Stops the worker, freeing the memory its model takes. */

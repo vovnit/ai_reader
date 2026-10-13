@@ -1,7 +1,7 @@
 // The word a finger points at on a photographed page, explained as a
-// tapped word is, with the next photo a tap away; with no finger, the
-// page's text to tap a word in. Opened from the shelf, the camera with it,
-// as the iOS app opens it.
+// tapped word is, with the next photo a tap away; with no finger, the photo
+// with the text read over its print, to tap a word in. Opened from the
+// shelf, the camera with it, as the iOS app opens it.
 import { canSpeak, speak } from "../../Services/Speech.js";
 import { fileInput } from "../Common/Files.js";
 import { Screen } from "../Common/Screen.js";
@@ -10,6 +10,8 @@ import { lookupBody, LookupView } from "../Lookup/LookupView.js";
 import { PhotoFeature } from "./PhotoFeature.js";
 
 export class PhotoView extends Screen {
+  #shown = { photo: null, url: "" };
+
   constructor(env, navigator) {
     super(navigator, "Photo");
     this.env = env;
@@ -21,7 +23,10 @@ export class PhotoView extends Screen {
     this.addAction("Choose photo", () => this.gallery.click());
     this.next = this.addAction("Take photo", () => this.takePhoto());
     this.watch(this.feature, () => this.#render());
-    this.onClose(() => this.feature.close());
+    this.onClose(() => {
+      this.feature.close();
+      URL.revokeObjectURL(this.#shown.url);
+    });
   }
 
   /** Opens the camera, a picture file's picker elsewhere. Only from a tap: browsers open it for nothing else. */
@@ -61,38 +66,65 @@ export class PhotoView extends Screen {
     } else if (lookup) {
       this.setBody(...lookupBody(this.env, this.navigator, lookup));
     } else if (passage) {
-      this.setBody(note("No finger pointed at a word. Tap one to explain it."), this.#passage(passage.text));
+      const words = this.#photoWords(passage);
+      this.setBody(note("No finger pointed at a word. Tap one to explain it."), words);
+      fit(words);
     }
   }
 
-  #passage(text) {
-    const paragraph = h("p", { class: "message" }, text);
-    paragraph.addEventListener("click", (event) => {
-      const offset = offsetAt(paragraph.firstChild, event.clientX, event.clientY);
-      const word = offset === null ? null : this.feature.wordAt(offset);
-      if (!word) return;
-      this.navigator.popTo(this);
-      this.navigator.push(new LookupView(this.env, this.navigator, word));
-    });
-    return paragraph;
+  /** The photo with the text read off it laid over its print, each word where it was read, to tap one. */
+  #photoWords({ words, photoSize }) {
+    const page = svg("svg", { viewBox: `0 0 ${photoSize.width} ${photoSize.height}` });
+    for (const { text, offset, center, size, angle } of words) {
+      const word = svg("g", { transform: `rotate(${(angle * 180) / Math.PI} ${center.x} ${center.y})` });
+      // Tesseract's boxes hug the letters, leaving out descenders and the
+      // soft edges of strokes, which the patch reaches past to hide.
+      const patch = { width: size.width + 0.2 * size.height, height: 1.5 * size.height };
+      word.append(
+        svg("rect", { x: center.x - patch.width / 2, y: center.y - patch.height / 2, width: patch.width, height: patch.height }),
+        svg("text", {
+          x: center.x, y: center.y, "font-size": size.height * 0.8, "data-length": size.width,
+          "text-anchor": "middle", "dominant-baseline": "central",
+        }, text),
+      );
+      word.addEventListener("click", () => this.#explain(offset));
+      page.append(word);
+    }
+    return h("div", { class: "photo-words" }, h("img", { src: this.#urlOf(this.feature.photo), alt: "" }), page);
+  }
+
+  #explain(offset) {
+    const word = this.feature.wordAt(offset);
+    if (!word) return;
+    this.navigator.popTo(this);
+    this.navigator.push(new LookupView(this.env, this.navigator, word));
+  }
+
+  /** An address for the photo, made once for each photo shown. */
+  #urlOf(photo) {
+    if (this.#shown.photo !== photo) {
+      URL.revokeObjectURL(this.#shown.url);
+      this.#shown = { photo, url: URL.createObjectURL(photo) };
+    }
+    return this.#shown.url;
   }
 }
 
-/** The offset in the text node `node` of the character under a point, or null when the point is not on one of its characters. */
-function offsetAt(node, x, y) {
-  const position = document.caretPositionFromPoint?.(x, y);
-  const range = position ? null : document.caretRangeFromPoint?.(x, y);
-  if ((position?.offsetNode ?? range?.startContainer) !== node) return null;
-  const offset = position?.offset ?? range?.startOffset;
-  // The caret sits between characters; only a point on one of them counts.
-  const probe = document.createRange();
-  for (const index of [offset, offset - 1]) {
-    if (index < 0 || index >= node.length) continue;
-    probe.setStart(node, index);
-    probe.setEnd(node, index + 1);
-    for (const rect of probe.getClientRects()) {
-      if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) return index;
-    }
-  }
-  return null;
+/** Shrinks each word drawn longer than its print to the print's length, as the iOS app does. Only words on the page can be measured. */
+function fit(words) {
+  const texts = [...words.querySelectorAll("text")];
+  // All measured before any changes, so the page is laid out once.
+  const lengths = texts.map((text) => text.getComputedTextLength());
+  texts.forEach((text, index) => {
+    const room = Number(text.dataset.length);
+    if (lengths[index] > room) text.setAttribute("font-size", (Number(text.getAttribute("font-size")) * room) / lengths[index]);
+  });
+}
+
+/** An SVG element, which `h` cannot make. */
+function svg(tag, attributes, ...children) {
+  const element = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [key, value] of Object.entries(attributes)) element.setAttribute(key, String(value));
+  element.append(...children);
+  return element;
 }

@@ -5,8 +5,8 @@ import Foundation
 /// under the word, or picks a photo from the library, the photo's text is
 /// read on the device, and the word the finger points at is explained in its
 /// sentence — the same panel a book gives, and from there the next photo.
-/// Where no finger points at a word, the text is shown to tap one in. There
-/// is no book, so the lookup is filed under none.
+/// Where no finger points at a word, the text read is shown over the photo
+/// to tap one in. There is no book, so the lookup is filed under none.
 @Reducer
 struct PhotoFeature {
     enum Source: Equatable {
@@ -18,11 +18,13 @@ struct PhotoFeature {
         /// Where the next photo comes from while it is being picked; the
         /// camera is the first thing shown.
         var source: Source? = .camera
+        /// The photo being read, or whose text is shown.
+        var photo: Data?
         var isReading = false
         var passage: PhotoPassage?
         var language: String?
         var errorMessage: String?
-        /// The photo's text is shown, and the lookup is of a word tapped in it.
+        /// The photo's text is shown over it, and the lookup is of a word tapped there.
         var isChoosingWord = false
         @Presents var lookup: LookupFeature.State?
     }
@@ -47,6 +49,7 @@ struct PhotoFeature {
             switch action {
             case let .photoTaken(image):
                 state.source = nil
+                state.photo = image
                 state.isReading = true
                 state.passage = nil
                 state.errorMessage = nil

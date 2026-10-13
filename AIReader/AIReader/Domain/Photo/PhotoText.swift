@@ -30,4 +30,6 @@ struct PhotoText: Equatable, Sendable {
 
     var lines: [Line]
     var fingers: [Finger]
+    /// The photo's own size, upright, which the positions are in.
+    var size: CGSize
 }

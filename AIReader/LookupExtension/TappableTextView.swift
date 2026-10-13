@@ -1,9 +1,7 @@
-#if os(iOS)
 import SwiftUI
 import UIKit
 
-/// A passage laid out as text, reporting the position of a tapped word: a
-/// photo's text, or one shared to the Explain extension.
+/// A passage laid out as text, reporting the position of a tapped word.
 struct TappableTextView: UIViewRepresentable {
     let text: String
     let onTap: (_ utf16Offset: Int) -> Void
@@ -52,4 +50,3 @@ struct TappableTextView: UIViewRepresentable {
         }
     }
 }
-#endif

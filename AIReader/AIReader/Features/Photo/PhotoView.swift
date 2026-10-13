@@ -3,8 +3,8 @@ import ComposableArchitecture
 import SwiftUI
 
 /// The camera or the library, then the explanation of the word the finger
-/// points at — or, with no finger, the photo's text to tap a word in — with
-/// the next photo a tap away at the foot of the screen.
+/// points at — or, with no finger, the photo with its text over it to tap a
+/// word in — with the next photo a tap away at the foot of the screen.
 struct PhotoView: View {
     @Bindable var store: StoreOf<PhotoFeature>
 
@@ -51,13 +51,13 @@ struct PhotoView: View {
             ProgressView("Reading the photo…")
         } else if let message = store.errorMessage {
             ContentUnavailableView("Nothing to read", systemImage: "text.viewfinder", description: Text(message))
-        } else if let passage = store.passage {
+        } else if let passage = store.passage, let photo = store.photo {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("No finger pointed at a word. Tap one to explain it.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                    TappableTextView(text: passage.text) { store.send(.wordTapped(utf16Offset: $0)) }
+                    PhotoWordsView(photo: photo, passage: passage) { store.send(.wordTapped(utf16Offset: $0)) }
                 }
                 .padding()
             }

@@ -54,7 +54,8 @@ private enum PhotoReading {
 
         var photo = PhotoText(
             lines: (text.results ?? []).compactMap { line($0, size) },
-            fingers: (hands.results ?? []).compactMap { finger($0, size) }
+            fingers: (hands.results ?? []).compactMap { finger($0, size) },
+            size: size
         )
         // A single finger coming in from the photo's edge shows no hand to
         // recognise, so it is looked for in the pixels.

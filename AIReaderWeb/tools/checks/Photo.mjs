@@ -3,6 +3,7 @@
 // feature reading photos through a stand-in reader against the mock.
 import { findFinger } from "../../src/Domain/Photo/FingerFinder.js";
 import { photoPassage } from "../../src/Domain/Photo/PhotoPassage.js";
+import { photoWords } from "../../src/Domain/Photo/PhotoWord.js";
 import { pointedWord } from "../../src/Domain/Photo/PointedWord.js";
 import { tesseractLines } from "../../src/Domain/Photo/TesseractPage.js";
 import { PhotoFeature } from "../../src/Features/Photo/PhotoFeature.js";
@@ -88,6 +89,32 @@ function checkDomain() {
   check("the passage knows where the pointed word starts", passage.text.slice(passage.pointedOffset).startsWith("lentilles "), String(passage.pointedOffset));
   const hyphenated = photoPassage({ lines: layout(["une mai-", "son au bord"]), fingers: [] });
   check("a word broken at a line's end is mended", hyphenated.text === "une maison au bord" && hyphenated.pointedOffset === null, hyphenated.text);
+  check("each word read starts where the passage has it", passage.words.length === lines.flatMap((line) => line.words).length
+    && passage.words.every((word) => passage.text.startsWith(word.text, word.offset)), JSON.stringify(passage.words.slice(0, 3)));
+  const [, broken, rest] = hyphenated.words;
+  check("a broken word shows as printed and is taken whole", broken.text === "mai-" && hyphenated.text.startsWith("maison", broken.offset)
+    && hyphenated.text.startsWith("son", rest.offset), JSON.stringify(hyphenated.words));
+
+  // A word 90 long on a line 20 tall, its upright box drawn around it turned with the page.
+  for (const degrees of [0, 20, -35, 90, 180]) {
+    const angle = (degrees * Math.PI) / 180;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const width = 90 * Math.abs(cos) + 20 * Math.abs(sin);
+    const height = 90 * Math.abs(sin) + 20 * Math.abs(cos);
+    const box = { x: 300 - width / 2, y: 200 - height / 2, width, height };
+    const [word] = photoWords({ text: "maison", words: [{ location: 0, length: 6, box }], height: 20, up: { dx: sin, dy: -cos } }, 10);
+    check(`a word on a line turned ${degrees}° is placed along it`, word.text === "maison" && word.offset === 10
+      && Math.abs(word.size.width - 90) < 1e-9 && word.size.height === 20 && Math.hypot(word.center.x - 300, word.center.y - 200) < 1e-9
+      && Math.abs(Math.cos(word.angle) - cos) < 1e-9 && Math.abs(Math.sin(word.angle) - sin) < 1e-9, JSON.stringify(word));
+  }
+  const uneven = photoWords({ text: "le ma gy", up: { dx: 0, dy: -1 }, height: 26, words: [
+    { location: 0, length: 2, box: { x: 0, y: 10, width: 20, height: 20 } },
+    { location: 3, length: 2, box: { x: 30, y: 16, width: 24, height: 14 } },
+    { location: 6, length: 2, box: { x: 60, y: 16, width: 20, height: 20 } },
+  ] }, 0);
+  check("a line's words sit level whatever their letters reach", uneven.every((word) => word.center.y === 23)
+    && uneven.map((word) => word.center.x).join() === "10,42,70", JSON.stringify(uneven));
 
   const size = { width: 1024, height: 768 };
   const finger = { tip, width: 84 };
@@ -170,9 +197,12 @@ async function checkFeature() {
   await feature.read(new Blob(["c"]));
   check("photos taken while one is read leave only the last to read", reader.asked.length === 1);
 
-  reader.answer = { lines, fingers: [] };
-  await feature.read(new Blob(["photo"]));
+  reader.answer = { lines, fingers: [], size: { width: 1024, height: 768 } };
+  const page = new Blob(["photo"]);
+  await feature.read(page);
   check("without a finger there is the text and no lookup", feature.passage?.text && !feature.lookup && !feature.error);
+  check("and the photo, to show its words over", feature.photo === page && feature.passage.photoSize.width === 1024
+    && feature.passage.words.length === lines.flatMap((line) => line.words).length);
   const tapped = feature.wordAt(feature.passage.text.indexOf("chat") + 1);
   check("a word tapped in that text is taken with its sentence", tapped?.word === "chat" && tapped.sentence.endsWith("son chat.") && tapped.language === "fr", JSON.stringify(tapped));
   check("a tap between words is no word", feature.wordAt(feature.passage.text.indexOf(" chat")) === null);

@@ -57,6 +57,7 @@ const files = [
   "./src/Domain/Photo/FingerFinder.js",
   "./src/Domain/Photo/FingerShape.js",
   "./src/Domain/Photo/PhotoPassage.js",
+  "./src/Domain/Photo/PhotoWord.js",
   "./src/Domain/Photo/PointedWord.js",
   "./src/Domain/Photo/SkinMask.js",
   "./src/Domain/Photo/TesseractPage.js",
