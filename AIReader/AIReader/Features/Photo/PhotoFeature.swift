@@ -40,6 +40,8 @@ struct PhotoFeature {
         case lookup(PresentationAction<LookupFeature.Action>)
     }
 
+    private enum CancelID { case read }
+
     @Dependency(\.dismiss) var dismiss
     @Dependency(\.photoReaderClient) var reader
     @Dependency(\.uuid) var uuid
@@ -55,9 +57,12 @@ struct PhotoFeature {
                 state.errorMessage = nil
                 state.isChoosingWord = false
                 state.lookup = nil
+                // A photo taken while another is read replaces it, or the
+                // earlier one's words would be drawn over this one.
                 return .run { send in
                     await send(.read(Result { try await reader.read(image: image) }))
                 }
+                .cancellable(id: CancelID.read, cancelInFlight: true)
 
             case .pickerCancelled:
                 // Before any photo, the way to the library or out; after

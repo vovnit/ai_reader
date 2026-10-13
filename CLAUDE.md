@@ -119,12 +119,12 @@ these, open every copy:
   with the mock's answer to it; the words come from `BookWords`, by each app's
   own word boundaries (Pango splits at an apostrophe, the others do not). A
   book's glossary is the dictionary named "<title> glossary" everywhere.
-- **A photographed page.** The finger finder and the word it points at —
-  `RGBImage`, `SkinMask`, `FingerShape`, `FingerFinder`, `PointedWord`,
-  `PhotoPassage` — are alike in `AIReader/AIReader/Domain/Photo` (with
-  `Support/RGBImage.swift`) and `AIReaderWeb/src/Domain/Photo` (with
-  `Support/RgbImage.js`), and the flow around them is each app's
-  `PhotoFeature`. Only the reading differs: Vision on iOS
+- **A photographed page.** The finger finder, the word it points at and
+  each word's place on the photo — `RGBImage`, `SkinMask`, `FingerShape`,
+  `FingerFinder`, `PointedWord`, `PhotoWord`, `PhotoPassage` — are alike in
+  `AIReader/AIReader/Domain/Photo` (with `Support/RGBImage.swift`) and
+  `AIReaderWeb/src/Domain/Photo` (with `Support/RgbImage.js`), and the flow
+  around them is each app's `PhotoFeature`. Only the reading differs: Vision on iOS
   (`PhotoReaderClient.swift`), Tesseract.js on the web (`PhotoReader.js`,
   `TesseractPage.js`).
 - **The bundled dictionary's credits** — its sources and their license, which

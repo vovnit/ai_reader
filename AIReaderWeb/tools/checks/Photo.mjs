@@ -105,7 +105,7 @@ function checkDomain() {
     const box = { x: 300 - width / 2, y: 200 - height / 2, width, height };
     const [word] = photoWords({ text: "maison", words: [{ location: 0, length: 6, box }], height: 20, up: { dx: sin, dy: -cos } }, 10);
     check(`a word on a line turned ${degrees}° is placed along it`, word.text === "maison" && word.offset === 10
-      && Math.abs(word.size.width - 90) < 1e-9 && word.size.height === 20 && Math.hypot(word.center.x - 300, word.center.y - 200) < 1e-9
+      && Math.abs(word.size.width - 90) < 1e-9 && Math.abs(word.size.height - 20) < 1e-9 && Math.hypot(word.center.x - 300, word.center.y - 200) < 1e-9
       && Math.abs(Math.cos(word.angle) - cos) < 1e-9 && Math.abs(Math.sin(word.angle) - sin) < 1e-9, JSON.stringify(word));
   }
   const uneven = photoWords({ text: "le ma gy", up: { dx: 0, dy: -1 }, height: 26, words: [
@@ -113,7 +113,7 @@ function checkDomain() {
     { location: 3, length: 2, box: { x: 30, y: 16, width: 24, height: 14 } },
     { location: 6, length: 2, box: { x: 60, y: 16, width: 20, height: 20 } },
   ] }, 0);
-  check("a line's words sit level whatever their letters reach", uneven.every((word) => word.center.y === 23)
+  check("a line's words sit level, covering its tallest letter and its lowest", uneven.every((word) => word.center.y === 23 && word.size.height === 26)
     && uneven.map((word) => word.center.x).join() === "10,42,70", JSON.stringify(uneven));
 
   const size = { width: 1024, height: 768 };
@@ -134,6 +134,30 @@ function checkDomain() {
   check("Tesseract's lines keep their words and drop the doubtful", read.length === 1 && first.text === "Le soir, été" && first.words.length === 3
     && first.words[2].location === 9 && first.words[2].length === 3 && first.words[1].box.x === 60 && first.words[1].box.height === 24, JSON.stringify(read));
   check("a line's top faces away from its baseline", first.up.dy < -0.99 && first.up.dx < 0 && Math.abs(Math.hypot(first.up.dx, first.up.dy) - 1) < 1e-9, JSON.stringify(first.up));
+
+  // Print 20 tall on a page turned 10°: Tesseract's upright boxes make the line taller than that.
+  const [cos, sin] = [Math.cos(Math.PI / 18), Math.sin(Math.PI / 18)];
+  const lengths = [30, 50, 70, 40];
+  let run = 0;
+  const turnedWords = ["le", "chat", "dormait", "bien"].map((text, index) => {
+    const middle = run + lengths[index] / 2;
+    run += lengths[index] + 12;
+    const [x, y] = [100 + middle * cos, 300 + middle * sin];
+    const [halfWidth, halfHeight] = [(lengths[index] * cos + 20 * sin) / 2, (lengths[index] * sin + 20 * cos) / 2];
+    return word(text, x - halfWidth, y - halfHeight, x + halfWidth, y + halfHeight);
+  });
+  const turnedLines = tesseractLines([{ paragraphs: [{ lines: [{ baseline: { x0: 100, y0: 300, x1: 100 + 200 * cos, y1: 300 + 200 * sin }, words: turnedWords }] }] }]);
+  const turned = photoPassage({ lines: turnedLines, fingers: [], size: { width: 600, height: 600 } });
+  check("a turned page's words are as tall as its print, not its boxes", turnedLines[0].height > 25
+    && turned.words.every((placed, index) => Math.abs(placed.size.height - 20) < 1e-9 && Math.abs(placed.size.width - lengths[index]) < 1e-9),
+  JSON.stringify(turned.words.map((placed) => placed.size)));
+
+  const quotedLines = tesseractLines([{ paragraphs: [{ lines: [{ baseline: { x0: 10, y0: 40, x1: 260, y1: 40 },
+    words: [word("—¿Qué", 10, 20, 70, 40), word("dices?", 80, 20, 140, 40), word("«Bonjour»,", 150, 20, 250, 40)] }] }] }]);
+  const quoted = photoPassage({ lines: quotedLines, fingers: [{ tip: { x: 200, y: 46 }, direction: { dx: 0, dy: -1 } }], size: { width: 300, height: 100 } });
+  check("a word read with a quote or a dash before it starts at its first letter", quoted.words.map((placed) => placed.text).join(" ") === "—¿Qué dices? «Bonjour»,"
+    && ["Qué", "dices", "Bonjour"].every((spelling, index) => quoted.text.startsWith(spelling, quoted.words[index].offset))
+    && quoted.text.startsWith("Bonjour", quoted.pointedOffset), JSON.stringify(quoted));
 }
 
 class StandInReader {

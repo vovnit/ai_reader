@@ -77,9 +77,10 @@ export class PhotoView extends Screen {
     const page = svg("svg", { viewBox: `0 0 ${photoSize.width} ${photoSize.height}` });
     for (const { text, offset, center, size, angle } of words) {
       const word = svg("g", { transform: `rotate(${(angle * 180) / Math.PI} ${center.x} ${center.y})` });
-      // Tesseract's boxes hug the letters, leaving out descenders and the
-      // soft edges of strokes, which the patch reaches past to hide.
-      const patch = { width: size.width + 0.2 * size.height, height: 1.5 * size.height };
+      // Tesseract's boxes hug the letters, leaving out the soft edges of
+      // their strokes and, on a turned page, a little of a line's height:
+      // the patch reaches past them to hide the print.
+      const patch = { width: size.width + 0.2 * size.height, height: 1.4 * size.height };
       word.append(
         svg("rect", { x: center.x - patch.width / 2, y: center.y - patch.height / 2, width: patch.width, height: patch.height }),
         svg("text", {

@@ -22,10 +22,9 @@ struct PhotoPassage: Equatable, Sendable {
             lineStarts.append(text.utf16.count - line.text.utf16.count)
         }
         self.text = text
-        pointedOffset = PointedWord.find(in: photo).map { place in
-            lineStarts[place.line] + photo.lines[place.line].words[place.word].range.location
-        }
-        words = zip(photo.lines, lineStarts).flatMap { PhotoWord.words(of: $0, at: $1) }
+        let lineWords = zip(photo.lines, lineStarts).map { PhotoWord.words(of: $0, at: $1) }
+        pointedOffset = PointedWord.find(in: photo).map { lineWords[$0.line][$0.word].offset }
+        words = lineWords.flatMap { $0 }
         photoSize = photo.size
     }
 }

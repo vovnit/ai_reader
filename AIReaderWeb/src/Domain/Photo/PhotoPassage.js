@@ -19,8 +19,8 @@ export function photoPassage(photo) {
     text = text === "" ? line.text : joined(text, line.text);
     lineStarts.push(text.length - line.text.length);
   }
+  const lineWords = photo.lines.map((line, index) => photoWords(line, lineStarts[index]));
   const place = pointedWord(photo);
-  const pointedOffset = place ? lineStarts[place.line] + photo.lines[place.line].words[place.word].location : null;
-  const words = photo.lines.flatMap((line, index) => photoWords(line, lineStarts[index]));
-  return { text, pointedOffset, words, photoSize: photo.size };
+  const pointedOffset = place ? lineWords[place.line][place.word].offset : null;
+  return { text, pointedOffset, words: lineWords.flat(), photoSize: photo.size };
 }
