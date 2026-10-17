@@ -47,6 +47,7 @@ shared_inc = include_directories('../Core/Sources/AIReaderCore')
 
 support = files(
   'src/Support/Async.hpp',
+  'src/Support/Charset.cpp',
   'src/Support/Files.cpp',
   'src/Support/Inflate.cpp',
   'src/Support/PdfDocument.cpp',

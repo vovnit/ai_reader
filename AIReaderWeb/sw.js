@@ -131,6 +131,7 @@ const files = [
   "./src/Services/WebDav.js",
   "./src/Services/WebSearch.js",
   "./src/Services/WordExplainer.js",
+  "./src/Support/Charset.js",
   "./src/Support/Idb.js",
   "./src/Support/Inflate.js",
   "./src/Support/PdfDocument.js",
