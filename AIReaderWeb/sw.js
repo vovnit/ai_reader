@@ -37,6 +37,7 @@ const files = [
   "./src/Domain/Books/EpubBuilder.js",
   "./src/Domain/Books/EpubNavigation.js",
   "./src/Domain/Books/EpubPackage.js",
+  "./src/Domain/Books/Fb2Book.js",
   "./src/Domain/Books/HtmlText.js",
   "./src/Domain/Books/LanguageDetector.js",
   "./src/Domain/Books/PdfLayout.js",
