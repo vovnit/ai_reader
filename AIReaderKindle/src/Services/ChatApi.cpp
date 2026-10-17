@@ -1,5 +1,6 @@
 #include "ChatApi.hpp"
 
+#include "../Domain/AI/AnthropicMessages.hpp"
 #include "../Domain/AI/MockAI.hpp"
 #include "Http.hpp"
 #include "RequestQuirkStore.hpp"
@@ -18,10 +19,12 @@ Json requestBody(
     const AiSettings& settings,
     const std::vector<ChatMessage>& messages,
     const Json& tools,
+    bool toolsAllowed,
     bool jsonMode,
     int maxTokens,
     const std::set<RequestQuirk>& quirks)
 {
+    if (settings.usesAnthropic()) return AnthropicMessages::body(settings.model, messages, tools, toolsAllowed, maxTokens, quirks);
     Json body = Json::object();
     body.set("model", settings.model);
     Json list = Json::array();
@@ -30,7 +33,7 @@ Json requestBody(
     body.set(quirks.count(RequestQuirk::CompletionTokens) ? "max_completion_tokens" : "max_tokens", maxTokens);
     if (!quirks.count(RequestQuirk::DefaultTemperature)) body.set("temperature", 0.2);
     if (quirks.count(RequestQuirk::NoReasoning)) body.set("reasoning_effort", "none");
-    if (tools.size() > 0) {
+    if (tools.size() > 0 && toolsAllowed) {
         body.set("tools", tools);
         body.set("tool_choice", "auto");
     }
@@ -42,13 +45,27 @@ Json requestBody(
     return body;
 }
 
+/// Anthropic takes the token in a header of its own, with the API version.
+std::vector<std::string> headers(const AiSettings& settings) {
+    std::string token = settings.token();
+    std::vector<std::string> headers;
+    if (!settings.usesAnthropic()) {
+        if (!token.empty()) headers.push_back("Authorization: Bearer " + token);
+        return headers;
+    }
+    if (!token.empty()) headers.push_back("x-api-key: " + token);
+    headers.push_back(std::string("anthropic-version: ") + AnthropicMessages::version);
+    return headers;
+}
+
 }  // namespace
 
 void initialize() {
     Http::initialize();
 }
 
-ChatMessage chat(const AiSettings& settings, const std::vector<ChatMessage>& messages, const Json& tools, bool jsonMode, int maxTokens) {
+ChatMessage chat(const AiSettings& settings, const std::vector<ChatMessage>& messages, const Json& tools, bool jsonMode, int maxTokens,
+                 bool toolsAllowed) {
     if (settings.usesMock()) return MockAI::reply(messages);
     std::string url = settings.chatUrl();
     if (url.find("://") == std::string::npos) throw Error("“" + settings.endpoint + "” is not a valid endpoint URL.");
@@ -59,9 +76,9 @@ ChatMessage chat(const AiSettings& settings, const std::vector<ChatMessage>& mes
     // A service that rejects a parameter says which one, so drop or rename it
     // and try again rather than failing the lookup.
     for (int attempt = 0; attempt <= requestQuirkCount; ++attempt) {
-        std::string body = requestBody(settings, messages, tools, jsonMode, maxTokens, quirks).dump();
+        std::string body = requestBody(settings, messages, tools, toolsAllowed, jsonMode, maxTokens, quirks).dump();
         // A longer answer takes longer to write.
-        Response response = send(url, settings.token(), &body, std::max(45, maxTokens / 20));
+        Response response = send(url, headers(settings), &body, std::max(45, maxTokens / 20));
 
         if (response.status == 400) {
             auto quirk = requestQuirkNamed(response.body);
@@ -77,6 +94,9 @@ ChatMessage chat(const AiSettings& settings, const std::vector<ChatMessage>& mes
             throw Error("The request failed (" + std::to_string(response.status) + "): " + response.body);
         }
         auto json = Json::parse(response.body);
+        if (json && settings.usesAnthropic()) {
+            if (auto reply = AnthropicMessages::reply(*json)) return *reply;
+        }
         if (!json || json->at("choices").size() == 0) throw Error("The service returned no answer.");
         return ChatMessage::fromJson(json->at("choices").at(0).at("message"));
     }
@@ -88,7 +108,7 @@ std::vector<std::string> models(const AiSettings& settings) {
     std::string url = settings.modelsUrl();
     if (url.find("://") == std::string::npos) throw Error("“" + settings.endpoint + "” is not a valid endpoint URL.");
 
-    Response response = send(url, settings.token(), nullptr, 20);
+    Response response = send(url, headers(settings), nullptr, 20);
     if (response.status < 200 || response.status >= 300) {
         throw Error("The request failed (" + std::to_string(response.status) + "): " + response.body);
     }

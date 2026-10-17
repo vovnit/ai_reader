@@ -23,6 +23,10 @@ bool AiSettings::isOpenAI() const {
     return Text::contains(Text::lower(endpoint), "api.openai.com");
 }
 
+bool AiSettings::usesAnthropic() const {
+    return Text::contains(Text::lower(endpoint), "anthropic");
+}
+
 std::string AiSettings::token() const {
     return isOpenAI() && !openAIKey.empty() ? openAIKey : apiKey;
 }
@@ -31,8 +35,9 @@ bool AiSettings::usesMock() const {
     return Text::trim(endpoint) == mockEndpoint;
 }
 
-std::string AiSettings::chatUrl() const { return url("chat/completions"); }
-std::string AiSettings::modelsUrl() const { return url("models"); }
+std::string AiSettings::chatUrl() const { return url(usesAnthropic() ? "messages" : "chat/completions"); }
+// Anthropic lists twenty models at a time unless asked for more.
+std::string AiSettings::modelsUrl() const { return url(usesAnthropic() ? "models?limit=1000" : "models"); }
 
 std::string AiSettings::url(const std::string& path) const {
     std::string base = Text::trim(endpoint);

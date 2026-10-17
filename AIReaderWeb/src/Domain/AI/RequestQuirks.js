@@ -1,7 +1,7 @@
-// Parameters some OpenAI-compatible services reject while others require
-// them. A service names the offending parameter in its error, so a request
-// is adjusted and sent again rather than special-casing a provider; what a
-// model needed is remembered by `Services/RequestQuirkStore.js`.
+// Parameters some services reject while others require them. A service
+// names the offending parameter in its error, so a request is adjusted and
+// sent again rather than special-casing a provider; what a model needed is
+// remembered by `Services/RequestQuirkStore.js`.
 
 /** Newer OpenAI reasoning models take `max_completion_tokens` in place of `max_tokens`. */
 export const completionTokens = "completionTokens";
@@ -9,7 +9,9 @@ export const completionTokens = "completionTokens";
 export const defaultTemperature = "defaultTemperature";
 /** Some of them refuse function tools unless reasoning is switched off. */
 export const noReasoning = "noReasoning";
-export const quirkCount = 3;
+/** Anthropic's older models take no `effort` (`AnthropicMessages.js`). */
+export const noEffort = "noEffort";
+export const quirkCount = 4;
 
 /** The quirk a failed request's error body describes, or null. */
 export function quirkNamed(errorBody) {
@@ -26,5 +28,7 @@ export function quirkNamed(errorBody) {
   }
   if (parameter === "temperature") return defaultTemperature;
   if (parameter === "reasoning_effort") return noReasoning;
+  // Anthropic names no parameter; its message says what it refused.
+  if (typeof message === "string" && /effort|output_config/.test(message)) return noEffort;
   return null;
 }

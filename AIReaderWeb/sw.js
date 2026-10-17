@@ -20,6 +20,7 @@ const files = [
   "./icon-512.png",
   "./src/App/Env.js",
   "./src/App/main.js",
+  "./src/Domain/AI/AnthropicMessages.js",
   "./src/Domain/AI/ChatMarkdown.js",
   "./src/Domain/AI/ChatMessage.js",
   "./src/Domain/AI/ChatPrompt.js",

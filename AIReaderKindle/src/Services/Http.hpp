@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 /// One JSON request over libcurl, shared by the services that talk to an
 /// API with a bearer token. Failures are thrown as `Http::Error` with a
@@ -20,6 +21,10 @@ struct Response {
 /// A POST with `body`, or a GET without one. A 4xx/5xx status is returned,
 /// not thrown, so the caller can read the error body.
 Response send(const std::string& url, const std::string& apiKey, const std::string* body, long timeout);
+
+/// The same for a service that takes its token in `headers` ("Name: value")
+/// rather than as a bearer token.
+Response send(const std::string& url, const std::vector<std::string>& headers, const std::string* body, long timeout);
 
 /// Once per process, before any request.
 void initialize();

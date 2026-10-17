@@ -48,8 +48,8 @@ apps do, and syncs with them and the iOS app through the same WebDAV folder.
   to a conversation about it. On a wide window it opens beside the page with
   the word marked; on a phone it covers it.
 - **Words** — every word looked up, the practice game, and export for Anki.
-- **Settings** — the OpenAI-compatible endpoint and model, web search, and
-  WebDAV sync; **Dictionaries** adds packs, word lists, Lingvo DSL, StarDict
+- **Settings** — the endpoint and model (OpenAI-compatible, or Anthropic's),
+  web search, and WebDAV sync; **Dictionaries** adds packs, word lists, Lingvo DSL, StarDict
   and XDXF, and removes any of them. Removing the bundled one only takes it
   off the list, since the app keeps its file; *Restore built-in dictionary*
   lists it again.
@@ -113,7 +113,8 @@ over.
 ## Talking to services from a page
 
 A page reaches a service only when the service answers requests from other
-origins (CORS). Mistral, OpenAI and OpenRouter do. A local model server needs
+origins (CORS). Mistral, OpenAI and OpenRouter do, and so does Anthropic, which
+the app tells that the key is the reader's own. A local model server needs
 telling: Ollama with `OLLAMA_ORIGINS`, LM Studio with its CORS switch.
 
 Most WebDAV servers do not answer pages — Nextcloud and hosted services

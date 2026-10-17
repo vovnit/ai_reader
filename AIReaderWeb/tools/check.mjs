@@ -2,6 +2,7 @@
 // the mock and an in-memory library. `node tools/check.mjs [book.epub|book.pdf]`;
 // with AIREADER_SYNC_URL set, a WebDAV server too.
 import { checkAi } from "./checks/Ai.mjs";
+import { checkAnthropic } from "./checks/Anthropic.mjs";
 import { checkBooks } from "./checks/Books.mjs";
 import { checkCards } from "./checks/Cards.mjs";
 import { checkContext } from "./checks/Context.mjs";
@@ -24,6 +25,7 @@ const pdfPath = /\.pdf$/i.test(given ?? "") ? given : undefined;
 const bookPath = pdfPath ? undefined : given;
 checkBooks();
 await checkAi();
+await checkAnthropic();
 await checkContext();
 checkCards();
 await checkSync();

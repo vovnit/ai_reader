@@ -20,6 +20,9 @@ struct ChatMessage: Codable, Equatable, Sendable {
     var content: String?
     var toolCalls: [ToolCall]?
     var toolCallID: String?
+    /// A reply's content blocks as Anthropic's API sent them, as JSON
+    /// (`AnthropicMessages`). Left out of the chat completion encoding.
+    var blocks: Data?
 
     enum CodingKeys: String, CodingKey {
         case role
