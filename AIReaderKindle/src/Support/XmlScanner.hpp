@@ -7,7 +7,9 @@
 /// Walks XML (or the XHTML inside an EPUB) and reports tags and text to
 /// closures, so small parsers can be written without a parser class each time.
 /// Element and attribute names are reported lowercased and without their
-/// namespace prefix; entities in text and attributes are decoded.
+/// namespace prefix; entities in text and attributes are decoded. The same
+/// as the web app's `Support/XmlScanner.js` and the iOS app's
+/// `Support/MarkupScanner.swift`, event for event.
 namespace XmlScanner {
 
 using Attributes = std::map<std::string, std::string>;

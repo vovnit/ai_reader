@@ -46,11 +46,21 @@ std::vector<ChapterDraft> chapters(const std::vector<Paragraph>& paragraphs, con
     std::vector<ChapterDraft> chapters;
     if (std::any_of(paragraphs.begin(), paragraphs.end(), [](const Paragraph& paragraph) { return paragraph.opens; })) {
         chapters.push_back({title, {}});
+        // The run of headings being read. Its last two name the chapter: a
+        // part's heading and its first chapter's ("BOOK ONE: 1805 — CHAPTER
+        // I"), so the contents still show where a part starts when its
+        // chapters restart at I. Any before them are a list of contents
+        // running into the book.
+        std::vector<std::string> run;
         for (size_t i = 0; i < paragraphs.size(); ++i) {
             const Paragraph& paragraph = paragraphs[i];
-            if (paragraph.opens && (i == 0 || !paragraphs[i - 1].opens)) {
-                if (!chapters.back().paragraphs.empty()) chapters.push_back({paragraph.text, {}});
-                else chapters.back().title = paragraph.text;
+            if (paragraph.opens) {
+                if (i == 0 || !paragraphs[i - 1].opens) {
+                    if (!chapters.back().paragraphs.empty()) chapters.push_back({"", {}});
+                    run.clear();
+                }
+                run.push_back(paragraph.text);
+                chapters.back().title = run.size() > 1 ? run[run.size() - 2] + " — " + run.back() : run.back();
             }
             chapters.back().paragraphs.push_back(bare(paragraph));
         }

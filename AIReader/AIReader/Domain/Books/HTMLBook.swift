@@ -36,6 +36,7 @@ enum HTMLBook {
                     if name == skipping { depth += 1 }
                     return
                 }
+                if !headElements.contains(name) { inHead = false }
                 if hidden.contains(name) {
                     skipping = name
                     depth = 1
@@ -53,8 +54,6 @@ enum HTMLBook {
                     // "CHAPTER I.<br>Down the Rabbit-Hole" is one title.
                     if heading.isEmpty { flush() } else { gathered += " " }
                 } else if blocks.contains(name) {
-                    // A block means the head is over, closed or not.
-                    inHead = false
                     flush()
                     if headings.contains(name) { heading = name }
                 }
@@ -109,6 +108,8 @@ enum HTMLBook {
     // Elements whose text is not the book's.
     private static let hidden: Set = ["script", "style", "noscript", "template", "svg", "math", "nav"]
     private static let headings: Set = ["h1", "h2", "h3", "h4", "h5", "h6"]
+    // Elements a <head> holds; any other ends it, closed or not, as in a browser.
+    private static let headElements: Set = ["title", "meta", "link", "style", "script", "base", "noscript", "template"]
     // Elements whose content is not markup, so the scanner never sees it.
     private static let rawTextElements = ["script", "style"]
 

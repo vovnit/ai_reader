@@ -49,13 +49,17 @@ struct ZIPArchive {
             // be read past its end.
             guard offset + 46 + nameLength <= data.count else { break }
             let path = string(data, offset + 46, nameLength)
-            if entries[path] == nil { paths.append(path) }
-            entries[path] = Entry(
-                path: path,
-                compressionMethod: u16(data, offset + 10),
-                compressedSize: Int(u32(data, offset + 20)),
-                headerOffset: Int(u32(data, offset + 42))
-            )
+            // A name listed twice is its first entry, as in the other apps,
+            // so "the first FB2 in a ZIP" is the same file everywhere.
+            if entries[path] == nil {
+                paths.append(path)
+                entries[path] = Entry(
+                    path: path,
+                    compressionMethod: u16(data, offset + 10),
+                    compressedSize: Int(u32(data, offset + 20)),
+                    headerOffset: Int(u32(data, offset + 42))
+                )
+            }
             offset += 46 + nameLength + extraLength + commentLength
         }
     }

@@ -7,10 +7,10 @@
 
 /// Makes the paragraphs of a plain-text or HTML book into its chapters: each
 /// run of paragraphs that open a chapter starts one, titled by the run's
-/// first, and the paragraphs before the first make one titled with the
-/// book's title. A book where nothing opens a chapter is cut every
-/// `paragraphsPerPart` paragraphs. Chapters with no paragraphs are left out.
-/// The same as the web app's `TextChapters.js` and the iOS app's
+/// last two joined with " — ", and the paragraphs before the first make one
+/// titled with the book's title. A book where nothing opens a chapter is cut
+/// every `paragraphsPerPart` paragraphs. Chapters with no paragraphs are
+/// left out. The same as the web app's `TextChapters.js` and the iOS app's
 /// `TextChapters.swift`.
 ///
 /// Books are matched across devices by title and author, and reading places

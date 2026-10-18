@@ -2,10 +2,10 @@ import Foundation
 
 /// Makes the paragraphs of a plain-text or HTML book into its chapters: each
 /// run of paragraphs that open a chapter starts one, titled by the run's
-/// first, and the paragraphs before the first make one titled with the
-/// book's title. A book where nothing opens a chapter is cut every
-/// `paragraphsPerPart` paragraphs. Chapters with no paragraphs are left out.
-/// The same as the Kindle app's `TextChapters` and the web app's
+/// last two joined with " — ", and the paragraphs before the first make one
+/// titled with the book's title. A book where nothing opens a chapter is cut
+/// every `paragraphsPerPart` paragraphs. Chapters with no paragraphs are
+/// left out. The same as the Kindle app's `TextChapters` and the web app's
 /// `TextChapters.js`.
 ///
 /// Books are matched across devices by title and author, and reading places
@@ -51,13 +51,20 @@ enum TextChapters {
         var chapters: [ChapterDraft] = []
         if paragraphs.contains(where: \.opens) {
             chapters.append(ChapterDraft(title: title))
+            // The run of headings being read. Its last two name the chapter: a
+            // part's heading and its first chapter's ("BOOK ONE: 1805 —
+            // CHAPTER I"), so the contents still show where a part starts when
+            // its chapters restart at I. Any before them are a list of
+            // contents running into the book.
+            var run: [String] = []
             for (i, paragraph) in paragraphs.enumerated() {
-                if paragraph.opens, i == 0 || !paragraphs[i - 1].opens {
-                    if chapters[chapters.count - 1].paragraphs.isEmpty {
-                        chapters[chapters.count - 1].title = paragraph.text
-                    } else {
-                        chapters.append(ChapterDraft(title: paragraph.text))
+                if paragraph.opens {
+                    if i == 0 || !paragraphs[i - 1].opens {
+                        if !chapters[chapters.count - 1].paragraphs.isEmpty { chapters.append(ChapterDraft(title: "")) }
+                        run = []
                     }
+                    run.append(paragraph.text)
+                    chapters[chapters.count - 1].title = run.suffix(2).joined(separator: " — ")
                 }
                 chapters[chapters.count - 1].paragraphs.append(bare(paragraph))
             }

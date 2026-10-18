@@ -6,4 +6,4 @@ Exec=aireader-qt
 Icon=aireader
 Terminal=false
 Categories=Office;Education;Viewer;
-MimeType=application/epub+zip;application/x-fictionbook+xml;application/x-zip-compressed-fb2;
+MimeType=application/epub+zip;

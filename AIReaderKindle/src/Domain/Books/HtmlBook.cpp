@@ -20,6 +20,8 @@ const std::set<std::string> blocks = {
 // Elements whose text is not the book's.
 const std::set<std::string> hidden = {"script", "style", "noscript", "template", "svg", "math", "nav"};
 const std::set<std::string> headings = {"h1", "h2", "h3", "h4", "h5", "h6"};
+// Elements a <head> holds; any other ends it, closed or not, as in a browser.
+const std::set<std::string> headElements = {"title", "meta", "link", "style", "script", "base", "noscript", "template"};
 // Elements whose content is not markup, so the scanner never sees it.
 const char* const rawTextElements[] = {"script", "style"};
 
@@ -98,6 +100,7 @@ BookDraft read(const std::string& text, const std::string& fallbackTitle) {
             if (name == skipping) ++depth;
             return;
         }
+        if (!headElements.count(name)) inHead = false;
         if (hidden.count(name)) {
             skipping = name;
             depth = 1;
@@ -116,8 +119,6 @@ BookDraft read(const std::string& text, const std::string& fallbackTitle) {
             if (!heading.empty()) gathered += ' ';
             else flush();
         } else if (blocks.count(name)) {
-            // A block means the head is over, closed or not.
-            inHead = false;
             flush();
             if (headings.count(name)) heading = name;
         }

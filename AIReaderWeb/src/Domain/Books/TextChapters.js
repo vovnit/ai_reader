@@ -1,10 +1,10 @@
 // Makes the paragraphs of a plain-text or HTML book, `{ text, heading, opens }`,
 // into its chapters, `{ title, paragraphs }`: each run of paragraphs that
-// open a chapter starts one, titled by the run's first, and the paragraphs
-// before the first make one titled with the book's title. A book where
-// nothing opens a chapter is cut every `paragraphsPerPart` paragraphs.
-// Chapters with no paragraphs are left out. The same as `TextChapters.cpp`
-// (Kindle) and `TextChapters.swift` (iOS).
+// open a chapter starts one, titled by the run's last two joined with " — ",
+// and the paragraphs before the first make one titled with the book's title.
+// A book where nothing opens a chapter is cut every `paragraphsPerPart`
+// paragraphs. Chapters with no paragraphs are left out. The same as
+// `TextChapters.cpp` (Kindle) and `TextChapters.swift` (iOS).
 //
 // Books are matched across devices by title and author, and reading places
 // by chapter number and text, so the three apps must read a file to the same
@@ -42,10 +42,19 @@ export function textChapters(paragraphs, title) {
   const bare = ({ text, heading }) => ({ text, heading });
   if (paragraphs.some((paragraph) => paragraph.opens)) {
     chapters.push({ title, paragraphs: [] });
+    // The run of headings being read. Its last two name the chapter: a part's
+    // heading and its first chapter's ("BOOK ONE: 1805 — CHAPTER I"), so the
+    // contents still show where a part starts when its chapters restart at I.
+    // Any before them are a list of contents running into the book.
+    let run = [];
     paragraphs.forEach((paragraph, i) => {
-      if (paragraph.opens && (i === 0 || !paragraphs[i - 1].opens)) {
-        if (chapters.at(-1).paragraphs.length) chapters.push({ title: paragraph.text, paragraphs: [] });
-        else chapters.at(-1).title = paragraph.text;
+      if (paragraph.opens) {
+        if (i === 0 || !paragraphs[i - 1].opens) {
+          if (chapters.at(-1).paragraphs.length) chapters.push({ title: "", paragraphs: [] });
+          run = [];
+        }
+        run.push(paragraph.text);
+        chapters.at(-1).title = run.slice(-2).join(" — ");
       }
       chapters.at(-1).paragraphs.push(bare(paragraph));
     });

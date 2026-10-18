@@ -1,7 +1,12 @@
 #include "EpubWriter.hpp"
 
+#include "../Domain/Books/EpubPackage.hpp"
 #include "../Domain/Books/LanguageDetector.hpp"
+#include "../Domain/Books/RemoteBookName.hpp"
 #include "../Support/Files.hpp"
+#include "../Support/Text.hpp"
+#include "../Support/XmlScanner.hpp"
+#include "../Support/ZipArchive.hpp"
 #include "../Support/ZipWriter.hpp"
 
 #include <cstdint>
@@ -49,15 +54,43 @@ std::string epub(EpubBuilder::Metadata metadata, const std::vector<ChapterDraft>
     return zip.finished();
 }
 
-std::string write(const std::string& path, const std::string& folder, const std::string& name,
+std::string identifierOf(const std::string& path) {
+    auto zip = ZipArchive::open(path);
+    auto container = zip ? zip->find("META-INF/container.xml") : std::nullopt;
+    auto containerXml = container ? zip->contents(*container) : std::nullopt;
+    auto package = containerXml ? zip->contents(EpubPackage::packagePath(*containerXml)) : std::nullopt;
+    if (!package) return "";
+    std::string identifier, text;
+    XmlScanner::Handlers handlers;
+    handlers.onStart = [&](const std::string&, const XmlScanner::Attributes&) { text.clear(); };
+    handlers.onText = [&](const std::string& chunk) { text += chunk; };
+    handlers.onEnd = [&](const std::string& element) {
+        if (element == "identifier" && identifier.empty()) identifier = Text::trim(text);
+    };
+    XmlScanner::scan(*package, handlers);
+    return identifier;
+}
+
+std::string destination(const std::string& folder, const std::string& name, const std::string& identifier) {
+    // Two files of one name, from different folders or edited since, make
+    // two books; the same file added again finds the one made before.
+    std::vector<std::string> taken;
+    while (true) {
+        std::string path = Files::join(folder, RemoteBookName::make(name, "", taken));
+        if (!Files::exists(path) || identifierOf(path) == identifier) return path;
+        taken.push_back(Files::baseName(path));
+    }
+}
+
+std::string write(const std::string& path, const std::string& folder, const std::string& name, const std::string& kind,
                   const std::function<std::string(const std::string& file)>& make, std::string* error) {
-    std::string destination = Files::join(folder, name + ".epub");
-    if (Files::exists(destination)) return destination;
     auto file = Files::read(path);
     if (!file) {
         if (error) *error = "Could not read " + path + ".";
         return "";
     }
+    std::string destination = EpubWriter::destination(folder, name, identifier(kind, *file));
+    if (Files::exists(destination)) return destination;
     try {
         if (!Files::write(destination, make(*file))) {
             if (error) *error = "Could not write " + destination + ".";

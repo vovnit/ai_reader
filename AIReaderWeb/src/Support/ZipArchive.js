@@ -42,8 +42,11 @@ export class ZipArchive {
       const extraLength = view.getUint16(offset + 30, true);
       const commentLength = view.getUint16(offset + 32, true);
       const localHeader = view.getUint32(offset + 42, true);
+      if (offset + 46 + nameLength > this.#bytes.length) break;
       const name = decoder.decode(this.#bytes.subarray(offset + 46, offset + 46 + nameLength));
-      this.#entries.set(name, { method, compressedSize, localHeader });
+      // A name listed twice is its first entry, as in the other apps, so
+      // "the first FB2 in a ZIP" is the same file everywhere.
+      if (!this.#entries.has(name)) this.#entries.set(name, { method, compressedSize, localHeader });
       offset += 46 + nameLength + extraLength + commentLength;
     }
   }
@@ -71,6 +74,8 @@ export class ZipArchive {
     const header = entry.localHeader;
     if (header + 30 > this.#bytes.length || view.getUint32(header, true) !== 0x04034b50) return null;
     const start = header + 30 + view.getUint16(header + 26, true) + view.getUint16(header + 28, true);
+    // A cut-off entry is unreadable, as in the other apps, not read in part.
+    if (start + entry.compressedSize > this.#bytes.length) return null;
     const data = this.#bytes.subarray(start, start + entry.compressedSize);
     if (entry.method === 0) return data;
     if (entry.method !== 8) return null;

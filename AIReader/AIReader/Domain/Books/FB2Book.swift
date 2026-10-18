@@ -2,17 +2,18 @@ import Foundation
 
 /// Reads a FictionBook 2 file, the format most Russian e-books come in: the
 /// title, first author and language from its <title-info>, a chapter from
-/// each section of its first <body>, and one last chapter from each later
-/// body (notes, comments). Books are matched across devices by title and
-/// author and reading places by chapter, so this is the same, word for
-/// word, as the Kindle app's `Fb2Book` and the web app's `Fb2Book.js`.
+/// each section of its text, the first <body> without a name, and one last
+/// chapter from each other body (notes, comments). Books are matched across
+/// devices by title and author and reading places by chapter, so this is
+/// the same, word for word, as the Kindle app's `Fb2Book` and the web app's
+/// `Fb2Book.js`.
 enum FB2Book {
     /// The book in `text`, already decoded. `fallbackTitle` names a book
     /// whose description gives no title.
     static func read(_ text: String, fallbackTitle: String) -> BookDraft {
         let reader = Reader()
         MarkupScanner.scan(text, .init(
-            onStart: { name, _ in reader.start(name) },
+            onStart: { name, attributes in reader.start(name, attributes: attributes) },
             onEnd: { reader.end($0) },
             onText: { reader.text($0) }
         ))
@@ -59,6 +60,15 @@ enum FB2Book {
         }
     }
 
+    /// A body, read as the text is, a chapter from each section, since which
+    /// one is the text is known only at the end: whether it has a name, and
+    /// its own title, which names it when it is notes.
+    private struct Body {
+        var named: Bool
+        var title = ""
+        var chapters = [ChapterDraft(title: "")]
+    }
+
     private final class Reader {
         // The open elements, and how many of each: an end tag closes
         // everything opened after its element, and one that matches nothing
@@ -71,30 +81,31 @@ enum FB2Book {
         private var field: String?
         private var authors = 0
 
-        private var bodies = 0
-        private var chapters: [ChapterDraft] = []
-        private var notes: [ChapterDraft] = []
+        private var bodies: [Body] = []
         private var paragraph: Paragraph?
-        // The lines of the title naming a chapter: a section's in the first
-        // body, the body's own in a later one.
+        // The lines of the title being read, a body's or a section's.
         private var titleLines: [String]?
+        private var titled = ""
 
         private func inside(_ name: String) -> Bool { counts[name, default: 0] > 0 }
         private var reading: Bool { inside("body") && !inside("binary") && !inside("stylesheet") }
 
+        /// Changes the chapter being read in place: it can hold thousands of
+        /// paragraphs.
+        private func changeChapter(_ change: (inout ChapterDraft) -> Void) {
+            let body = bodies.count - 1
+            let chapter = bodies[body].chapters.count - 1
+            change(&bodies[body].chapters[chapter])
+        }
+
         private func flush() {
             guard let open = paragraph else { return }
             paragraph = nil
-            let line = open.cells.map(collapsed).filter { !$0.isEmpty }.joined(separator: " | ")
+            // A cell of nothing but no-break spaces says nothing, like an empty one.
+            let line = open.cells.map(collapsed).filter { !TextChapters.isBlank($0) }.joined(separator: " | ")
             if line.isEmpty { return }
             titleLines?.append(line)
-            let kept = ChapterDraft.Paragraph(text: line, heading: open.heading)
-            // Appended in place: a chapter can hold thousands of paragraphs.
-            if bodies > 1 {
-                notes[notes.count - 1].paragraphs.append(kept)
-            } else {
-                chapters[chapters.count - 1].paragraphs.append(kept)
-            }
+            changeChapter { $0.paragraphs.append(ChapterDraft.Paragraph(text: line, heading: open.heading)) }
         }
 
         private func begin(heading: Bool, row: Bool) {
@@ -102,7 +113,7 @@ enum FB2Book {
             paragraph = Paragraph(heading: heading, row: row)
         }
 
-        func start(_ name: String) {
+        func start(_ name: String, attributes: [String: String]) {
             if inside("title-info"), !inside("body") {
                 if name == "author" { authors += 1 }
                 let namePart = name == "nickname" || nameParts.contains(name)
@@ -114,18 +125,20 @@ enum FB2Book {
             }
             if blocks.contains(name) { flush() }
             if name == "body" {
-                bodies += 1
-                if bodies == 1 { chapters.append(ChapterDraft(title: "")) } else { notes.append(ChapterDraft(title: "Notes")) }
+                bodies.append(Body(named: attributes["name"] != nil))
             } else if reading {
                 if name == "section" {
                     // A section opens a chapter, unless the one before has nothing
                     // but headings yet: then "Part One" and "Chapter 1" open one
                     // together.
-                    if bodies == 1, chapters[chapters.count - 1].paragraphs.contains(where: { !$0.heading }) {
-                        chapters.append(ChapterDraft(title: ""))
+                    if bodies[bodies.count - 1].chapters.last?.paragraphs.contains(where: { !$0.heading }) == true {
+                        bodies[bodies.count - 1].chapters.append(ChapterDraft(title: ""))
                     }
                 } else if name == "title" {
-                    if titleLines == nil, stack.last == (bodies == 1 ? "section" : "body") { titleLines = [] }
+                    if titleLines == nil, let parent = stack.last, parent == "section" || parent == "body" {
+                        titleLines = []
+                        titled = parent
+                    }
                 } else if paragraphElements.contains(name) {
                     begin(heading: inside("title") || name == "subtitle", row: name == "tr")
                 } else if name == "td" || name == "th" {
@@ -142,11 +155,16 @@ enum FB2Book {
             if name == field { field = nil }
             if blocks.contains(name) || paragraphElements.contains(name) { flush() }
             if name == "title", let lines = titleLines {
-                if !lines.isEmpty {
-                    let title = lines.joined(separator: " ")
-                    if bodies > 1 { notes[notes.count - 1].title = title } else { chapters[chapters.count - 1].title = title }
-                }
+                let line = lines.joined(separator: " ")
                 titleLines = nil
+                // A section joining a part's heading adds its title to the
+                // part's: "Part One — Chapter 1". An untitled chapter takes the
+                // book's title only at the end, so a section's simply names it.
+                if !line.isEmpty, titled == "body" {
+                    bodies[bodies.count - 1].title = line
+                } else if !line.isEmpty {
+                    changeChapter { $0.title = $0.title.isEmpty ? line : $0.title + " — " + line }
+                }
             }
         }
 
@@ -181,7 +199,14 @@ enum FB2Book {
             let names = nameParts.map(part).filter { !$0.isEmpty }
             let author = names.isEmpty ? part("nickname") : names.joined(separator: " ")
             let language = part("lang").lowercased()
-            let kept = (chapters + notes).filter { !$0.paragraphs.isEmpty }.map {
+            // FB2 names its notes and comments bodies. Each body but the text
+            // is one last chapter, in file order, titled by its own title or
+            // "Notes".
+            let main = bodies.firstIndex { !$0.named } ?? bodies.indices.first
+            let notes = bodies.indices.filter { $0 != main }.map { index in
+                ChapterDraft(title: bodies[index].title.isEmpty ? "Notes" : bodies[index].title, paragraphs: bodies[index].chapters.flatMap(\.paragraphs))
+            }
+            let kept = ((main.map { bodies[$0].chapters } ?? []) + notes).filter { !$0.paragraphs.isEmpty }.map {
                 ChapterDraft(title: $0.title.isEmpty ? title : $0.title, paragraphs: $0.paragraphs)
             }
             return BookDraft(title: title, author: author.isEmpty ? nil : author, language: language.isEmpty ? nil : language, chapters: kept)

@@ -62,6 +62,11 @@ const gutenberg = `<html lang="en"><head><title>A Small Book | Project Gutenberg
 const untitled = `<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="RU"><head><title> </title><meta name="author" content=""/></head>
 <body><h1>Мастер<br/>и Маргарита</h1><p>&nbsp;</p><html:p>Однажды весною.</html:p><h2>Глава 1</h2><p>Никогда.</p></body></html>`;
 
+// A head never closed and no body: an element a head cannot hold begins the text.
+const headless = `<html><head><title>Kafka</title><meta name="author" content="Franz Kafka"><link rel="stylesheet" href="a.css"><base href="/">
+<noscript>No script.</noscript>Text in the head is not the book's.
+<span>Erster Teil</span> begins the text, as in a browser.<h1>ERSTER TEIL</h1><h2>Kapitel 1</h2><p>Als Gregor Samsa erwachte.</p>`;
+
 export function checkHtmlBook() {
   const book = htmlBook(nested, "nested");
   check("html: the title, the first author, the language lowercased; nested blocks each end a paragraph",
@@ -90,9 +95,9 @@ export function checkHtmlBook() {
     outline(htmlBook(broken, "broken")));
 
   const pg = htmlBook(gutenberg, "pg");
-  check("html: a Gutenberg book is named by its header and keeps only what lies between its markers; a run of h1 and h2 opens one chapter",
+  check("html: a Gutenberg book is named by its header and keeps only what lies between its markers; a run of h1 and h2 opens one chapter, titled by its last two",
     pg.title === "A Small Book" && pg.author === "Jane Doe" && pg.language === "en"
-      && outline(pg) === "A Small Book = #A Small Book / #by Jane Doe / #CHAPTER I. Down the Hole / Alice was tired. "
+      && outline(pg) === "by Jane Doe — CHAPTER I. Down the Hole = #A Small Book / #by Jane Doe / #CHAPTER I. Down the Hole / Alice was tired. "
         + "|| CHAPTER II. = #CHAPTER II. / Up the hill.",
     `${pg.title} / ${pg.author} / ${outline(pg)}`);
 
@@ -101,6 +106,12 @@ export function checkHtmlBook() {
     first.title === "Мастер и Маргарита" && first.author === "" && first.language === "ru"
       && outline(first) === "Мастер и Маргарита = #Мастер и Маргарита / Однажды весною. || Глава 1 = #Глава 1 / Никогда.",
     `${first.title} / ${first.language} / ${outline(first)}`);
+
+  const kafka = htmlBook(headless, "headless");
+  check("html: an element that cannot be in the head ends it, closed or not; an h1 and an h2 together title their chapter",
+    kafka.title === "Kafka" && kafka.author === "Franz Kafka"
+      && outline(kafka) === "Kafka = Erster Teil begins the text, as in a browser. || ERSTER TEIL — Kapitel 1 = #ERSTER TEIL / #Kapitel 1 / Als Gregor Samsa erwachte.",
+    `${kafka.title} / ${kafka.author} / ${outline(kafka)}`);
 
   const many = htmlBook(`<p>${Array.from({ length: 130 }, (_, i) => `Paragraph ${i + 1}.`).join("<p>")}<h3>Minor</h3>`, "many");
   const empty = htmlBook("", "empty");

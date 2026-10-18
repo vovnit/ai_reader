@@ -1,12 +1,14 @@
 // Reads a FictionBook 2 file, the format most Russian e-books come in, into
 // a book for the EPUB builder, `{ title, author, language, chapters }`:
 // the title, first author and language from its <title-info>, a chapter
-// from each section of its first <body>, and one last chapter from each
-// later body (notes, comments). Books are matched across devices by title
-// and author and reading places by chapter, so this is the same, word for
-// word, as the Kindle app's `Fb2Book` and the iOS app's `FB2Book`.
+// from each section of its text, the first <body> without a name, and one
+// last chapter from each other body (notes, comments). Books are matched
+// across devices by title and author and reading places by chapter, so this
+// is the same, word for word, as the Kindle app's `Fb2Book` and the iOS
+// app's `FB2Book`.
 import { trim } from "../../Support/Text.js";
 import { scan } from "../../Support/XmlScanner.js";
+import { isBlank } from "./TextChapters.js";
 
 // Each is one paragraph: a <p> in a <title> is a heading, as is a
 // <subtitle>; a table row is its cells joined.
@@ -37,21 +39,23 @@ export function fb2Book(text, fallbackTitle) {
   let field = null;
   let authors = 0;
 
-  let bodies = 0;
-  const chapters = [];
-  const notes = [];
+  // Every body, read as the text is, a chapter from each section, since
+  // which one is the text is known only at the end: whether it has a name,
+  // and its own title, which names it when it is notes.
+  const bodies = [];
   // The paragraph being read, as cells: one, or a table row's.
   let paragraph = null;
-  // The lines of the title naming a chapter: a section's in the first body,
-  // the body's own in a later one.
+  // The lines of the title being read, a body's or a section's.
   let titleLines = null;
+  let titled = "";
 
   const reading = () => inside("body") && !inside("binary") && !inside("stylesheet");
-  const chapter = () => (bodies > 1 ? notes : chapters).at(-1);
+  const chapter = () => bodies.at(-1).chapters.at(-1);
 
   function flush() {
     if (!paragraph) return;
-    const line = paragraph.cells.map(collapsed).filter((cell) => cell).join(" | ");
+    // A cell of nothing but no-break spaces says nothing, like an empty one.
+    const line = paragraph.cells.map(collapsed).filter((cell) => !isBlank(cell)).join(" | ");
     const heading = paragraph.heading;
     paragraph = null;
     if (!line) return;
@@ -64,7 +68,7 @@ export function fb2Book(text, fallbackTitle) {
     paragraph = { cells: [""], heading, row };
   }
 
-  function start(name) {
+  function start(name, attributes) {
     if (inside("title-info") && !inside("body")) {
       if (name === "author") authors++;
       const namePart = name === "nickname" || nameParts.includes(name);
@@ -76,16 +80,17 @@ export function fb2Book(text, fallbackTitle) {
     }
     if (blocks.has(name)) flush();
     if (name === "body") {
-      bodies++;
-      if (bodies === 1) chapters.push({ title: "", paragraphs: [] });
-      else notes.push({ title: "Notes", paragraphs: [] });
+      bodies.push({ named: attributes.name !== undefined, title: "", chapters: [{ title: "", paragraphs: [] }] });
     } else if (reading()) {
       if (name === "section") {
         // A section opens a chapter, unless the one before has nothing but
         // headings yet: then "Part One" and "Chapter 1" open one together.
-        if (bodies === 1 && chapter().paragraphs.some((line) => !line.heading)) chapters.push({ title: "", paragraphs: [] });
+        if (chapter().paragraphs.some((line) => !line.heading)) bodies.at(-1).chapters.push({ title: "", paragraphs: [] });
       } else if (name === "title") {
-        if (!titleLines && stack.at(-1) === (bodies === 1 ? "section" : "body")) titleLines = [];
+        if (!titleLines && (stack.at(-1) === "section" || stack.at(-1) === "body")) {
+          titleLines = [];
+          titled = stack.at(-1);
+        }
       } else if (paragraphElements.has(name)) {
         begin(inside("title") || name === "subtitle", name === "tr");
       } else if (name === "td" || name === "th") {
@@ -102,8 +107,13 @@ export function fb2Book(text, fallbackTitle) {
     if (name === field) field = null;
     if (blocks.has(name) || paragraphElements.has(name)) flush();
     if (name === "title" && titleLines) {
-      if (titleLines.length) chapter().title = titleLines.join(" ");
+      const line = titleLines.join(" ");
       titleLines = null;
+      // A section joining a part's heading adds its title to the part's:
+      // "Part One — Chapter 1". An untitled chapter takes the book's title
+      // only at the end, so a section's simply names it.
+      if (line && titled === "body") bodies.at(-1).title = line;
+      else if (line) chapter().title = chapter().title ? `${chapter().title} — ${line}` : line;
     }
   }
 
@@ -138,7 +148,12 @@ export function fb2Book(text, fallbackTitle) {
   const title = part("book-title") || fallbackTitle;
   const author = nameParts.map(part).filter((name) => name).join(" ") || part("nickname");
   const language = part("lang").toLowerCase();
-  const kept = [...chapters, ...notes]
+  // FB2 names its notes and comments bodies. Each body but the text is one
+  // last chapter, in file order, titled by its own title or "Notes".
+  const main = bodies.find((body) => !body.named) ?? bodies[0];
+  const notes = bodies.filter((body) => body !== main)
+    .map((body) => ({ title: body.title || "Notes", paragraphs: body.chapters.flatMap((draft) => draft.paragraphs) }));
+  const kept = [...(main?.chapters ?? []), ...notes]
     .filter((draft) => draft.paragraphs.length)
     .map((draft) => ({ title: draft.title || title, paragraphs: draft.paragraphs }));
   return { title, author, language, chapters: kept };

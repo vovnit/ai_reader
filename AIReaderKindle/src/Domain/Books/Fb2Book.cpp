@@ -2,6 +2,7 @@
 
 #include "../../Support/Text.hpp"
 #include "../../Support/XmlScanner.hpp"
+#include "TextChapters.hpp"
 
 #include <algorithm>
 #include <iterator>
@@ -50,9 +51,18 @@ struct Paragraph {
     bool row = false;
 };
 
+/// A body, read as the text is, a chapter from each section, since which
+/// one is the text is known only at the end: whether it has a name, and its
+/// own title, which names it when it is notes.
+struct Body {
+    bool named = false;
+    std::string title;
+    std::vector<ChapterDraft> chapters;
+};
+
 class Reader {
 public:
-    void start(const std::string& name);
+    void start(const std::string& name, const XmlScanner::Attributes& attributes);
     void end(const std::string& name);
     void text(const std::string& run);
     BookDraft book(const std::string& fallbackTitle);
@@ -68,20 +78,18 @@ private:
     std::string field;
     int authors = 0;
 
-    int bodies = 0;
-    std::vector<ChapterDraft> chapters;
-    std::vector<ChapterDraft> notes;
+    std::vector<Body> bodies;
     std::optional<Paragraph> paragraph;
-    // The lines of the title naming a chapter: a section's in the first
-    // body, the body's own in a later one.
+    // The lines of the title being read, a body's or a section's.
     std::optional<std::vector<std::string>> titleLines;
+    std::string titled;
 
     bool inside(const std::string& name) const {
         auto found = counts.find(name);
         return found != counts.end() && found->second > 0;
     }
     bool reading() const { return inside("body") && !inside("binary") && !inside("stylesheet"); }
-    ChapterDraft& chapter() { return bodies > 1 ? notes.back() : chapters.back(); }
+    ChapterDraft& chapter() { return bodies.back().chapters.back(); }
     void flush();
     void begin(bool heading, bool row);
     void close(const std::string& name);
@@ -91,8 +99,9 @@ void Reader::flush() {
     if (!paragraph) return;
     std::vector<std::string> cells;
     for (const auto& cell : paragraph->cells) {
+        // A cell of nothing but no-break spaces says nothing, like an empty one.
         std::string line = collapsed(cell);
-        if (!line.empty()) cells.push_back(line);
+        if (!TextChapters::isBlank(line)) cells.push_back(line);
     }
     bool heading = paragraph->heading;
     paragraph.reset();
@@ -107,7 +116,7 @@ void Reader::begin(bool heading, bool row) {
     paragraph = Paragraph{{""}, heading, row};
 }
 
-void Reader::start(const std::string& name) {
+void Reader::start(const std::string& name, const XmlScanner::Attributes& attributes) {
     if (inside("title-info") && !inside("body")) {
         if (name == "author") ++authors;
         bool namePart = name == "nickname" || std::find(std::begin(nameParts), std::end(nameParts), name) != std::end(nameParts);
@@ -119,21 +128,20 @@ void Reader::start(const std::string& name) {
     }
     if (blocks.count(name)) flush();
     if (name == "body") {
-        ++bodies;
-        if (bodies == 1) chapters.push_back({"", {}});
-        else notes.push_back({"Notes", {}});
+        bodies.push_back({attributes.count("name") > 0, "", std::vector<ChapterDraft>(1)});
     } else if (reading()) {
         if (name == "section") {
             // A section opens a chapter, unless the one before has nothing but
             // headings yet: then "Part One" and "Chapter 1" open one together.
-            if (bodies == 1) {
-                const auto& lines = chapter().paragraphs;
-                if (std::any_of(lines.begin(), lines.end(), [](const ChapterDraft::Paragraph& line) { return !line.heading; })) {
-                    chapters.push_back({"", {}});
-                }
+            const auto& lines = chapter().paragraphs;
+            if (std::any_of(lines.begin(), lines.end(), [](const ChapterDraft::Paragraph& line) { return !line.heading; })) {
+                bodies.back().chapters.push_back({"", {}});
             }
         } else if (name == "title") {
-            if (!titleLines && !stack.empty() && stack.back() == (bodies == 1 ? "section" : "body")) titleLines.emplace();
+            if (!titleLines && !stack.empty() && (stack.back() == "section" || stack.back() == "body")) {
+                titleLines.emplace();
+                titled = stack.back();
+            }
         } else if (paragraphElements.count(name)) {
             begin(inside("title") || name == "subtitle", name == "tr");
         } else if (name == "td" || name == "th") {
@@ -150,8 +158,13 @@ void Reader::close(const std::string& name) {
     if (name == field) field.clear();
     if (blocks.count(name) || paragraphElements.count(name)) flush();
     if (name == "title" && titleLines) {
-        if (!titleLines->empty()) chapter().title = Text::join(*titleLines, " ");
+        std::string line = Text::join(*titleLines, " ");
         titleLines.reset();
+        // A section joining a part's heading adds its title to the part's:
+        // "Part One — Chapter 1". An untitled chapter takes the book's title
+        // only at the end, so a section's simply names it.
+        if (!line.empty() && titled == "body") bodies.back().title = line;
+        else if (!line.empty()) chapter().title = chapter().title.empty() ? line : chapter().title + " — " + line;
     }
 }
 
@@ -199,12 +212,22 @@ BookDraft Reader::book(const std::string& fallbackTitle) {
     }
     book.author = names.empty() ? part("nickname") : Text::join(names, " ");
     book.language = Text::lower(part("lang"));
-    for (auto* drafts : {&chapters, &notes}) {
-        for (auto& draft : *drafts) {
-            if (draft.paragraphs.empty()) continue;
-            if (draft.title.empty()) draft.title = book.title;
-            book.chapters.push_back(std::move(draft));
-        }
+    // FB2 names its notes and comments bodies. Each body but the text is one
+    // last chapter, in file order, titled by its own title or "Notes".
+    auto main = std::find_if(bodies.begin(), bodies.end(), [](const Body& body) { return !body.named; });
+    if (main == bodies.end()) main = bodies.begin();
+    std::vector<ChapterDraft> drafts;
+    if (main != bodies.end()) drafts = std::move(main->chapters);
+    for (auto body = bodies.begin(); body != bodies.end(); ++body) {
+        if (body == main) continue;
+        ChapterDraft notes{body->title.empty() ? "Notes" : body->title, {}};
+        for (const auto& draft : body->chapters) notes.paragraphs.insert(notes.paragraphs.end(), draft.paragraphs.begin(), draft.paragraphs.end());
+        drafts.push_back(std::move(notes));
+    }
+    for (auto& draft : drafts) {
+        if (draft.paragraphs.empty()) continue;
+        if (draft.title.empty()) draft.title = book.title;
+        book.chapters.push_back(std::move(draft));
     }
     return book;
 }
@@ -214,7 +237,7 @@ BookDraft Reader::book(const std::string& fallbackTitle) {
 BookDraft read(const std::string& text, const std::string& fallbackTitle) {
     Reader reader;
     XmlScanner::scan(text, {
-        [&](const std::string& name, const XmlScanner::Attributes&) { reader.start(name); },
+        [&](const std::string& name, const XmlScanner::Attributes& attributes) { reader.start(name, attributes); },
         [&](const std::string& name) { reader.end(name); },
         [&](const std::string& run) { reader.text(run); },
     });

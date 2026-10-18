@@ -23,11 +23,20 @@ std::string proseLanguage(const std::vector<ChapterDraft>& chapters);
 /// The EPUB of the chapters, stamped with the time it is made.
 std::string epub(EpubBuilder::Metadata metadata, const std::vector<ChapterDraft>& chapters);
 
-/// Writes the EPUB `make` makes of the bytes of the file at `path` into
-/// `folder` as `<name>.epub`, and returns its path. An EPUB of that name
-/// already there is taken to be this one, made before. Empty, with `error`
-/// set, when the file cannot be read, `make` throws, or nothing is written.
-std::string write(const std::string& path, const std::string& folder, const std::string& name,
+/// The `dc:identifier` of the EPUB at `path`, or empty.
+std::string identifierOf(const std::string& path);
+
+/// Where the book of this identifier goes in `folder`: `<name>.epub`, named
+/// as a book fetched from the sync folder is, or `<name> (2).epub` and on
+/// when another book has the name. One already there with this identifier
+/// is this book, made before.
+std::string destination(const std::string& folder, const std::string& name, const std::string& identifier);
+
+/// Writes the EPUB `make` makes of the bytes of the file at `path`, a file
+/// of the `kind` its identifier names, into `folder` at its `destination`,
+/// and returns its path. Empty, with `error` set, when the file cannot be
+/// read, `make` throws, or nothing is written.
+std::string write(const std::string& path, const std::string& folder, const std::string& name, const std::string& kind,
                   const std::function<std::string(const std::string& file)>& make, std::string* error);
 
 }  // namespace EpubWriter

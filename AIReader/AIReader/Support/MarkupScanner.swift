@@ -6,7 +6,8 @@ import Foundation
 /// in text and attributes are decoded. Tolerant of the broken markup books
 /// carry, where `XMLScanner` (Foundation's parser) gives up at the first
 /// error — so a book file reads here as it does in the Kindle app
-/// (`Support/XmlScanner.cpp`) and the web app (`Support/XmlScanner.js`).
+/// (`Support/XmlScanner.cpp`) and the web app (`Support/XmlScanner.js`),
+/// event for event.
 enum MarkupScanner {
     struct Handlers {
         var onStart: (_ name: String, _ attributes: [String: String]) -> Void = { _, _ in }
@@ -26,7 +27,9 @@ enum MarkupScanner {
         }
 
         while i < n {
-            guard let open = find("<", in: chars, from: i) else {
+            var next = find("<", in: chars, from: i)
+            while let at = next, !opensTag(chars, at + 1) { next = find("<", in: chars, from: at + 1) }
+            guard let open = next else {
                 emitText(i, n, decode: true)
                 break
             }
@@ -68,14 +71,15 @@ enum MarkupScanner {
             i = end < n ? end + 1 : n
             guard !body.isEmpty else { continue }
 
+            // The closing slash goes first, so "</>" leaves nothing to look at.
             let closing = body.first == "/"
-            let selfClosing = body.last == "/"
             if closing { body.removeFirst() }
-            if selfClosing, !body.isEmpty { body.removeLast() }
+            let selfClosing = body.last == "/"
+            if selfClosing { body.removeLast() }
 
             var nameEnd = 0
             while nameEnd < body.count, isNameChar(body[nameEnd]) { nameEnd += 1 }
-            let name = localName(string(body[0..<nameEnd]))
+            let name = localName(body[0..<nameEnd])
             guard !name.isEmpty else { continue }
 
             if closing {
@@ -87,13 +91,15 @@ enum MarkupScanner {
         }
     }
 
+    /// A reference is 1–9 ASCII letters, digits or '#' between '&' and ';'.
+    private static let reference = try! NSRegularExpression(pattern: "&([A-Za-z0-9#]{1,9});")
+
     static func decodeEntities(_ text: String) -> String {
-        guard text.contains("&") else { return text }
-        let expression = try! NSRegularExpression(pattern: "&([^;&]{1,9});")
+        guard text.unicodeScalars.contains("&") else { return text }
         let source = text as NSString
         var result = ""
         var last = 0
-        for match in expression.matches(in: text, range: NSRange(location: 0, length: source.length)) {
+        for match in reference.matches(in: text, range: NSRange(location: 0, length: source.length)) {
             result += source.substring(with: NSRange(location: last, length: match.range.location - last))
             let entity = source.substring(with: match.range(at: 1))
             result += replacement(for: entity) ?? source.substring(with: match.range)
@@ -102,18 +108,25 @@ enum MarkupScanner {
         return result + source.substring(from: last)
     }
 
-    /// What `&entity;` stands for, "" for one that is best dropped, or nil
-    /// when the name is unknown and the text is left as it was.
+    /// What `&entity;` stands for: the character of a known name, or of a
+    /// number that is a Unicode scalar value other than 0; "" for any other
+    /// number; nil for an unknown name, which stays as written.
     private static func replacement(for entity: String) -> String? {
-        if entity.hasPrefix("#") {
-            let hex = entity.dropFirst().first.map { $0 == "x" || $0 == "X" } ?? false
-            // The leading digits count, as JavaScript's parseInt reads them.
-            let digits = entity.dropFirst(hex ? 2 : 1).prefix { hex ? $0.isHexDigit : $0.isASCII && $0.isNumber }
-            guard let code = UInt32(digits, radix: hex ? 16 : 10), code != 0, code <= 0x10FFFF else { return "" }
-            return Unicode.Scalar(code).map { String($0) } ?? ""
+        let scalars = Array(entity.unicodeScalars)
+        guard scalars.first == "#" else {
+            guard let code = entities[entity] else { return nil }
+            return code == 0 ? "" : Unicode.Scalar(code).map { String($0) } ?? ""
         }
-        guard let code = entities[entity] else { return nil }
-        return code == 0 ? "" : Unicode.Scalar(code).map { String($0) } ?? ""
+        let hex = scalars.count > 1 && (scalars[1] == "x" || scalars[1] == "X")
+        let digits = scalars.dropFirst(hex ? 2 : 1)
+        let isDigit = { (c: Unicode.Scalar) in
+            ("0"..."9").contains(c) || hex && (("a"..."f").contains(c) || ("A"..."F").contains(c))
+        }
+        guard !digits.isEmpty, digits.allSatisfy(isDigit),
+              let code = UInt32(String(String.UnicodeScalarView(digits)), radix: hex ? 16 : 10), code != 0,
+              let scalar = Unicode.Scalar(code)
+        else { return "" }
+        return String(scalar)
     }
 
     // The HTML 4 entities in code-point order from U+00A0, so a name is found
@@ -159,7 +172,7 @@ enum MarkupScanner {
             let nameStart = i
             while i < body.count, isNameChar(body[i]) { i += 1 }
             if i == nameStart { break }
-            let name = localName(string(body[nameStart..<i]))
+            let name = localName(body[nameStart..<i])
             while i < body.count, isWhite(body[i]) { i += 1 }
             guard i < body.count, body[i] == "=" else {
                 result[name] = ""
@@ -185,9 +198,18 @@ enum MarkupScanner {
         return result
     }
 
-    private static func localName(_ name: String) -> String {
-        let local = name.lastIndex(of: ":").map { name[name.index(after: $0)...] } ?? Substring(name)
-        return local.lowercased()
+    /// Lowercased by ASCII alone, as markup names are, whatever the locale.
+    private static func localName(_ name: ArraySlice<Unicode.Scalar>) -> String {
+        let local = name.lastIndex(of: ":").map { name[($0 + 1)...] } ?? name
+        return String(String.UnicodeScalarView(local.map { ("A"..."Z").contains($0) ? Unicode.Scalar($0.value + 0x20)! : $0 }))
+    }
+
+    /// A '<' opens a tag only before a letter, '/', '!' or '?'; any other is
+    /// text, as a browser keeps "1 < 2".
+    private static func opensTag(_ chars: [Unicode.Scalar], _ at: Int) -> Bool {
+        guard at < chars.count else { return false }
+        let c = chars[at]
+        return ("a"..."z").contains(c) || ("A"..."Z").contains(c) || c == "/" || c == "!" || c == "?"
     }
 
     private static func isNameChar(_ c: Unicode.Scalar) -> Bool {

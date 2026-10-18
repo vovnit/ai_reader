@@ -42,7 +42,7 @@ std::string epub(const std::string& pdf, const std::string& fallbackTitle) {
 
 std::string convert(const std::string& path, const std::string& folder, std::string* error) {
     std::string name = Files::stem(path);
-    return EpubWriter::write(path, folder, name, [&name](const std::string& pdf) { return epub(pdf, name); }, error);
+    return EpubWriter::write(path, folder, name, "pdf", [&name](const std::string& pdf) { return epub(pdf, name); }, error);
 }
 
 }  // namespace PdfImporter

@@ -17,6 +17,8 @@ const blocks = new Set([
 // Elements whose text is not the book's.
 const hidden = new Set(["script", "style", "noscript", "template", "svg", "math", "nav"]);
 const headings = new Set(["h1", "h2", "h3", "h4", "h5", "h6"]);
+// Elements a <head> holds; any other ends it, closed or not, as in a browser.
+const headElements = new Set(["title", "meta", "link", "style", "script", "base", "noscript", "template"]);
 // Elements whose content is not markup, so the scanner never sees it.
 const rawTextElements = ["script", "style"];
 
@@ -77,6 +79,7 @@ export function htmlBook(text, fallbackTitle) {
         if (name === skipping) depth++;
         return;
       }
+      if (!headElements.has(name)) inHead = false;
       if (hidden.has(name)) {
         skipping = name;
         depth = 1;
@@ -94,8 +97,6 @@ export function htmlBook(text, fallbackTitle) {
         if (heading) gathered += " ";
         else flush();
       } else if (blocks.has(name)) {
-        // A block means the head is over, closed or not.
-        inHead = false;
         flush();
         if (headings.has(name)) heading = name;
       }

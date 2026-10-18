@@ -1,9 +1,9 @@
 // Reads a plain-text book, already decoded, into `{ title, author, language,
 // chapters }`. Text wrapped by hand, with blank lines between paragraphs,
 // is joined back into paragraphs; text without blank lines has one
-// paragraph per line. A short paragraph that names a chapter or is only a
-// number opens a chapter. The same as `TextBook.cpp` (Kindle) and
-// `TextBook.swift` (iOS).
+// paragraph per line. A short paragraph that is a chapter's number, or
+// names a chapter the way a heading does, opens a chapter. The same as
+// `TextBook.cpp` (Kindle) and `TextBook.swift` (iOS).
 import { gutenbergParts } from "./Gutenberg.js";
 import { collapsed, isBlank, textChapters } from "./TextChapters.js";
 
@@ -20,16 +20,51 @@ const chapterWords = [
   "глава", "часть", "книга", "пролог", "эпилог", "розділ",
 ];
 
-const isDigits = (text) => text !== "" && [...text].every((c) => c >= "0" && c <= "9");
-const isRoman = (text) => text !== "" && [...text].every((c) => "IVXLCDM".includes(c));
+/**
+ * How many letters of `text`, from `i`, one place of a roman numeral takes
+ * when written the standard way: up to three `one`s, `one` and `five`,
+ * `five` and up to three `one`s, or `one` and `ten`.
+ */
+function romanPlace(text, i, one, five, ten) {
+  if (text[i] === one && (text[i + 1] === five || text[i + 1] === ten)) return 2;
+  const start = text[i] === five ? 1 : 0;
+  let ones = 0;
+  while (ones < 3 && text[i + start + ones] === one) ones++;
+  return start + ones;
+}
 
-/** "CHAPTER I.", "Глава 3", "XIV", "12.": kept simple, since a heading one app read differently would move every chapter after it. */
+/** "I" to "MMMCMXCIX", written the standard way: "DID" and "CIVIL" are words, not numbers. */
+function isRoman(text) {
+  let i = 0;
+  while (i < 3 && text[i] === "M") i++;
+  i += romanPlace(text, i, "C", "D", "M");
+  i += romanPlace(text, i, "X", "L", "C");
+  i += romanPlace(text, i, "I", "V", "X");
+  return text !== "" && i === text.length;
+}
+
+/** A chapter's number: up to three digits, or an upper-case roman numeral. */
+const isNumber = (text) => /^[0-9]{1,3}$/.test(text) || isRoman(text);
+
+/** "I.", "12:", "IV—The Return": a number, then nothing or a stop, colon or dash and anything. */
+const startsWithNumber = (word) => isNumber(word.split(/[.:\u2014-]/)[0]);
+
+/**
+ * "XIV", "12.", "CHAPTER I.", "Глава 3", "Prologue", "BOOK ONE: 1805": a
+ * number alone, or a chapter word alone, before a number, or in a line
+ * without a lower-case letter. "Part of me wanted to stay." is a sentence.
+ * Kept simple, since a heading one app read differently would move every
+ * chapter after it.
+ */
 export function opensChapter(text) {
   if ([...text].length > headingLength) return false;
-  const number = text.endsWith(".") ? text.slice(0, -1) : text;
-  if (isDigits(number) || isRoman(number)) return true;
-  const lower = text.toLowerCase();
-  return chapterWords.some((word) => lower === word || lower.startsWith(`${word} `));
+  if (isNumber(text.endsWith(".") ? text.slice(0, -1) : text)) return true;
+  // A no-break space, which French sets before ":", parts words too.
+  const words = text.split(/[ \u00a0]/).filter((word) => word);
+  if (!words.length) return false;
+  const first = words[0].toLowerCase();
+  if (words.length === 1) return chapterWords.some((word) => first === word || first === `${word}.` || first === `${word}:`);
+  return chapterWords.includes(first) && (startsWithNumber(words[1]) || !/\p{Ll}/u.test(text));
 }
 
 export function textBook(text, fallbackTitle) {

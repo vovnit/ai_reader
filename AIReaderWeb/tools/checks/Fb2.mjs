@@ -40,6 +40,24 @@ const verses = `<FictionBook><description><title-info><author><nickname>Anon</ni
 </section></body>
 <body><section><p>A body with no title.</p></section></body></FictionBook>`;
 
+// A notes body before the text, which is the first body without a name;
+// parts whose chapters restart at I; spacer paragraphs of no-break spaces.
+const volumes = `<FictionBook><description><title-info><book-title>Война и мир</book-title></title-info></description>
+<body name="notes"><title><p>Примечания</p></title><section><p>Сноска.</p></section></body>
+<body><title><p>Лев Толстой</p></title>
+<section><title><p>ТОМ ПЕРВЫЙ</p></title>
+<section><title><p>ЧАСТЬ ПЕРВАЯ</p></title>
+<section><title><p>I</p></title><p>&#160;</p><p>— Eh bien, mon prince.</p><p> &#160; </p></section>
+<section><title><p>II</p></title><table><tr><td>&#160;</td><td>Да</td></tr><tr><td>&#160;</td></tr></table></section>
+</section>
+<section><title><p>ЧАСТЬ ВТОРАЯ</p></title>
+<section><title><p>I</p></title><p>В октябре.</p></section>
+</section></section>
+<section><section><title><p>&#160;</p><p>ЭПИЛОГ</p></title><p>Прошло семь лет.</p></section></section>
+</body>
+<body name="comments"><section><p>Комментарий.</p></section></body>
+<body><p>A second body without a name.</p></body></FictionBook>`;
+
 const broken = `<FictionBook><description><title-info><book-title>Broken</book-title></title-info></description>
 <body><section><title>Loose title</title><p>Unclosed<p>Stray</emphasis> end.</p><empty-line><p>After &amp; <![CDATA[<raw>]]></p>
 <section><title><p>Cut</p></title><p>Short`;
@@ -49,8 +67,8 @@ export function checkFb2() {
   check("fb2 reads title-info: the first author, the title, the language lowercased",
     book.title === "War and Peace" && book.author === "Lev Tolstoy" && book.language === "ru",
     `${book.title} / ${book.author} / ${book.language}`);
-  check("fb2 chapters: the opening before the sections, a part with its first chapter, an untitled section, the notes",
-    outline(book) === "War and Peace = #Leo Tolstoy / An epigraph. || Chapter 1 = #Part One / #Chapter 1 / Well, Prince.[1] "
+  check("fb2 chapters: the opening before the sections, a part with its first chapter titled by both, an untitled section, the notes",
+    outline(book) === "War and Peace = #Leo Tolstoy / An epigraph. || Part One — Chapter 1 = #Part One / #Chapter 1 / Well, Prince.[1] "
       + "|| War and Peace = An untitled section. || Notes = #Notes / #1 / A note.",
     outline(book));
 
@@ -60,6 +78,17 @@ export function checkFb2() {
       && outline(poems) === "Poems = #Poems / #A Song / First line, / second line. / Anon / 1805 / #* * * / Name | Age / Pierre | 20 "
         + "/ Il dit : « Bonjour » et part. || Notes = A body with no title.",
     outline(poems));
+
+  check("fb2: the text is the first body without a name, the others follow in file order; a part's title joins its first chapter's; paragraphs of no-break spaces dropped",
+    outline(fb2Book(volumes, "volumes")) === "ТОМ ПЕРВЫЙ — ЧАСТЬ ПЕРВАЯ — I = #Лев Толстой / #ТОМ ПЕРВЫЙ / #ЧАСТЬ ПЕРВАЯ / #I / — Eh bien, mon prince. "
+      + "|| II = #II / Да || ЧАСТЬ ВТОРАЯ — I = #ЧАСТЬ ВТОРАЯ / #I / В октябре. || ЭПИЛОГ = #ЭПИЛОГ / Прошло семь лет. "
+      + "|| Примечания = #Примечания / Сноска. || Notes = Комментарий. || Notes = A second body without a name.",
+    outline(fb2Book(volumes, "volumes")));
+
+  const named = fb2Book(`<FictionBook><body name="main"><section><title><p>Part One</p></title><section><title><p>Chapter 1</p></title>
+<p>Text.</p></section></section></body><body name="notes"><section><p>A note.</p></section></body></FictionBook>`, "named");
+  check("fb2: when every body has a name, the first is the text",
+    outline(named) === "Part One — Chapter 1 = #Part One / #Chapter 1 / Text. || Notes = A note.", outline(named));
 
   check("fb2 tolerates unclosed and stray tags and a file cut short",
     outline(fb2Book(broken, "broken")) === "Loose title = #Loose title / Unclosed / Stray end. / After & <raw> || Cut = #Cut / Short",
