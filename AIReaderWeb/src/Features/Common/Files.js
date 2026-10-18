@@ -6,7 +6,10 @@
 /** The files the reader picked; none when they cancelled. */
 export function pickFiles({ accept = "", multiple = true } = {}) {
   return new Promise((resolve) => {
-    const input = fileInput({ accept, multiple });
+    // A phone's picker greys out any file whose ending it has no type for
+    // (.sqlite3, .dsl, .fb2…), so there every file is offered and the app
+    // turns away what it cannot read.
+    const input = fileInput({ accept: navigator.maxTouchPoints > 0 ? "" : accept, multiple });
     const done = (files) => {
       input.remove();
       resolve(files);
