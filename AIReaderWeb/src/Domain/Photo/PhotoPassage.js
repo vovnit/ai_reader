@@ -2,7 +2,7 @@
 // word can be found across line breaks, and where in it the word the finger
 // points at starts — or, with no finger, each word read off the photo, to
 // tap one where it is printed. The same as the iOS app's `PhotoPassage`.
-import { joined } from "../Books/PdfParagraphs.js";
+import { pagePassage } from "../Books/PagePassage.js";
 import { photoWords } from "./PhotoWord.js";
 import { pointedWord } from "./PointedWord.js";
 
@@ -12,13 +12,7 @@ import { pointedWord } from "./PointedWord.js";
  * `photoWords`, placed in the photo's pixels, `photoSize` its size.
  */
 export function photoPassage(photo) {
-  let text = "";
-  const lineStarts = [];
-  for (const line of photo.lines) {
-    // Joined the way a PDF's lines are, a word hyphenated at a line's end mended.
-    text = text === "" ? line.text : joined(text, line.text);
-    lineStarts.push(text.length - line.text.length);
-  }
+  const { text, lineStarts } = pagePassage(photo.lines.map((line) => line.text));
   const lineWords = photo.lines.map((line, index) => photoWords(line, lineStarts[index]));
   const place = pointedWord(photo);
   const pointedOffset = place ? lineWords[place.line][place.word].offset : null;

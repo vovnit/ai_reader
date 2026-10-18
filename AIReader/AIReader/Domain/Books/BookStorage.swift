@@ -12,4 +12,12 @@ enum BookStorage {
     static func directory(named folder: String) -> URL {
         root.appending(path: folder, directoryHint: .isDirectory)
     }
+
+    /// The PDF a book was made from, kept beside its EPUB on the device that
+    /// imported it, for the page view; it is never sent to another device.
+    static let originalPDFName = "original.pdf"
+
+    static func originalPDF(inFolder folder: String) -> URL {
+        directory(named: folder).appending(path: originalPDFName)
+    }
 }

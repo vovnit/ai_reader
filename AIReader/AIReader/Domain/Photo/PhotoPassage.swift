@@ -14,15 +14,9 @@ struct PhotoPassage: Equatable, Sendable {
     let photoSize: CGSize
 
     init(_ photo: PhotoText) {
-        var text = ""
-        var lineStarts: [Int] = []
-        for line in photo.lines {
-            // Joined the way a PDF's lines are, a word hyphenated at a line's end mended.
-            text = text.isEmpty ? line.text : PDFParagraphs.joined(text, line.text)
-            lineStarts.append(text.utf16.count - line.text.utf16.count)
-        }
-        self.text = text
-        let lineWords = zip(photo.lines, lineStarts).map { PhotoWord.words(of: $0, at: $1) }
+        let passage = PagePassage(lines: photo.lines.map(\.text))
+        text = passage.text
+        let lineWords = zip(photo.lines, passage.lineStarts).map { PhotoWord.words(of: $0, at: $1) }
         pointedOffset = PointedWord.find(in: photo).map { lineWords[$0.line][$0.word].offset }
         words = lineWords.flatMap { $0 }
         photoSize = photo.size

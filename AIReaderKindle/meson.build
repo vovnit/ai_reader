@@ -47,6 +47,7 @@ shared_inc = include_directories('../Core/Sources/AIReaderCore')
 
 support = files(
   'src/Support/Async.hpp',
+  'src/Support/Charset.cpp',
   'src/Support/Files.cpp',
   'src/Support/Inflate.cpp',
   'src/Support/PdfDocument.cpp',
@@ -81,12 +82,17 @@ domain = files(
   'src/Domain/Books/EpubBuilder.cpp',
   'src/Domain/Books/EpubNavigation.cpp',
   'src/Domain/Books/EpubPackage.cpp',
+  'src/Domain/Books/Fb2Book.cpp',
+  'src/Domain/Books/Gutenberg.cpp',
+  'src/Domain/Books/HtmlBook.cpp',
   'src/Domain/Books/HtmlText.cpp',
   'src/Domain/Books/LanguageDetector.cpp',
   'src/Domain/Books/PdfLayout.cpp',
   'src/Domain/Books/PdfParagraphs.cpp',
   'src/Domain/Books/ReadingPlace.cpp',
   'src/Domain/Books/RemoteBookName.cpp',
+  'src/Domain/Books/TextBook.cpp',
+  'src/Domain/Books/TextChapters.cpp',
   'src/Domain/Cards/AnkiExport.cpp',
   'src/Domain/Cards/Card.cpp',
   'src/Domain/Cards/MatchRound.cpp',
@@ -107,6 +113,7 @@ domain = files(
 
 services = files(
   'src/Services/BookCorpus.cpp',
+  'src/Services/BookImporter.cpp',
   'src/Services/CardStore.cpp',
   'src/Services/ChatApi.cpp',
   'src/Services/Database.cpp',
@@ -115,6 +122,7 @@ services = files(
   'src/Services/DictionaryPacks.cpp',
   'src/Services/EinkDisplay.cpp',
   'src/Services/EpubLoader.cpp',
+  'src/Services/EpubWriter.cpp',
   'src/Services/Glossary.cpp',
   'src/Services/GroupStore.cpp',
   'src/Services/Http.cpp',

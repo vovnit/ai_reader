@@ -4,7 +4,7 @@
 #
 #   ./build.sh serve [port]     serves this folder at http://localhost:8080
 #                               (open ?aiEndpoint=mock://ai to use the mock)
-#   ./build.sh check [book.epub|book.pdf]
+#   ./build.sh check [book.epub|.pdf|.fb2|.fb2.zip|.txt|.html]
 #                               everything below the views, under Node 22.12+;
 #                               with AIREADER_SYNC_URL set, a WebDAV server too
 #   ./build.sh site             dist/site, the files a web server serves —

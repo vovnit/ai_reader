@@ -2,6 +2,7 @@
 // that are not here. A book opens the reader; its buttons put it in a group
 // or take it off this device, and its file out of the sync folder. Photo
 // takes a picture of a printed page, for the word a finger points at.
+import { bookFileTypes, isBookFile } from "../../Services/BookImporter.js";
 import { chooseAction, confirmAction } from "../Common/Dialogs.js";
 import { pickFiles } from "../Common/Files.js";
 import { Screen } from "../Common/Screen.js";
@@ -45,7 +46,7 @@ export class LibraryView extends Screen {
   }
 
   async #pick() {
-    const files = await pickFiles({ accept: ".epub,application/epub+zip,.pdf,application/pdf" });
+    const files = await pickFiles({ accept: bookFileTypes });
     if (files.length) await this.feature.add(files);
   }
 
@@ -60,7 +61,7 @@ export class LibraryView extends Screen {
     this.element.addEventListener("dragover", (event) => event.preventDefault());
     this.element.addEventListener("drop", (event) => {
       event.preventDefault();
-      const files = [...event.dataTransfer.files].filter((file) => /\.(epub|pdf)$/i.test(file.name));
+      const files = [...event.dataTransfer.files].filter((file) => isBookFile(file.name));
       if (files.length) this.feature.add(files);
     });
   }
@@ -136,7 +137,7 @@ export class LibraryView extends Screen {
     this.setBody(
       isAdding ? note("Adding…") : null,
       message ? h("p", { class: "error message" }, message) : null,
-      sections.length ? sections : note("No books yet. Choose Add… to pick an .epub or a .pdf, or drop one here. Books in your sync folder are listed here to download."),
+      sections.length ? sections : note("No books yet. Choose Add… to pick a book — EPUB, PDF, FB2, plain text or HTML — or drop one here. Books in your sync folder are listed here to download."),
     );
   }
 }

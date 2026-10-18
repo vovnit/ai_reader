@@ -10,6 +10,8 @@ struct WordContext: @unchecked Sendable {
         /// Where the sentence sits in the text, in UTF-16 units, when it
         /// came from there.
         var sentenceRange: NSRange?
+        /// Where the word itself sits, the same way, to mark it.
+        var wordRange: NSRange?
     }
 
     let text: String
@@ -28,12 +30,13 @@ struct WordContext: @unchecked Sendable {
         let position = String.Index(utf16Offset: offset, in: text)
         guard let word = words.first(where: { $0.contains(position) }) else { return nil }
         guard let range = sentences.first(where: { $0.contains(word.lowerBound) }) else {
-            return Selection(word: String(text[word]), sentence: String(text[word]))
+            return Selection(word: String(text[word]), sentence: String(text[word]), wordRange: NSRange(word, in: text))
         }
         return Selection(
             word: String(text[word]),
             sentence: String(text[range]).trimmingCharacters(in: .whitespacesAndNewlines),
-            sentenceRange: NSRange(range, in: text)
+            sentenceRange: NSRange(range, in: text),
+            wordRange: NSRange(word, in: text)
         )
     }
 

@@ -3,7 +3,8 @@
 // lowercased and without their namespace prefix; entities in text and
 // attributes are decoded. Tolerant of the broken markup books carry, which
 // a browser's XML parser would refuse. The same as the Kindle app's
-// `Support/XmlScanner.cpp`.
+// `Support/XmlScanner.cpp` and the iOS app's `Support/MarkupScanner.swift`,
+// event for event.
 
 // The HTML 4 entities in code-point order from U+00A0, so a name is found by
 // its position; the ones after that are the typographic set books use.
@@ -34,24 +35,44 @@ const entities = new Map([
 // The soft hyphen is invisible and best dropped.
 latin1Names.forEach((name, index) => entities.set(name, name === "shy" ? 0 : 0xa0 + index));
 
-export function decodeEntities(text) {
-  if (!text.includes("&")) return text;
-  return text.replace(/&([^;&]{1,9});/g, (whole, entity) => {
-    if (entity[0] === "#") {
-      const hex = entity[1] === "x" || entity[1] === "X";
-      const code = parseInt(entity.slice(hex ? 2 : 1), hex ? 16 : 10);
-      if (!code || code > 0x10ffff) return "";
-      return String.fromCodePoint(code);
-    }
+/**
+ * What `&…;` stands for: the character of a known name, or of a number that
+ * is a character XML allows; "" for any other number; the text as written
+ * for an unknown name. Only ASCII letters, digits and '#' make a reference,
+ * so the apps count it alike.
+ */
+function reference(whole, entity) {
+  if (entity[0] !== "#") {
     const code = entities.get(entity);
     if (code === undefined) return whole;
     return code ? String.fromCodePoint(code) : "";
-  });
+  }
+  const hex = entity[1] === "x" || entity[1] === "X";
+  const digits = entity.slice(hex ? 2 : 1);
+  if (!(hex ? /^[0-9A-Fa-f]+$/ : /^[0-9]+$/).test(digits)) return "";
+  const code = parseInt(digits, hex ? 16 : 10);
+  return isXmlCharacter(code) ? String.fromCodePoint(code) : "";
+}
+
+/** Tab, line breaks and the rest of Unicode but surrogates, U+FFFE and U+FFFF. */
+function isXmlCharacter(code) {
+  return code === 0x09 || code === 0x0a || code === 0x0d || (code >= 0x20 && code <= 0xd7ff)
+    || (code >= 0xe000 && code <= 0xfffd) || (code >= 0x10000 && code <= 0x10ffff);
+}
+
+export function decodeEntities(text) {
+  if (!text.includes("&")) return text;
+  return text.replace(/&([A-Za-z0-9#]{1,9});/g, reference);
+}
+
+/** Lowercased by ASCII alone, as markup names are, whatever the locale. */
+function lowerAscii(name) {
+  return name.replace(/[A-Z]+/g, (letters) => letters.toLowerCase());
 }
 
 function localName(name) {
   const colon = name.lastIndexOf(":");
-  return (colon < 0 ? name : name.slice(colon + 1)).toLowerCase();
+  return lowerAscii(colon < 0 ? name : name.slice(colon + 1));
 }
 
 function isNameChar(c) {
@@ -97,6 +118,11 @@ function attributes(body) {
   return result;
 }
 
+/** A '<' opens a tag only before a letter, '/', '!' or '?'; any other is text, as a browser keeps "1 < 2". */
+function opensTag(c) {
+  return (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "/" || c === "!" || c === "?";
+}
+
 /** Calls `onStart(name, attributes)`, `onEnd(name)` and `onText(text)` as they come. */
 export function scan(markup, { onStart, onEnd, onText } = {}) {
   const n = markup.length;
@@ -108,7 +134,8 @@ export function scan(markup, { onStart, onEnd, onText } = {}) {
   };
 
   while (i < n) {
-    const open = markup.indexOf("<", i);
+    let open = markup.indexOf("<", i);
+    while (open >= 0 && !opensTag(markup[open + 1])) open = markup.indexOf("<", open + 1);
     if (open < 0) {
       emitText(i, n, true);
       break;
@@ -151,9 +178,10 @@ export function scan(markup, { onStart, onEnd, onText } = {}) {
     i = end < n ? end + 1 : n;
     if (!body) continue;
 
+    // The closing slash goes first, so "</>" leaves nothing to look at.
     const closing = body[0] === "/";
-    const selfClosing = body[body.length - 1] === "/";
     if (closing) body = body.slice(1);
+    const selfClosing = body.endsWith("/");
     if (selfClosing) body = body.slice(0, -1);
 
     let nameEnd = 0;

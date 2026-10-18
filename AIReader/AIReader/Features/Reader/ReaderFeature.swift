@@ -41,6 +41,10 @@ struct ReaderFeature {
         var pageText = ""
         /// The end of the page on screen: how far the reader has got.
         var pageEnd = 0
+        /// Whether the PDF the book was made from is on this device, for its page view.
+        var hasPages = false
+        /// The PDF's page the page view was last left on while the book is open.
+        var pdfPage: Int?
         @Presents var lookup: LookupFeature.State?
         @Presents var menu: ReaderMenuFeature.State?
 
@@ -75,7 +79,8 @@ struct ReaderFeature {
     enum Action {
         case task
         case groupLoaded(books: [Book], name: String?)
-        case documentLoaded(BookDocument)
+        /// `hasPages`: the PDF the book was made from is on this device.
+        case documentLoaded(BookDocument, hasPages: Bool)
         case loadFailed(String)
         case menuTapped
         case menu(PresentationAction<ReaderMenuFeature.Action>)
@@ -115,7 +120,9 @@ struct ReaderFeature {
                             folder: book.folder,
                             packagePath: book.packagePath
                         )
-                        await send(.documentLoaded(document))
+                        let pdf = BookStorage.originalPDF(inFolder: book.folder)
+                        let hasPages = FileManager.default.fileExists(atPath: pdf.path(percentEncoded: false))
+                        await send(.documentLoaded(document, hasPages: hasPages))
                     } catch {
                         await send(.loadFailed(error.localizedDescription))
                     }
@@ -126,8 +133,9 @@ struct ReaderFeature {
                 state.groupName = name
                 return .none
 
-            case let .documentLoaded(document):
+            case let .documentLoaded(document, hasPages):
                 state.document = .loaded(document)
+                state.hasPages = hasPages
                 var effects: [Effect<Action>] = []
                 if let corpus = state.corpus {
                     let id = state.book.id
@@ -190,7 +198,8 @@ struct ReaderFeature {
                     scope: state.scope,
                     covers: state.groupName.map { "the \(count) books of “\($0)”" } ?? "this book",
                     contents: contents,
-                    currentEntry: current
+                    currentEntry: current,
+                    pages: PDFPagesFeature.State(reader: state)
                 )
                 return .none
 
@@ -200,6 +209,10 @@ struct ReaderFeature {
 
             case .menu(.presented(.delegate(.dismiss))):
                 state.menu = nil
+                return .none
+
+            case let .menu(.presented(.delegate(.pdfPageShown(page)))):
+                state.pdfPage = page
                 return .none
 
             case let .menu(.presented(.delegate(.jump(position)))):

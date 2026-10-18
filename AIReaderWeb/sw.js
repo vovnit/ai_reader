@@ -1,9 +1,9 @@
 // Keeps the app for offline use. Everything is fetched from the network
 // when it can be, so a new version shows on the next load, and from the
 // copy kept here when it cannot. The dictionary, large and rarely changed,
-// comes from the copy first and is refreshed behind it; so does the text
-// reader in vendor/, kept once a photo has needed it rather than fetched
-// for everyone.
+// comes from the copy first and is refreshed behind it; so do the photo
+// reader and the PDF renderer in vendor/, kept once a photo or a PDF's pages
+// have needed them rather than fetched for everyone.
 
 const cacheName = "aireader";
 const dictionary = "./dictionary.sqlite3";
@@ -38,12 +38,18 @@ const files = [
   "./src/Domain/Books/EpubBuilder.js",
   "./src/Domain/Books/EpubNavigation.js",
   "./src/Domain/Books/EpubPackage.js",
+  "./src/Domain/Books/Fb2Book.js",
+  "./src/Domain/Books/Gutenberg.js",
+  "./src/Domain/Books/HtmlBook.js",
   "./src/Domain/Books/HtmlText.js",
   "./src/Domain/Books/LanguageDetector.js",
+  "./src/Domain/Books/PagePassage.js",
   "./src/Domain/Books/PdfLayout.js",
   "./src/Domain/Books/PdfParagraphs.js",
   "./src/Domain/Books/ReadingPlace.js",
   "./src/Domain/Books/RemoteBookName.js",
+  "./src/Domain/Books/TextBook.js",
+  "./src/Domain/Books/TextChapters.js",
   "./src/Domain/Cards/AnkiExport.js",
   "./src/Domain/Cards/Card.js",
   "./src/Domain/Cards/MatchRound.js",
@@ -93,6 +99,8 @@ const files = [
   "./src/Features/Menu/DisplayFeature.js",
   "./src/Features/Menu/DisplayView.js",
   "./src/Features/Menu/MenuView.js",
+  "./src/Features/Pages/PagesFeature.js",
+  "./src/Features/Pages/PagesView.js",
   "./src/Features/Photo/PhotoFeature.js",
   "./src/Features/Photo/PhotoView.js",
   "./src/Features/Reader/PageFlow.js",
@@ -107,11 +115,13 @@ const files = [
   "./src/Features/XRay/XRayFeature.js",
   "./src/Features/XRay/XRayView.js",
   "./src/Services/BookCorpus.js",
+  "./src/Services/BookImporter.js",
   "./src/Services/CardStore.js",
   "./src/Services/ChatApi.js",
   "./src/Services/DictionaryDatabase.js",
   "./src/Services/DictionaryPacks.js",
   "./src/Services/EpubLoader.js",
+  "./src/Services/EpubWriter.js",
   "./src/Services/GlossaryWriter.js",
   "./src/Services/GroupStore.js",
   "./src/Services/Http.js",
@@ -119,6 +129,7 @@ const files = [
   "./src/Services/LibraryStore.js",
   "./src/Services/LookupCache.js",
   "./src/Services/PdfImporter.js",
+  "./src/Services/PdfPages.js",
   "./src/Services/PhotoReader.js",
   "./src/Services/RequestQuirkStore.js",
   "./src/Services/Relay.js",
@@ -132,6 +143,7 @@ const files = [
   "./src/Services/WebDav.js",
   "./src/Services/WebSearch.js",
   "./src/Services/WordExplainer.js",
+  "./src/Support/Charset.js",
   "./src/Support/Idb.js",
   "./src/Support/Inflate.js",
   "./src/Support/PdfDocument.js",

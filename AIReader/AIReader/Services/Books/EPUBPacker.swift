@@ -18,7 +18,8 @@ enum EPUBPacker {
             guard (try? file.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true else { continue }
             let full = file.standardizedFileURL.path(percentEncoded: false)
             let path = String(full.dropFirst(base.hasSuffix("/") ? base.count : base.count + 1))
-            guard path != "mimetype" else { continue }
+            // The PDF a book was made from stays on the device that imported it.
+            guard path != "mimetype", path != BookStorage.originalPDFName else { continue }
             writer.add(path, try Data(contentsOf: file))
         }
         return writer.finished()

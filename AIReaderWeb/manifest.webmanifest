@@ -1,7 +1,7 @@
 {
   "name": "AIReader",
   "short_name": "AIReader",
-  "description": "An EPUB reader for reading in a language you are still learning.",
+  "description": "An e-book reader for reading in a language you are still learning.",
   "id": "./",
   "start_url": "./",
   "scope": "./",
@@ -12,6 +12,17 @@
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
   ],
   "file_handlers": [
-    { "action": "./", "accept": { "application/epub+zip": [".epub"] } }
+    {
+      "action": "./",
+      "accept": {
+        "application/epub+zip": [".epub"],
+        "application/pdf": [".pdf"],
+        "application/x-fictionbook+xml": [".fb2"],
+        "application/x-zip-compressed-fb2": [".fbz"],
+        "text/plain": [".txt"],
+        "text/html": [".html", ".htm"],
+        "application/xhtml+xml": [".xhtml"]
+      }
+    }
   ]
 }

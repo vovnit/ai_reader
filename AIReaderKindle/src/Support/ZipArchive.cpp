@@ -5,24 +5,22 @@
 #include "Text.hpp"
 
 std::optional<ZipArchive> ZipArchive::open(const std::string& path, std::string* error) {
-    ZipArchive archive;
     auto data = Files::read(path);
     if (!data) {
         if (error) *error = "The file could not be read.";
         return std::nullopt;
     }
-    archive.data_ = std::move(*data);
+    return read(std::move(*data), error);
+}
+
+std::optional<ZipArchive> ZipArchive::read(std::string data, std::string* error) {
+    ZipArchive archive;
+    archive.data_ = std::move(data);
     if (!archive.readCentralDirectory()) {
         if (error) *error = "The file is not a ZIP archive.";
         return std::nullopt;
     }
     return archive;
-}
-
-std::vector<std::string> ZipArchive::paths() const {
-    std::vector<std::string> result;
-    for (const auto& entry : entries_) result.push_back(entry.first);
-    return result;
 }
 
 std::optional<std::string> ZipArchive::find(const std::string& path) const {
@@ -56,7 +54,10 @@ bool ZipArchive::readCentralDirectory() {
         size_t commentLength = u16(position + 32);
         if (position + 46 + nameLength > data_.size()) break;
         std::string path = data_.substr(position + 46, nameLength);
-        entries_[path] = Entry{u16(position + 10), u32(position + 20), u32(position + 42)};
+        // A name listed twice is its first entry, as in the other apps, so
+        // "the first FB2 in a ZIP" is the same file everywhere.
+        Entry entry{u16(position + 10), u32(position + 20), u32(position + 42)};
+        if (entries_.emplace(path, entry).second) order_.push_back(path);
         position += 46 + nameLength + extraLength + commentLength;
     }
     return true;

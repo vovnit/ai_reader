@@ -23,7 +23,15 @@ bool isBlank(const std::string& text) {
 }
 
 std::string lower(const std::string& text) {
-    gchar* lowered = g_utf8_strdown(text.c_str(), text.size());
+    // Under a Turkish or Azerbaijani locale, which GTK and Qt take from the
+    // environment, GLib lowers 'I' to dotless 'ı' and 'İ' to 'i'. The other
+    // apps lower them to 'i' and 'i' with a combining dot whatever the
+    // locale, so those two are lowered first.
+    std::string dotted = replaceAll(text, "\xC4\xB0", "i\xCC\x87");
+    for (char& c : dotted) {
+        if (c == 'I') c = 'i';
+    }
+    gchar* lowered = g_utf8_strdown(dotted.c_str(), dotted.size());
     std::string result = lowered ? lowered : "";
     g_free(lowered);
     return result;

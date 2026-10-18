@@ -1,8 +1,7 @@
 #include "XmlScanner.hpp"
 
-#include "Text.hpp"
+#include <glib.h>
 
-#include <cstdlib>
 #include <optional>
 
 namespace XmlScanner {
@@ -48,26 +47,63 @@ std::optional<unsigned> namedEntity(const std::string& name) {
 }
 
 void appendCodePoint(unsigned code, std::string& out) {
-    if (code < 0x80) {
-        out += static_cast<char>(code);
-    } else if (code < 0x800) {
-        out += static_cast<char>(0xC0 | (code >> 6));
-        out += static_cast<char>(0x80 | (code & 0x3F));
-    } else if (code < 0x10000) {
-        out += static_cast<char>(0xE0 | (code >> 12));
-        out += static_cast<char>(0x80 | ((code >> 6) & 0x3F));
-        out += static_cast<char>(0x80 | (code & 0x3F));
-    } else {
-        out += static_cast<char>(0xF0 | (code >> 18));
-        out += static_cast<char>(0x80 | ((code >> 12) & 0x3F));
-        out += static_cast<char>(0x80 | ((code >> 6) & 0x3F));
-        out += static_cast<char>(0x80 | (code & 0x3F));
-    }
+    char buffer[6];
+    out.append(buffer, g_unichar_to_utf8(code, buffer));
 }
 
+/// Lowercased by ASCII alone, as markup names are, whatever the locale.
 std::string localName(const std::string& name) {
     auto colon = name.rfind(':');
-    return Text::lower(colon == std::string::npos ? name : name.substr(colon + 1));
+    std::string local = colon == std::string::npos ? name : name.substr(colon + 1);
+    for (char& c : local) {
+        if (c >= 'A' && c <= 'Z') c = static_cast<char>(c + 0x20);
+    }
+    return local;
+}
+
+bool isReferenceChar(char c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '#';
+}
+
+/// Tab, line breaks and the rest of Unicode but surrogates, U+FFFE and U+FFFF.
+bool isXmlCharacter(unsigned code) {
+    return code == 0x09 || code == 0x0A || code == 0x0D || (code >= 0x20 && code <= 0xD7FF)
+        || (code >= 0xE000 && code <= 0xFFFD) || (code >= 0x10000 && code <= 0x10FFFF);
+}
+
+/// What `&entity;` stands for: the character of a known name, or of a number
+/// that is a character XML allows; "" for any other number;
+/// nothing for an unknown name, which stays as written.
+std::optional<std::string> reference(const std::string& entity) {
+    std::string out;
+    if (entity[0] != '#') {
+        auto code = namedEntity(entity);
+        if (!code) return std::nullopt;
+        if (*code) appendCodePoint(*code, out);
+        return out;
+    }
+    bool hex = entity.size() > 1 && (entity[1] == 'x' || entity[1] == 'X');
+    std::string digits = entity.substr(hex ? 2 : 1);
+    if (digits.empty()) return out;
+    unsigned code = 0;
+    for (char c : digits) {
+        int digit = c >= '0' && c <= '9' ? c - '0'
+            : hex && c >= 'a' && c <= 'f' ? c - 'a' + 10
+            : hex && c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+        if (digit < 0) return out;
+        code = code * (hex ? 16 : 10) + static_cast<unsigned>(digit);
+        if (code > 0x10FFFF) return out;
+    }
+    if (isXmlCharacter(code)) appendCodePoint(code, out);
+    return out;
+}
+
+/// A '<' opens a tag only before a letter, '/', '!' or '?'; any other is
+/// text, as a browser keeps "1 < 2".
+bool opensTag(const std::string& markup, size_t at) {
+    if (at >= markup.size()) return false;
+    char c = markup[at];
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '/' || c == '!' || c == '?';
 }
 
 bool isNameChar(char c) {
@@ -122,24 +158,16 @@ std::string decodeEntities(const std::string& text) {
             out += text[i++];
             continue;
         }
-        size_t end = text.find(';', i);
-        if (end == std::string::npos || end - i > 10) {
+        // A reference is 1–9 ASCII letters, digits or '#' between '&' and ';'.
+        size_t end = i + 1;
+        while (end < text.size() && end - i <= 10 && isReferenceChar(text[end])) ++end;
+        size_t length = end - i - 1;
+        if (length == 0 || length > 9 || end >= text.size() || text[end] != ';') {
             out += text[i++];
             continue;
         }
-        std::string entity = text.substr(i + 1, end - i - 1);
-        if (!entity.empty() && entity[0] == '#') {
-            bool hex = entity.size() > 1 && (entity[1] == 'x' || entity[1] == 'X');
-            unsigned code = static_cast<unsigned>(std::strtoul(entity.c_str() + (hex ? 2 : 1), nullptr, hex ? 16 : 10));
-            if (code) appendCodePoint(code, out);
-        } else {
-            auto code = namedEntity(entity);
-            if (!code) {
-                out += text[i++];
-                continue;
-            }
-            if (*code) appendCodePoint(*code, out);
-        }
+        auto replacement = reference(text.substr(i + 1, length));
+        out += replacement ? *replacement : text.substr(i, end + 1 - i);
         i = end + 1;
     }
     return out;
@@ -157,6 +185,7 @@ void scan(const std::string& markup, const Handlers& handlers) {
 
     while (i < n) {
         size_t open = markup.find('<', i);
+        while (open != std::string::npos && !opensTag(markup, open + 1)) open = markup.find('<', open + 1);
         if (open == std::string::npos) {
             emitText(i, n, true);
             break;
@@ -199,9 +228,10 @@ void scan(const std::string& markup, const Handlers& handlers) {
         i = end < n ? end + 1 : n;
         if (body.empty()) continue;
 
+        // The closing slash goes first, so "</>" leaves nothing to look at.
         bool closing = body[0] == '/';
-        bool selfClosing = body.back() == '/';
         if (closing) body.erase(0, 1);
+        bool selfClosing = !body.empty() && body.back() == '/';
         if (selfClosing) body.pop_back();
 
         size_t nameEnd = 0;

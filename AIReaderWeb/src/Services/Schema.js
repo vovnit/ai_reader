@@ -55,5 +55,11 @@ export const schema = {
       // it, so a sync reads and writes only the files that changed.
       db.createObjectStore("syncFiles", { keyPath: ["folder", "name"] });
     },
+    (db) => {
+      // A PDF book's own file, keyed by the book's id, for its page view.
+      // Kept only on the device that imported it: the EPUB made of it is
+      // what syncs.
+      db.createObjectStore("originals");
+    },
   ],
 };

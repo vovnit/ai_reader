@@ -12,8 +12,12 @@
 class ZipArchive {
 public:
     static std::optional<ZipArchive> open(const std::string& path, std::string* error = nullptr);
+    /// An archive already read into memory.
+    static std::optional<ZipArchive> read(std::string data, std::string* error = nullptr);
 
-    std::vector<std::string> paths() const;
+    /// In the order the archive lists them, so that "the first FB2 in a ZIP"
+    /// means the same entry in every app.
+    std::vector<std::string> paths() const { return order_; }
     bool contains(const std::string& path) const { return entries_.count(path) > 0; }
     /// The archive-internal path whose case-insensitive spelling matches.
     std::optional<std::string> find(const std::string& path) const;
@@ -29,6 +33,7 @@ private:
 
     std::string data_;
     std::map<std::string, Entry> entries_;
+    std::vector<std::string> order_;
 
     bool readCentralDirectory();
     uint16_t u16(size_t offset) const;

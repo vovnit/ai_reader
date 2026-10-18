@@ -44,11 +44,13 @@ enum EPUBBuilder {
         return files
     }
 
+    /// Literal, since otherwise whole characters are compared and a "<"
+    /// followed by a combining mark is left as it is, breaking the XML.
     private static func escape(_ text: String) -> String {
-        text.replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
-            .replacingOccurrences(of: "\"", with: "&quot;")
+        text.replacingOccurrences(of: "&", with: "&amp;", options: .literal)
+            .replacingOccurrences(of: "<", with: "&lt;", options: .literal)
+            .replacingOccurrences(of: ">", with: "&gt;", options: .literal)
+            .replacingOccurrences(of: "\"", with: "&quot;", options: .literal)
     }
 
     private static func chapterPath(_ number: Int) -> String { "text/chapter-\(number).xhtml" }
