@@ -42,6 +42,11 @@ struct PDFPageText: Equatable, Sendable {
         return passage.lineStarts[line] + column
     }
 
+    /// The page's characters each word a tap finds covers.
+    var wordRanges: [NSRange] {
+        WordContext(text: passage.text).wordRanges.map(pageRange(ofPassage:))
+    }
+
     /// The page's characters a stretch of the passage covers — a word mended
     /// across a line break covers the hyphen and the break too.
     func pageRange(ofPassage range: NSRange) -> NSRange {

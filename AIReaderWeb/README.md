@@ -45,7 +45,8 @@ apps do, and syncs with them and the iOS app through the same WebDAV folder.
   book made from a PDF in this browser, *PDF pages*: the PDF's pages as
   printed, drawn by PDF.js, where a click on a word looks it up in its
   sentence and marks it on the page; the buttons, the arrow keys and a swipe
-  turn them. The PDF stays in this browser and is not synced. Escape — or the
+  turn them, and the − and + buttons, the + and − keys, a pinch or Ctrl and
+  the wheel zoom them. *Words* marks every word a click there looks up. The PDF stays in this browser and is not synced. Escape — or the
   browser's Back, or a phone's back gesture — closes the top screen.
 - **Lookup** — the meaning in this sentence, the dictionary form, the word
   and the sentence spoken by the system's voices, and the way on to the

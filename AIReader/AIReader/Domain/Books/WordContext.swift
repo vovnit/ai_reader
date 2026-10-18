@@ -40,6 +40,11 @@ struct WordContext: @unchecked Sendable {
         )
     }
 
+    /// Where each word sits, in UTF-16 units — every place a tap finds one.
+    var wordRanges: [NSRange] {
+        words.map { NSRange($0, in: text) }
+    }
+
     /// A whitespace-separated piece of the text and the position of its first
     /// letter, so a run of laid-out pieces can report which word was tapped.
     struct Chunk: Equatable, Identifiable, Sendable {

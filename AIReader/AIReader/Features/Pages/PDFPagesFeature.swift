@@ -7,7 +7,9 @@ import Foundation
 /// page as far through the PDF as the reader is through the book, or where
 /// the page view was last left. The page's text runs together as a
 /// photographed page's does (`PagePassage`), so the sentence around a word
-/// is found across line breaks. The same as the web app's `PagesFeature`.
+/// is found across line breaks. Every word a tap finds can be marked on the
+/// page, as the reader chooses. The same as the web app's `PagesFeature`;
+/// the zoom is PDFKit's own.
 @Reducer
 struct PDFPagesFeature {
     @ObservableState
@@ -28,6 +30,10 @@ struct PDFPagesFeature {
         /// The characters of the page on screen the word looked up covers,
         /// marked while its lookup is open.
         var marked: NSRange?
+        /// Whether every word a tap finds is marked on the page; kept between openings.
+        @Shared(.appStorage("pdfPagesShowsWords")) var showsWords = false
+        /// The characters of the page on screen each of its words covers, while they are marked.
+        var words: [NSRange] = []
         @Presents var lookup: LookupFeature.State?
 
         var pageCount: Int { texts.count }
@@ -54,6 +60,7 @@ struct PDFPagesFeature {
         case nextTapped
         /// A character of the page on screen, as an index into its text.
         case characterTapped(Int)
+        case showsWordsChanged(Bool)
         case lookup(PresentationAction<LookupFeature.Action>)
         case delegate(Delegate)
 
@@ -119,6 +126,11 @@ struct PDFPagesFeature {
                 state.marked = selection.wordRange.map(text.pageRange(ofPassage:))
                 return .none
 
+            case let .showsWordsChanged(shows):
+                state.$showsWords.withLock { $0 = shows }
+                markWords(&state)
+                return .none
+
             case .lookup(.dismiss):
                 state.marked = nil
                 return .none
@@ -137,6 +149,13 @@ struct PDFPagesFeature {
         guard page >= 0 else { return .none }
         if page != state.page { state.marked = nil }
         state.page = page
+        markWords(&state)
         return .send(.delegate(.pageShown(page)))
+    }
+
+    private func markWords(_ state: inout State) {
+        state.words = state.showsWords && state.texts.indices.contains(state.page)
+            ? PDFPageText(state.texts[state.page]).wordRanges
+            : []
     }
 }

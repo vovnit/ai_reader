@@ -34,3 +34,10 @@ export function selectionAt(text, offset, language) {
     sentenceEnd: paragraphStart + sentence.index + sentence.segment.length,
   };
 }
+
+/** Where each word of `text` is, `{ start, end }`, by the same boundaries a tap finds. */
+export function wordsIn(text, language) {
+  return [...segmenter(language, "word").segment(text)]
+    .filter((segment) => segment.isWordLike)
+    .map((segment) => ({ start: segment.index, end: segment.index + segment.segment.length }));
+}

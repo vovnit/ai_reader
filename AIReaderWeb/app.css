@@ -144,6 +144,7 @@ form.ask input, form.ask textarea { flex: 1; min-width: 0; }
   font-size: calc(var(--text-scale-factor) * var(--font-height));
   transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
 }
+::highlight(page-words) { background-color: color-mix(in srgb, Mark 20%, transparent); color: transparent; }
 ::highlight(page-word) { background-color: color-mix(in srgb, Mark 45%, transparent); color: transparent; }
 
 /* A photo with the text read off it over its print, in the page's colours. */
