@@ -3,7 +3,8 @@ import Foundation
 
 /// The reader's menu: the book's table of contents, what has been looked up
 /// in it, a search of it, an X-ray of a name, a conversation about the page on
-/// screen, how the text is rendered, and the book's offline glossary.
+/// screen, how the text is rendered, the book's offline glossary, and the
+/// pages of the PDF it was made from.
 @Reducer
 struct ReaderMenuFeature {
     @Reducer
@@ -12,6 +13,7 @@ struct ReaderMenuFeature {
         case contents(ContentsFeature)
         case display(DisplaySettingsFeature)
         case glossary(GlossaryFeature)
+        case pages(PDFPagesFeature)
         case search(SearchFeature)
         case words(WordsFeature)
         case xray(XRayFeature)
@@ -30,6 +32,9 @@ struct ReaderMenuFeature {
         /// The book's table of contents, and the entry the page falls under.
         let contents: [ContentsEntry]
         let currentEntry: Int?
+        /// The pages as the PDF draws them, when the book was made from a
+        /// PDF on this device.
+        var pages: PDFPagesFeature.State?
         var path = StackState<Path.State>()
     }
 
@@ -40,6 +45,7 @@ struct ReaderMenuFeature {
         case displayTapped
         case doneTapped
         case glossaryTapped
+        case pagesTapped
         case searchTapped
         case wordsTapped
         case xrayTapped
@@ -50,6 +56,8 @@ struct ReaderMenuFeature {
             case closeBook
             case dismiss
             case jump(BookPosition)
+            /// The PDF's page to reopen at while the book stays open.
+            case pdfPageShown(Int)
         }
     }
 
@@ -80,6 +88,11 @@ struct ReaderMenuFeature {
                 )))
                 return .none
 
+            case .pagesTapped:
+                guard let pages = state.pages else { return .none }
+                state.path.append(.pages(pages))
+                return .none
+
             case .searchTapped:
                 state.path.append(.search(SearchFeature.State(scope: state.scope, covers: state.covers)))
                 return .none
@@ -102,6 +115,11 @@ struct ReaderMenuFeature {
                  let .path(.element(id: _, action: .search(.delegate(.jump(position))))),
                  let .path(.element(id: _, action: .xray(.delegate(.jump(position))))):
                 return .send(.delegate(.jump(position)))
+
+            case let .path(.element(id: _, action: .pages(.delegate(.pageShown(page))))):
+                state.pages?.page = page
+                state.pages?.startFraction = nil
+                return .send(.delegate(.pdfPageShown(page)))
 
             case let .path(.element(id: _, action: .xray(.delegate(.ask(chat))))):
                 state.path.append(.chat(chat))

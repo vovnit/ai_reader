@@ -1,9 +1,9 @@
 // Keeps the app for offline use. Everything is fetched from the network
 // when it can be, so a new version shows on the next load, and from the
 // copy kept here when it cannot. The dictionary, large and rarely changed,
-// comes from the copy first and is refreshed behind it; so does the text
-// reader in vendor/, kept once a photo has needed it rather than fetched
-// for everyone.
+// comes from the copy first and is refreshed behind it; so do the photo
+// reader and the PDF renderer in vendor/, kept once a photo or a PDF's pages
+// have needed them rather than fetched for everyone.
 
 const cacheName = "aireader";
 const dictionary = "./dictionary.sqlite3";

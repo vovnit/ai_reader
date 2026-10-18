@@ -31,6 +31,11 @@ looked up, and sent to the other devices as one. A scanned PDF has no text
 to take; [`ScanTool/`](ScanTool/README.md) is for those. The text comes from
 PDFKit here, and from the apps' own reader on the Kindle, on Linux and on the
 web, which take PDFs too; the rules that make it a book are the same in all.
+The PDF itself is kept on the device that added it, for *PDF pages* in the
+reader's menu: its pages as printed, a figure or a table as it was, a swipe
+to turn them, and a word tapped there explained in its sentence, the way a
+photographed page's is. On the iPhone, the iPad and the web; the PDF is not
+sent to other devices, so a book that came through sync reads as text only.
 
 **FB2, text, HTML.** An FB2 — bare, or zipped as `.fb2.zip`, `.fbz` or any
 `.zip` holding one — a `.txt` and an HTML page (`.html`, `.htm`, `.xhtml`)
@@ -143,6 +148,8 @@ the EPUB declares. On-device, free.
 - *Display* — type size, face, line spacing and margins. Changes re-render and
   repaginate immediately, without re-reading the EPUB.
 - *Offline glossary* — below.
+- *PDF pages* — for a book made from a PDF on this device, its pages as
+  printed (above).
 
 **Words.** From the library, the same list across every book — the vocabulary
 actually encountered, rather than one somebody else chose.

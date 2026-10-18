@@ -41,7 +41,11 @@ apps do, and syncs with them and the iOS app through the same WebDAV folder.
   arrow keys, Page Up/Down, Space, the wheel and a swipe turn pages too,
   Ctrl+F (⌘F) searches. *Menu* holds contents, the book's lookups, search,
   X-ray, a conversation about the page, display, the book's offline glossary
-  (see the [main README](../README.md#dictionaries)), close. Escape — or the
+  (see the [main README](../README.md#dictionaries)), close — and, for a
+  book made from a PDF in this browser, *PDF pages*: the PDF's pages as
+  printed, drawn by PDF.js, where a click on a word looks it up in its
+  sentence and marks it on the page; the buttons, the arrow keys and a swipe
+  turn them. The PDF stays in this browser and is not synced. Escape — or the
   browser's Back, or a phone's back gesture — closes the top screen.
 - **Lookup** — the meaning in this sentence, the dictionary form, the word
   and the sentence spoken by the system's voices, and the way on to the
@@ -58,8 +62,9 @@ apps do, and syncs with them and the iOS app through the same WebDAV folder.
 ## Running it
 
 There is no build step: the folder is the app, plain HTML, CSS and
-JavaScript modules. Its one dependency, Tesseract.js for reading photos, is
-kept in `vendor/tesseract` as its packages ship it.
+JavaScript modules. Its two dependencies, Tesseract.js for reading photos
+and PDF.js for drawing a PDF book's pages, are kept in `vendor/tesseract`
+and `vendor/pdfjs` as their packages ship them.
 
 ```sh
 ./build.sh serve

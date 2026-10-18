@@ -42,6 +42,15 @@ struct ReaderMenuView: View {
                 } label: {
                     Label("Offline glossary", systemImage: "text.book.closed")
                 }
+                #if os(iOS)
+                if store.pages != nil {
+                    Button {
+                        store.send(.pagesTapped)
+                    } label: {
+                        Label("PDF pages", systemImage: "doc.richtext")
+                    }
+                }
+                #endif
                 Button {
                     store.send(.closeBookTapped)
                 } label: {
@@ -58,6 +67,12 @@ struct ReaderMenuView: View {
             case let .contents(store): ContentsView(store: store)
             case let .display(store): DisplaySettingsView(store: store)
             case let .glossary(store): GlossaryView(store: store)
+            case let .pages(store):
+                #if os(iOS)
+                PDFPagesView(store: store)
+                #else
+                EmptyView()
+                #endif
             case let .search(store): SearchView(store: store)
             case let .words(store): WordsView(store: store, showsDoneButton: false)
             case let .xray(store): XRayView(store: store)

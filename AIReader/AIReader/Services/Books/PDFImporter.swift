@@ -36,13 +36,16 @@ enum PDFImporter {
             .nonEmpty
         let chapters = PDFLayout.chapters(pages, bookmarks: bookmarks(of: document), title: title)
         guard !chapters.isEmpty else { throw ImportError.noText }
-        return try EPUBWriter.write(
+        let result = try EPUBWriter.write(
             title: title,
             author: author,
             language: EPUBWriter.proseLanguage(chapters),
             identifier: EPUBWriter.identifier("pdf", of: data),
             chapters: chapters
         )
+        // Without it the book still reads; only its page view is not offered.
+        try? data.write(to: BookStorage.originalPDF(inFolder: result.folder))
+        return result
     }
 
     /// A page's lines, in points from the top of the page. PDFKit may hand

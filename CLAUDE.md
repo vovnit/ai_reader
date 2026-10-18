@@ -139,6 +139,14 @@ these, open every copy:
   around them is each app's `PhotoFeature`. Only the reading differs: Vision on iOS
   (`PhotoReaderClient.swift`), Tesseract.js on the web (`PhotoReader.js`,
   `TesseractPage.js`).
+- **A PDF book's pages.** The PDF a book was made from stays on the device
+  that imported it — iOS `original.pdf` in the book's folder, which
+  `EPUBPacker` leaves out; the web app's `originals` store — and is never
+  synced. A page's lines run together by `PagePassage` (`.swift`, `.js`),
+  which `PhotoPassage` uses too, and the flow around it is
+  `PDFPagesFeature` (with `PDFPageText` over PDFKit) on iOS and
+  `PagesFeature` (over PDF.js's text items) on the web. Only the drawing and
+  the hit-testing differ. Kindle and Qt have no page view.
 - **The bundled dictionary's credits** — its sources and their license, which
   the license requires be shown — on each app's Dictionaries screen and in the
   top-level README. A pack built from other sources changes all of them.
@@ -195,8 +203,10 @@ under Node and is checked there. Records live in IndexedDB, settings in
 read-only reader of the SQLite file format, and pages are laid out by the
 browser in CSS columns, every text node knowing its chapter offset.
 `dictionary.sqlite3` there is a link to the iOS app's copy. Photos are read
-by Tesseract.js, the one dependency, kept unchanged in `vendor/tesseract`;
-each language's model is fetched from jsDelivr when a photo first needs it.
+by Tesseract.js and a PDF book's pages drawn by PDF.js, the two
+dependencies, kept unchanged in `vendor/`; what only some photos or PDFs
+need — a language's model, a font's data — is fetched from jsDelivr when
+first needed.
 
 **AI endpoints.** The apps talk to any OpenAI-compatible endpoint. Do not
 special-case a provider; if a service rejects a parameter, negotiate from the
@@ -221,6 +231,7 @@ conclusive than driving a UI, and cost nothing.
 | The Qt AppImage | `AIReaderQt/build.sh appimage`; test it in a clean container of another distribution, which needs `shared-mime-info` and a desktop's X/GL libraries (see `AIReaderQt/README.md`). |
 | The browser extension | Load it unpacked in Chrome, or in Playwright's Chromium with `--load-extension`, against a local WebDAV server and page. `lib/zip.js`, `lib/epub.js` and `lib/names.js` also run under Node; the rest need a browser. |
 | Web logic (`AIReaderWeb/src` below the views) | `AIReaderWeb/build.sh check [book.epub]` (Node 22.12+); with `AIREADER_SYNC_URL` set, against a WebDAV server too. |
+| The PDF page view | `AIReaderWeb/build.sh check` runs its logic with a stand-in PDF.js; the view itself in a browser, a PDF added on that page and its *PDF pages* opened from the reader's menu. iOS: `PagePassage` and `PDFPageText` with `swiftc`, the rest in the simulator. |
 | Web views | `AIReaderWeb/build.sh serve`, then `http://localhost:8080/?aiEndpoint=mock://ai&aiModel=mock-medium` in a browser. Sync from a page needs the server to allow its origin: `rclone serve webdav <dir> --addr 127.0.0.1:8765 --allow-origin http://localhost:8080`. |
 | `DictionaryTool/` | `python3 -m unittest discover -s tests -t .` from that folder. |
 | `ScanTool/` | The same unit tests from that folder; then convert an export and load the EPUB with `AIReaderKindle/build.sh check book.epub page.png`. |
@@ -282,7 +293,8 @@ text selected); sharing from the selection's own menu delivers the bare text.
   run repeats the work.
 - The web app's `sw.js` lists every file it keeps for offline use; a new file
   missing from the list is missing offline, and `AIReaderWeb/build.sh check`
-  fails on it. `vendor/` is the exception: kept once a photo has used it.
+  fails on it. `vendor/` is the exception: kept once a photo or a PDF's
+  pages have used it.
 - A web page reaches only services that allow its origin (CORS). Mistral,
   OpenAI and OpenRouter do; Nextcloud's WebDAV and Monid do not. Hosted on
   Cloudflare, `AIReaderWeb/relay.js` relays the hosts named in the Worker's
