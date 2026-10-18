@@ -44,6 +44,17 @@ export async function checkPages() {
     found?.word.word === "tapis" && found.word.sentence.startsWith("Il dit : « Le chat dort sur le tapis.") && found.word.bookId === id
     && found.marked.from === 7 && found.marked.to === 12, JSON.stringify(found));
   check("pages: a tap off any word finds none", feature.wordAt(0, 6) === null && feature.wordAt(9, 0) === null);
+  const words = feature.words();
+  const marked = words.map(({ item, from, to }) => pages[1][item].str.slice(from, to));
+  check("pages: every word a tap finds is marked, in its text item, punctuation left out",
+    marked.join("|") === "Il|dit|Le|chat|dort|sur|le|tapis|Puis|il|partit" && words[5].item === 1 && words[5].from === 0, JSON.stringify(words));
+  check("pages: the words are marked only once asked, and the choice kept", !feature.showsWords
+    && (feature.toggleWords(), feature.showsWords) && new PagesFeature(env, reader, standIn(pages)).showsWords);
+  feature.toggleWords();
+  feature.zoomTo(9);
+  const most = feature.zoom;
+  feature.zoomTo(0.2);
+  check("pages: zoomed from the width of the screen to four times it", most === 4 && feature.zoom === 1);
   feature.next();
   await new Promise((resolve) => setTimeout(resolve, 0));
   check("pages: turned, and remembered for the next opening while the book is open", feature.page === 2 && reader.pdfPage === 2);

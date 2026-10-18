@@ -101,6 +101,7 @@ const files = [
   "./src/Features/Menu/MenuView.js",
   "./src/Features/Pages/PagesFeature.js",
   "./src/Features/Pages/PagesView.js",
+  "./src/Features/Pages/PageZoom.js",
   "./src/Features/Photo/PhotoFeature.js",
   "./src/Features/Photo/PhotoView.js",
   "./src/Features/Reader/PageFlow.js",

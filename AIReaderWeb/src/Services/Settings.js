@@ -1,6 +1,6 @@
 // The reader's settings: the model, the web search, the sync folder, the
-// reading style, and the language of the last page photographed, which the
-// next photo is read in first. Kept in the browser's local storage — tokens
+// reading style, the language of the last page photographed, which the
+// next photo is read in first, and whether a PDF's pages mark their words. Kept in the browser's local storage — tokens
 // and the sync password too, as the Kindle app keeps them in its settings
 // file; the browser does not encrypt it. Values given in the page's address
 // for one run (`?aiEndpoint=mock://ai`) win over the saved ones without
@@ -133,5 +133,14 @@ export class SettingsStore {
 
   savePhotoLanguage(language) {
     this.#write("photo", { language });
+  }
+
+  /** Whether a PDF's page view marks every word a tap finds; off until the reader turns it on. */
+  pageWords() {
+    return this.#read("pages", { showsWords: false }).showsWords;
+  }
+
+  savePageWords(showsWords) {
+    this.#write("pages", { showsWords });
   }
 }

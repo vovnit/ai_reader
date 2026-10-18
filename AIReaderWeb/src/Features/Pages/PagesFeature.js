@@ -4,10 +4,15 @@
 // far through the PDF as the reader is through the book, or where the page
 // view was last left. The page's text runs together as a photographed
 // page's does (`PagePassage`), so the sentence around a word is found
-// across line breaks. The same as the iOS app's `PDFPagesFeature`.
+// across line breaks. Every word a tap would find can be marked on the page,
+// as the reader chooses. The same as the iOS app's `PDFPagesFeature`; the
+// zoom is the web's own, PDFKit keeping its own on iOS.
 import { itemLines, pagePassage } from "../../Domain/Books/PagePassage.js";
-import { selectionAt } from "../../Domain/Reading/WordContext.js";
+import { selectionAt, wordsIn } from "../../Domain/Reading/WordContext.js";
 import { Feature } from "../Common/Feature.js";
+
+/** `zoom` kept from the width of the screen to four times it. */
+export const clampedZoom = (zoom) => Math.min(Math.max(zoom, 1), 4);
 
 export class PagesFeature extends Feature {
   status = "loading";
@@ -16,6 +21,10 @@ export class PagesFeature extends Feature {
   pageCount = 0;
   /** The page on screen: PDF.js's page and its text content, for the view to draw. */
   current = null;
+  /** Whether every word a tap finds is marked on the page; kept between openings. */
+  showsWords;
+  /** How much larger than the width of the screen the page is drawn. */
+  zoom = 1;
   #env;
   #reader;
   #open;
@@ -28,6 +37,7 @@ export class PagesFeature extends Feature {
     this.#env = env;
     this.#reader = reader;
     this.#open = open;
+    this.showsWords = env.settings.pageWords();
   }
 
   async load() {
@@ -54,6 +64,20 @@ export class PagesFeature extends Feature {
     if (this.page > 0) this.#show(this.page - 1).then(() => this.changed());
   }
 
+  toggleWords() {
+    this.showsWords = !this.showsWords;
+    this.#env.settings.savePageWords(this.showsWords);
+    this.changed();
+  }
+
+  /** Zooms to `zoom`, kept within `clampedZoom`. */
+  zoomTo(zoom) {
+    const clamped = clampedZoom(zoom);
+    if (clamped === this.zoom) return;
+    this.zoom = clamped;
+    this.changed();
+  }
+
   /**
    * The word at character `offset` of text item `item` on the page, with its
    * sentence, as a lookup takes it — and the stretch of the item it covers,
@@ -73,6 +97,25 @@ export class PagesFeature extends Feature {
       word: { ...selection, language, bookId: this.#reader.book.id },
       marked: { from: clamp(selection.start), to: clamp(selection.end) },
     };
+  }
+
+  /** Every word on the page a tap would find, as the stretches of text items it covers: `[{ item, from, to }]`. */
+  words() {
+    if (!this.#text) return [];
+    const { passage, places } = this.#text;
+    const words = wordsIn(passage.text, this.#reader.language);
+    const marks = [];
+    let first = 0;
+    places.forEach((place, item) => {
+      const start = passage.lineStarts[place.line] + place.column;
+      const end = start + this.current.content.items[item].str.length;
+      // Items run in the passage's order, so a word ended before one item has ended before the next.
+      while (first < words.length && words[first].end <= start) first += 1;
+      for (let index = first; index < words.length && words[index].start < end; index += 1) {
+        marks.push({ item, from: Math.max(words[index].start, start) - start, to: Math.min(words[index].end, end) - start });
+      }
+    });
+    return marks;
   }
 
   async #show(index) {
