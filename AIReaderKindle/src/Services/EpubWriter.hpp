@@ -29,7 +29,7 @@ std::string identifierOf(const std::string& path);
 /// Where the book of this identifier goes in `folder`: `<name>.epub`, named
 /// as a book fetched from the sync folder is, or `<name> (2).epub` and on
 /// when another book has the name. One already there with this identifier
-/// is this book, made before.
+/// is this book, made before; an empty identifier matches none.
 std::string destination(const std::string& folder, const std::string& name, const std::string& identifier);
 
 /// Writes the EPUB `make` makes of the bytes of the file at `path`, a file

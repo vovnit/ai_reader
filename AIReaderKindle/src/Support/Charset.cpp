@@ -60,11 +60,12 @@ const unsigned short cp1252[32] = {
 /// Adds a decoded character as the EPUB can carry it: a byte-order mark
 /// doubled at the start dropped, a form feed or vertical tab a line break (a
 /// form-feed line is a page break, so it ends a paragraph), and the other
-/// controls XML forbids dropped.
+/// controls and the non-characters U+FFFE and U+FFFF, which XML forbids,
+/// dropped.
 void add(unsigned code, std::string& out) {
     if (code == 0xFEFF && out.empty()) return;
     if (code == 0x0B || code == 0x0C) code = '\n';
-    else if (code < 0x09 || (code >= 0x0E && code <= 0x1F) || code == 0x7F) return;
+    else if (code < 0x09 || (code >= 0x0E && code <= 0x1F) || code == 0x7F || code == 0xFFFE || code == 0xFFFF) return;
     char buffer[6];
     out.append(buffer, g_unichar_to_utf8(code, buffer));
 }
@@ -168,10 +169,10 @@ std::string singleByte(const std::string& bytes, unsigned (*high)(unsigned char)
     return out;
 }
 
-/// UTF-16 without a mark: its zero bytes fall mostly at odd offsets
-/// (little-endian) or even ones, in at least one pair in sixteen of the
-/// first 1024 bytes, so a stray NUL in a UTF-8 file does not count.
-/// "le", "be" or empty.
+/// UTF-16 without a mark: its zero bytes fall at odd offsets (little-endian)
+/// or even ones, in at least one pair in sixteen of the first 1024 bytes, and
+/// hardly ever at the others, so a stray NUL in a UTF-8 file does not count,
+/// nor a run of them padding one out. "le", "be" or empty.
 std::string unmarkedUtf16(const std::string& bytes) {
     size_t pairs = std::min<size_t>(bytes.size(), 1024) / 2;
     size_t even = 0, odd = 0;
@@ -179,7 +180,7 @@ std::string unmarkedUtf16(const std::string& bytes) {
         if (bytes[i] == 0) ++(i % 2 ? odd : even);
     }
     size_t zeros = std::max(even, odd);
-    if (zeros == 0 || zeros * 16 < pairs) return "";
+    if (zeros == 0 || zeros * 16 < pairs || std::min(even, odd) * 4 >= zeros) return "";
     return odd > even ? "le" : "be";
 }
 
@@ -198,6 +199,17 @@ bool looksCyrillic(const std::string& bytes) {
         else if ((a >= 0xC0 && isLetter(b)) || (b >= 0xC0 && isLetter(a))) ++mixed;
     }
     return runs > mixed;
+}
+
+/// Most letters are lower case, and KOI8-R puts а–я at 0xC0–0xDF where
+/// windows-1251 has А–Я, its own а–я being at 0xE0–0xFF.
+bool looksKoi8(const std::string& bytes) {
+    size_t lower = 0, upper = 0;
+    for (unsigned char b : bytes) {
+        if (b >= 0xE0) ++upper;
+        else if (b >= 0xC0) ++lower;
+    }
+    return lower > upper;
 }
 
 bool isAny(const std::string& name, std::initializer_list<const char*> names) {
@@ -233,9 +245,10 @@ std::string decode(const std::string& bytes, const std::string& declared) {
     Utf8 unicode = utf8(bytes, 0);
     if (unicode.valid > unicode.invalid) return unicode.text;
     if (isAny(declared, {"windows-1251", "cp1251", "x-cp1251"})) return singleByte(bytes, windows1251);
-    if (declared == "koi8-r") return singleByte(bytes, koi8);
+    if (isAny(declared, {"koi8-r", "koi8-u"})) return singleByte(bytes, koi8);
     if (isAny(declared, {"windows-1252", "cp1252", "iso-8859-1", "latin1", "us-ascii", "ascii"})) return singleByte(bytes, windows1252);
-    return singleByte(bytes, looksCyrillic(bytes) ? windows1251 : windows1252);
+    if (!looksCyrillic(bytes)) return singleByte(bytes, windows1252);
+    return singleByte(bytes, looksKoi8(bytes) ? koi8 : windows1251);
 }
 
 }  // namespace Charset

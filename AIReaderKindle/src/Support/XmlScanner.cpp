@@ -65,8 +65,14 @@ bool isReferenceChar(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '#';
 }
 
+/// Tab, line breaks and the rest of Unicode but surrogates, U+FFFE and U+FFFF.
+bool isXmlCharacter(unsigned code) {
+    return code == 0x09 || code == 0x0A || code == 0x0D || (code >= 0x20 && code <= 0xD7FF)
+        || (code >= 0xE000 && code <= 0xFFFD) || (code >= 0x10000 && code <= 0x10FFFF);
+}
+
 /// What `&entity;` stands for: the character of a known name, or of a number
-/// that is a Unicode scalar value other than 0; "" for any other number;
+/// that is a character XML allows; "" for any other number;
 /// nothing for an unknown name, which stays as written.
 std::optional<std::string> reference(const std::string& entity) {
     std::string out;
@@ -88,7 +94,7 @@ std::optional<std::string> reference(const std::string& entity) {
         code = code * (hex ? 16 : 10) + static_cast<unsigned>(digit);
         if (code > 0x10FFFF) return out;
     }
-    if (code != 0 && (code < 0xD800 || code > 0xDFFF)) appendCodePoint(code, out);
+    if (isXmlCharacter(code)) appendCodePoint(code, out);
     return out;
 }
 

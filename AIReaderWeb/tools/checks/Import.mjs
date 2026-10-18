@@ -105,6 +105,9 @@ export async function checkImport(path) {
     && tales.chapters[0] === "Le Petit Chaperon rouge\nIl était une fois une petite fille.", JSON.stringify(tales));
   const short = await imported(utf8("<p>Short.</p>"), "short.xhtml");
   check("import: a language neither named nor told by the prose is und", short.language === "und" && short.title === "short", JSON.stringify(short));
+  const bare = [await imported(utf8("Il était une fois."), ".TXT"), await imported(utf8(zippedFb2), ".fb2")];
+  check("import: a name that is all ending titles a book that names none Book",
+    bare.every((book) => book.title === "Book" && book.contents === "Book"), JSON.stringify(bare));
   const typedText = await imported(utf8("Il était une fois."), "conte", "text/plain");
   const typedHtml = await imported(htmlBytes, "contes.php", "text/html");
   check("import: a name not known is read by its type, text or HTML, as the picker offers them, the name whole its title",

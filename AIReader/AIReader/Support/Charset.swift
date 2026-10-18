@@ -6,7 +6,8 @@ import Foundation
 /// the file declares, since declarations are often wrong and a stray bad
 /// byte should cost one character, not the book. Otherwise FB2 and XHTML
 /// name a single-byte encoding in the XML prolog and HTML in a meta tag, and
-/// a file that names none is guessed. Bad input is replaced as a browser's
+/// a file that names none is guessed: Western, windows-1251 or, since lib.ru
+/// serves it undeclared, KOI8-R. Bad input is replaced as a browser's
 /// TextDecoder replaces it, and the tables are the browsers' own, so a file
 /// reads here as it does in the web app (`Support/Charset.js`) and on the
 /// Kindle (`Support/Charset.cpp`).
@@ -58,6 +59,7 @@ enum Charset {
     ]
 
     private static let cyrillicNames: Set = ["windows-1251", "cp1251", "x-cp1251"]
+    private static let koi8Names: Set = ["koi8-r", "koi8-u"]
     private static let westernNames: Set = ["windows-1252", "cp1252", "iso-8859-1", "latin1", "us-ascii", "ascii"]
 
     /// The encoding a file names in its first bytes, `<?xml encoding="…"?>` or
@@ -90,20 +92,24 @@ enum Charset {
         let windows1251 = { (byte: UInt8) in cp1251[Int(byte) - 0x80] }
         let windows1252 = { (byte: UInt8) in byte < 0xA0 ? cp1252[Int(byte) - 0x80] : UInt32(byte) }
         if cyrillicNames.contains(declared) { return singleByte(bytes, windows1251) }
-        if declared == "koi8-r" { return singleByte(bytes) { koi8r[Int($0) - 0x80] } }
+        let koi8 = { (byte: UInt8) in koi8r[Int(byte) - 0x80] }
+        if koi8Names.contains(declared) { return singleByte(bytes, koi8) }
         if westernNames.contains(declared) { return singleByte(bytes, windows1252) }
-        return singleByte(bytes, looksCyrillic(bytes) ? windows1251 : windows1252)
+        if !looksCyrillic(bytes) { return singleByte(bytes, windows1252) }
+        return singleByte(bytes, looksKOI8(bytes) ? koi8 : windows1251)
     }
 
     /// Adds a decoded character as the EPUB can carry it: a byte-order mark
     /// doubled at the start dropped, a form feed or vertical tab a line break
     /// (a form-feed line is a page break, so it ends a paragraph), and the
-    /// other controls XML forbids dropped.
+    /// other controls and the non-characters U+FFFE and U+FFFF, which XML
+    /// forbids, dropped.
     private static func add(_ code: UInt32, to text: inout String.UnicodeScalarView) {
         if code == 0xFEFF, text.isEmpty { return }
         if code == 0x0B || code == 0x0C {
             text.append("\n")
-        } else if code > 0x08, code < 0x0E || code > 0x1F, code != 0x7F, let scalar = Unicode.Scalar(code) {
+        } else if code > 0x08, code < 0x0E || code > 0x1F, code != 0x7F, code != 0xFFFE, code != 0xFFFF,
+                  let scalar = Unicode.Scalar(code) {
             text.append(scalar)
         }
     }
@@ -210,10 +216,11 @@ enum Charset {
         return String(text)
     }
 
-    /// UTF-16 without a mark: its zero bytes fall mostly at odd offsets
+    /// UTF-16 without a mark: its zero bytes fall at odd offsets
     /// (little-endian) or even ones, in at least one pair in sixteen of the
-    /// first 1024 bytes, so a stray NUL in a UTF-8 file does not count.
-    /// Whether it is big-endian; nil when it is not UTF-16.
+    /// first 1024 bytes, and hardly ever at the others, so a stray NUL in a
+    /// UTF-8 file does not count, nor a run of them padding one out. Whether
+    /// it is big-endian; nil when it is not UTF-16.
     private static func unmarkedUTF16(_ bytes: [UInt8]) -> Bool? {
         let pairs = min(bytes.count, 1024) / 2
         var even = 0, odd = 0
@@ -221,7 +228,7 @@ enum Charset {
             if i % 2 == 1 { odd += 1 } else { even += 1 }
         }
         let zeros = max(even, odd)
-        if zeros == 0 || zeros * 16 < pairs { return nil }
+        if zeros == 0 || zeros * 16 < pairs || min(even, odd) * 4 >= zeros { return nil }
         return odd <= even
     }
 
@@ -239,5 +246,13 @@ enum Charset {
             }
         }
         return runs > mixed
+    }
+
+    /// Most letters are lower case, and KOI8-R puts а–я at 0xC0–0xDF where
+    /// windows-1251 has А–Я, its own а–я being at 0xE0–0xFF.
+    private static func looksKOI8(_ bytes: [UInt8]) -> Bool {
+        let upper = bytes.count { $0 >= 0xE0 }
+        let lower = bytes.count { $0 >= 0xC0 && $0 < 0xE0 }
+        return lower > upper
     }
 }

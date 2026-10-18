@@ -37,9 +37,9 @@ latin1Names.forEach((name, index) => entities.set(name, name === "shy" ? 0 : 0xa
 
 /**
  * What `&…;` stands for: the character of a known name, or of a number that
- * is a Unicode scalar value other than 0; "" for any other number; the text
- * as written for an unknown name. Only ASCII letters, digits and '#' make a
- * reference, so the apps count it alike.
+ * is a character XML allows; "" for any other number; the text as written
+ * for an unknown name. Only ASCII letters, digits and '#' make a reference,
+ * so the apps count it alike.
  */
 function reference(whole, entity) {
   if (entity[0] !== "#") {
@@ -51,8 +51,13 @@ function reference(whole, entity) {
   const digits = entity.slice(hex ? 2 : 1);
   if (!(hex ? /^[0-9A-Fa-f]+$/ : /^[0-9]+$/).test(digits)) return "";
   const code = parseInt(digits, hex ? 16 : 10);
-  if (code === 0 || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff)) return "";
-  return String.fromCodePoint(code);
+  return isXmlCharacter(code) ? String.fromCodePoint(code) : "";
+}
+
+/** Tab, line breaks and the rest of Unicode but surrogates, U+FFFE and U+FFFF. */
+function isXmlCharacter(code) {
+  return code === 0x09 || code === 0x0a || code === 0x0d || (code >= 0x20 && code <= 0xd7ff)
+    || (code >= 0xe000 && code <= 0xfffd) || (code >= 0x10000 && code <= 0x10ffff);
 }
 
 export function decodeEntities(text) {

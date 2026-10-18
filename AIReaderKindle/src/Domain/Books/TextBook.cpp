@@ -14,6 +14,12 @@ namespace {
 
 /// The longest paragraph, in code points, still read as a chapter's heading.
 constexpr long headingLength = 80;
+/// As long again for a chapter word and its number, which may run on into
+/// the chapter's title.
+constexpr long numberedHeadingLength = 160;
+/// A line longer than this, in code points, is a paragraph on one line, not
+/// wrapped by hand.
+constexpr long wrappedLineLength = 100;
 
 // Words a chapter heading begins with, lowercased: English, French,
 // Spanish, Italian, German, Russian, Ukrainian.
@@ -79,6 +85,23 @@ std::vector<std::string> words(const std::string& text) {
     return words;
 }
 
+/// Ends as a sentence does: in a stop, "!", "?" or "…", perhaps inside
+/// quotation marks.
+bool endsSentence(const std::string& text) {
+    static const char* const quotes[] = {"\"", "'", "\xE2\x80\x99", "\xE2\x80\x9D", "\xC2\xBB"};
+    std::string rest = text;
+    for (bool quoted = true; quoted;) {
+        quoted = false;
+        for (const char* quote : quotes) {
+            if (Text::endsWith(rest, quote)) {
+                rest.resize(rest.size() - std::string(quote).size());
+                quoted = true;
+            }
+        }
+    }
+    return Text::endsWith(rest, ".") || Text::endsWith(rest, "!") || Text::endsWith(rest, "?") || Text::endsWith(rest, "\xE2\x80\xA6");
+}
+
 bool hasLowerCase(const std::string& text) {
     for (const char* c = text.data(); c < text.data() + text.size(); c = g_utf8_next_char(c)) {
         if (g_unichar_islower(g_utf8_get_char(c))) return true;
@@ -105,18 +128,25 @@ std::vector<std::string> lines(const std::string& text) {
 }  // namespace
 
 bool opensChapter(const std::string& text) {
-    if (g_utf8_strlen(text.c_str(), static_cast<gssize>(text.size())) > headingLength) return false;
-    if (isNumber(Text::endsWith(text, ".") ? text.substr(0, text.size() - 1) : text)) return true;
+    long length = g_utf8_strlen(text.c_str(), static_cast<gssize>(text.size()));
+    if (length > numberedHeadingLength) return false;
     std::vector<std::string> parts = words(text);
     if (parts.empty()) return false;
     std::string first = Text::lower(parts[0]);
+    bool isWord = std::find(std::begin(chapterWords), std::end(chapterWords), first) != std::end(chapterWords);
+    if (isWord && parts.size() > 1 && startsWithNumber(parts[1])) return true;
+    if (length > headingLength) return false;
+    if (isNumber(Text::endsWith(text, ".") ? text.substr(0, text.size() - 1) : text)) return true;
     if (parts.size() == 1) {
         return std::any_of(std::begin(chapterWords), std::end(chapterWords), [&](const std::string& word) {
             return first == word || first == word + "." || first == word + ":";
         });
     }
-    bool isWord = std::find(std::begin(chapterWords), std::end(chapterWords), first) != std::end(chapterWords);
-    return isWord && (startsWithNumber(parts[1]) || !hasLowerCase(text));
+    bool lower = hasLowerCase(text);
+    if (isWord) return !lower || !endsSentence(text);
+    size_t end = 0;
+    while (end < parts[0].size() && parts[0][end] != '.' && parts[0].compare(end, 3, "\xE2\x80\x94") != 0) ++end;
+    return !lower && end < parts[0].size() && isNumber(parts[0].substr(0, end));
 }
 
 BookDraft read(const std::string& text, const std::string& fallbackTitle) {
@@ -124,10 +154,21 @@ BookDraft read(const std::string& text, const std::string& fallbackTitle) {
     auto gutenberg = Gutenberg::parts(all);
     if (gutenberg) all = std::vector<std::string>(all.begin() + static_cast<long>(gutenberg->start) + 1, all.begin() + static_cast<long>(gutenberg->end));
 
-    // Wrapped by hand when a blank line stands between two lines of text.
+    // Wrapped by hand when a blank line stands between two lines of text and
+    // fewer than one line in ten is longer than wrapping would leave it:
+    // lib.ru sets a paragraph on one line, and a blank line between some.
+    size_t filled = 0, blank = 0, longLines = 0;
     auto first = std::find_if(all.begin(), all.end(), [](const std::string& line) { return !TextChapters::isBlank(line); });
     auto last = std::find_if(all.rbegin(), all.rend(), [](const std::string& line) { return !TextChapters::isBlank(line); }).base();
-    bool wrapped = first < last && std::any_of(first, last, TextChapters::isBlank);
+    for (auto line = first; line < last; ++line) {
+        if (TextChapters::isBlank(*line)) {
+            ++blank;
+        } else {
+            ++filled;
+            if (static_cast<long>(line->size()) > wrappedLineLength && g_utf8_strlen(line->c_str(), static_cast<gssize>(line->size())) > wrappedLineLength) ++longLines;
+        }
+    }
+    bool wrapped = blank > 0 && longLines * 10 < filled;
 
     std::vector<TextChapters::Paragraph> paragraphs;
     std::vector<std::string> run;

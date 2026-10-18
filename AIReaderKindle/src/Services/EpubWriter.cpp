@@ -73,11 +73,13 @@ std::string identifierOf(const std::string& path) {
 
 std::string destination(const std::string& folder, const std::string& name, const std::string& identifier) {
     // Two files of one name, from different folders or edited since, make
-    // two books; the same file added again finds the one made before.
+    // two books; the same file added again finds the one made before. A book
+    // that names no identifier cannot be told from another, so it never
+    // counts as the same.
     std::vector<std::string> taken;
     while (true) {
         std::string path = Files::join(folder, RemoteBookName::make(name, "", taken));
-        if (!Files::exists(path) || identifierOf(path) == identifier) return path;
+        if (!Files::exists(path) || (!identifier.empty() && identifierOf(path) == identifier)) return path;
         taken.push_back(Files::baseName(path));
     }
 }

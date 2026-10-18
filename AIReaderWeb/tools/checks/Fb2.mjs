@@ -79,8 +79,8 @@ export function checkFb2() {
         + "/ Il dit : « Bonjour » et part. || Notes = A body with no title.",
     outline(poems));
 
-  check("fb2: the text is the first body without a name, the others follow in file order; a part's title joins its first chapter's; paragraphs of no-break spaces dropped",
-    outline(fb2Book(volumes, "volumes")) === "ТОМ ПЕРВЫЙ — ЧАСТЬ ПЕРВАЯ — I = #Лев Толстой / #ТОМ ПЕРВЫЙ / #ЧАСТЬ ПЕРВАЯ / #I / — Eh bien, mon prince. "
+  check("fb2: the text is the first body without a name, the others follow in file order; a part's title joins its first chapter's, the volume's above it left out; paragraphs of no-break spaces dropped",
+    outline(fb2Book(volumes, "volumes")) === "ЧАСТЬ ПЕРВАЯ — I = #Лев Толстой / #ТОМ ПЕРВЫЙ / #ЧАСТЬ ПЕРВАЯ / #I / — Eh bien, mon prince. "
       + "|| II = #II / Да || ЧАСТЬ ВТОРАЯ — I = #ЧАСТЬ ВТОРАЯ / #I / В октябре. || ЭПИЛОГ = #ЭПИЛОГ / Прошло семь лет. "
       + "|| Примечания = #Примечания / Сноска. || Notes = Комментарий. || Notes = A second body without a name.",
     outline(fb2Book(volumes, "volumes")));
@@ -100,6 +100,12 @@ export function checkFb2() {
   check("fb2 without a body has no chapters; an empty file takes the fallback title",
     bodiless.title === "No Body" && bodiless.author === "Nobody" && !bodiless.chapters.length
       && empty.title === "fallback" && empty.author === "" && empty.language === "" && !empty.chapters.length);
+
+  const album = fb2Book(`<FictionBook><body><section><title><p>Page 1</p></title><image l:href="#p1"/></section>
+<section><title><p>Page 2</p></title><image l:href="#p2"/></section><section><title><p>Page 3</p></title><image l:href="#p3"/></section>
+<section><p>Text.</p></section></body></FictionBook>`, "album");
+  check("fb2: a run of sections with nothing but titles is titled by its last two",
+    outline(album) === "Page 2 — Page 3 = #Page 1 / #Page 2 / #Page 3 / Text.", outline(album));
 
   const plain = fb2Book("<FictionBook><body><p>One.</p><p>Two.</p></body></FictionBook>", "plain");
   check("fb2 without sections is one chapter titled by the book", outline(plain) === "plain = One. / Two.", outline(plain));

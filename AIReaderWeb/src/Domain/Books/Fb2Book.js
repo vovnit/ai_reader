@@ -48,6 +48,9 @@ export function fb2Book(text, fallbackTitle) {
   // The lines of the title being read, a body's or a section's.
   let titleLines = null;
   let titled = "";
+  // The title last added to the chapter being read, the only one a
+  // section joining it keeps: a run of title-only sections stays short.
+  let lastTitle = "";
 
   const reading = () => inside("body") && !inside("binary") && !inside("stylesheet");
   const chapter = () => bodies.at(-1).chapters.at(-1);
@@ -81,11 +84,15 @@ export function fb2Book(text, fallbackTitle) {
     if (blocks.has(name)) flush();
     if (name === "body") {
       bodies.push({ named: attributes.name !== undefined, title: "", chapters: [{ title: "", paragraphs: [] }] });
+      lastTitle = "";
     } else if (reading()) {
       if (name === "section") {
         // A section opens a chapter, unless the one before has nothing but
         // headings yet: then "Part One" and "Chapter 1" open one together.
-        if (chapter().paragraphs.some((line) => !line.heading)) bodies.at(-1).chapters.push({ title: "", paragraphs: [] });
+        if (chapter().paragraphs.some((line) => !line.heading)) {
+          bodies.at(-1).chapters.push({ title: "", paragraphs: [] });
+          lastTitle = "";
+        }
       } else if (name === "title") {
         if (!titleLines && (stack.at(-1) === "section" || stack.at(-1) === "body")) {
           titleLines = [];
@@ -112,8 +119,12 @@ export function fb2Book(text, fallbackTitle) {
       // A section joining a part's heading adds its title to the part's:
       // "Part One — Chapter 1". An untitled chapter takes the book's title
       // only at the end, so a section's simply names it.
-      if (line && titled === "body") bodies.at(-1).title = line;
-      else if (line) chapter().title = chapter().title ? `${chapter().title} — ${line}` : line;
+      if (line && titled === "body") {
+        bodies.at(-1).title = line;
+      } else if (line) {
+        chapter().title = lastTitle ? `${lastTitle} — ${line}` : line;
+        lastTitle = line;
+      }
     }
   }
 

@@ -43,6 +43,11 @@ function checkUnicode() {
   const sentence = "Это был тихий вечер в Москве.";
   const nul = read(bytes(sentence, [0], sentence));
   check("charset: a stray NUL does not make UTF-8 into UTF-16, and is dropped", nul === sentence + sentence, JSON.stringify(nul));
+  const padded = read(bytes("Chapter 1\n\nIt was a fine day.\n", new Array(27).fill(0)));
+  check("charset: UTF-8 padded out with NULs is not UTF-16, and the NULs are dropped", padded === "Chapter 1\n\nIt was a fine day.\n", JSON.stringify(padded));
+  const nonchars = [read(bytes("A", [0xef, 0xbf, 0xbe], "B", [0xef, 0xbf, 0xbf], "C")), read(bytes([0xff, 0xfe], utf16("A"), [0xfe, 0xff], utf16("B")))];
+  check("charset: the non-characters U+FFFE and U+FFFF, which XML forbids, are dropped",
+    nonchars[0] === "ABC" && nonchars[1] === "AB", JSON.stringify(nonchars));
 }
 
 function checkSingleByte() {
@@ -68,6 +73,11 @@ function checkSingleByte() {
     JSON.stringify(latinHeavy));
   const western = read(bytes("Tr", [0xe4], "ume und Caf", [0xe9]));
   check("charset: nothing declared, accents inside Latin words are windows-1252", western === "Träume und Café", western);
+  const koi8 = [0xe7, 0xcc, 0xc1, 0xd7, 0xc1, 0x20, 0x31, 0x0d, 0x0a, 0x0d, 0x0a, 0xf0, 0xc5, 0xd4, 0xd2, 0x20, 0xe1, 0xce, 0xc4, 0xd2, 0xc5, 0xc5, 0xd7, 0xc9,
+    0xde, 0x20, 0xd3, 0xcc, 0xd5, 0xd6, 0xc9, 0xcc, 0x2e];
+  const lowerCase = [read(bytes(koi8)), read(bytes('<?xml encoding="koi8-u"?>', [0xe7, 0xcc, 0xc1, 0xd7, 0xc1]))];
+  check("charset: nothing declared, mostly 0xC0-0xDF is KOI8-R, where а-я are; a declared koi8-u reads as koi8-r",
+    lowerCase[0] === "Глава 1\r\n\r\nПетр Андреевич служил." && lowerCase[1] === '<?xml encoding="koi8-u"?>Глава', JSON.stringify(lowerCase));
   const controls = read(bytes("a", [0x0c], "b", [0x0b], "c", [0x01], "d", [0x1a], "e", [0x7f], "f\tg\r\n", [0x1f]));
   check("charset: a form feed or vertical tab ends a line; the other controls XML forbids are dropped",
     controls === "a\nb\ncdef\tg\r\n", JSON.stringify(controls));
@@ -88,7 +98,7 @@ function checkAgainstTextDecoder() {
   check("charset: the windows-1251 and koi8-r tables are TextDecoder's",
     ["windows-1251", "koi8-r"].every((name) => decodeBook(high, name) === new TextDecoder(name).decode(high)));
   // What the EPUB cannot carry goes, then any byte-order mark left at the start.
-  const clean = (text) => text.replace(/[\v\f]/g, "\n").replace(/[\0-\x08\x0e-\x1f\x7f]/g, "").replace(/^\uFEFF+/, "");
+  const clean = (text) => text.replace(/[\v\f]/g, "\n").replace(/[\0-\x08\x0e-\x1f\x7f\uFFFE\uFFFF]/g, "").replace(/^\uFEFF+/, "");
   const marks = { "utf-8": [0xef, 0xbb, 0xbf], "utf-16le": [0xff, 0xfe], "utf-16be": [0xfe, 0xff] };
   const pool = [0x00, 0x0c, 0x41, 0x80, 0x8f, 0x90, 0x9f, 0xa0, 0xbb, 0xbf, 0xc2, 0xd8, 0xdb, 0xdc, 0xdf, 0xe0, 0xed, 0xef, 0xf0, 0xf4, 0xf5, 0xfe, 0xff];
   let seed = 1;
@@ -114,6 +124,9 @@ function checkScanner() {
     + "&unknown;&abcdefghij;&#x1F600;&shy;&nbsp;");
   check("scanner: references are '&', 1-9 letters, digits or '#', ';'; a number not a scalar value is dropped",
     references === "&<ABCA&#-1;&#+65;&# 65;&#65B&unknown;&abcdefghij;😀\u00A0", JSON.stringify(references));
+  const forbidden = decodeEntities("a&#1;&#x8;&#11;&#12;&#x0E;&#31;&#xFFFE;&#xFFFF;b&#9;&#10;&#13;&#x20;&#xD7FF;&#xE000;&#xFFFD;&#x10000;&#x7F;c");
+  check("scanner: a reference to a character XML forbids is dropped",
+    forbidden === "ab\t\n\r \uD7FF\uE000\uFFFD\u{10000}\x7Fc", JSON.stringify(forbidden));
 }
 
 export function checkCharset() {

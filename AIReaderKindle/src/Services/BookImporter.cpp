@@ -33,7 +33,7 @@ const std::pair<const char*, const char*> endings[] = {
 struct Format {
     /// fb2, fb2.zip, txt or html; empty for a name this does not know.
     std::string kind;
-    /// The name without its ending.
+    /// The name without its ending, or "Book" for a name that is all ending.
     std::string title;
 };
 
@@ -47,7 +47,9 @@ bool endsWith(const std::string& name, const char* ending) {
 Format format(const std::string& path) {
     std::string name = Files::baseName(path);
     for (const auto& [ending, kind] : endings) {
-        if (endsWith(name, ending)) return {kind, name.substr(0, name.size() - std::strlen(ending))};
+        if (!endsWith(name, ending)) continue;
+        std::string title = name.substr(0, name.size() - std::strlen(ending));
+        return {kind, title.empty() ? "Book" : title};
     }
     return {};
 }

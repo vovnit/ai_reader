@@ -1,8 +1,8 @@
 import Foundation
 
 /// Reads a plain-text book, already decoded. Text wrapped by hand, with
-/// blank lines between paragraphs, is joined back into paragraphs; text
-/// without blank lines has one paragraph per line. A short paragraph that
+/// blank lines between paragraphs and short lines, is joined back into
+/// paragraphs; otherwise each line is a paragraph. A short paragraph that
 /// is a chapter's number, or names a chapter the way a heading does, opens
 /// a chapter. The same as the Kindle app's `TextBook` and the web app's
 /// `TextBook.js`.
@@ -13,11 +13,16 @@ enum TextBook {
         let gutenberg = Gutenberg.parts(lines)
         if let gutenberg { lines = Array(lines[(gutenberg.start + 1)..<gutenberg.end]) }
 
-        // Wrapped by hand when a blank line stands between two lines of text.
+        // Wrapped by hand when a blank line stands between two lines of text
+        // and fewer than one line in ten is longer than wrapping would leave
+        // it: lib.ru sets a paragraph on one line, and a blank line between
+        // some.
         var wrapped = false
         if let first = lines.firstIndex(where: { !TextChapters.isBlank($0) }),
            let last = lines.lastIndex(where: { !TextChapters.isBlank($0) }) {
-            wrapped = lines[first...last].contains(where: TextChapters.isBlank)
+            let filled = lines[first...last].filter { !TextChapters.isBlank($0) }
+            let long = filled.filter { $0.utf8.count > wrappedLineLength && $0.unicodeScalars.count > wrappedLineLength }.count
+            wrapped = filled.count < last + 1 - first && long * 10 < filled.count
         }
 
         var paragraphs: [TextChapters.Paragraph] = []
@@ -44,28 +49,43 @@ enum TextBook {
         return BookDraft(title: title, author: author, language: nil, chapters: TextChapters.chapters(paragraphs, title: title))
     }
 
-    /// "XIV", "12.", "CHAPTER I.", "Глава 3", "Prologue", "BOOK ONE: 1805": a
-    /// number alone, or a chapter word alone, before a number, or in a line
-    /// without a lower-case letter. "Part of me wanted to stay." is a
-    /// sentence. Kept simple, since a heading one app read differently would
-    /// move every chapter after it. Compared scalar by scalar, as the other
-    /// apps compare.
+    /// "XIV", "12.", "CHAPTER I.", "Глава 3", "Prologue", "Глава первая",
+    /// "I. A SCANDAL IN BOHEMIA": a number alone; a chapter word alone,
+    /// before a number, in a line without a lower-case letter, or in one that
+    /// does not end as a sentence does; or a number with a stop or a dash
+    /// before a line without a lower-case letter. "Part of me wanted to
+    /// stay." is a sentence. Kept simple, since a heading one app read
+    /// differently would move every chapter after it. Compared scalar by
+    /// scalar, as the other apps compare.
     static func opensChapter(_ text: String) -> Bool {
         let scalars = Array(text.unicodeScalars)
-        guard scalars.count <= headingLength else { return false }
-        if isNumber(scalars.last == "." ? scalars.dropLast() : scalars[...]) { return true }
+        guard scalars.count <= numberedHeadingLength else { return false }
         // A no-break space, which French sets before ":", parts words too.
         let words = scalars.split(whereSeparator: { $0 == " " || $0 == "\u{A0}" })
         guard let firstWord = words.first else { return false }
         let first = Array(String(String.UnicodeScalarView(firstWord)).lowercased().unicodeScalars)
+        let isWord = chapterWords.contains { Array($0.unicodeScalars) == first }
+        if isWord, words.count > 1, startsWithNumber(words[1]) { return true }
+        guard scalars.count <= headingLength else { return false }
+        if isNumber(scalars.last == "." ? scalars.dropLast() : scalars[...]) { return true }
         if words.count == 1 {
             return chapterWords.contains { word in
                 let word = Array(word.unicodeScalars)
                 return first == word || first == word + ["."] || first == word + [":"]
             }
         }
-        let isWord = chapterWords.contains { Array($0.unicodeScalars) == first }
-        return isWord && (startsWithNumber(words[1]) || !scalars.contains { $0.properties.generalCategory == .lowercaseLetter })
+        let lower = scalars.contains { $0.properties.generalCategory == .lowercaseLetter }
+        if isWord { return !lower || !endsSentence(scalars) }
+        let number = firstWord.prefix { $0 != "." && $0 != "\u{2014}" }
+        return !lower && number.count < firstWord.count && isNumber(number)
+    }
+
+    /// Ends as a sentence does: in a stop, "!", "?" or "…", perhaps inside
+    /// quotation marks.
+    private static func endsSentence(_ scalars: [Unicode.Scalar]) -> Bool {
+        let quotes: [Unicode.Scalar] = ["\"", "'", "\u{2019}", "\u{201D}", "\u{BB}"]
+        guard let last = scalars.reversed().first(where: { !quotes.contains($0) }) else { return false }
+        return [".", "!", "?", "\u{2026}"].contains(last)
     }
 
     /// A chapter's number: up to three digits, or an upper-case roman numeral.
@@ -105,6 +125,12 @@ enum TextBook {
 
     /// The longest paragraph, in code points, still read as a chapter's heading.
     private static let headingLength = 80
+    /// As long again for a chapter word and its number, which may run on into
+    /// the chapter's title.
+    private static let numberedHeadingLength = 160
+    /// A line longer than this, in code points, is a paragraph on one line,
+    /// not wrapped by hand.
+    private static let wrappedLineLength = 100
 
     // Words a chapter heading begins with, lowercased: English, French,
     // Spanish, Italian, German, Russian, Ukrainian.

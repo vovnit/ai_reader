@@ -78,11 +78,12 @@ const typeFormats = { "text/plain": "txt", "text/html": "html" };
 export async function bookEpub(file) {
   const named = bookFormat(file.name);
   const format = named.format || typeFormats[file.type] || "";
-  const title = named.title;
   const isPdf = format === "pdf" || file.type === "application/pdf";
   if (!isPdf && (format === "epub" || format === "")) return file;
   const bytes = new Uint8Array(await file.arrayBuffer());
-  if (isPdf) return pdfToEpub(bytes, title);
+  if (isPdf) return pdfToEpub(bytes, named.title);
+  // A name that is all ending, ".txt", leaves no title for a book that names none.
+  const title = named.title || "Book";
   if (format === "fb2") return draftEpub(fb2Book(declaredText(bytes), title), "fb2", bytes);
   if (format === "fb2.zip") {
     const fb2 = await zippedFb2(bytes);

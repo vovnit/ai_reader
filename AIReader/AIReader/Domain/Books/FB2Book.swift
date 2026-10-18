@@ -86,6 +86,9 @@ enum FB2Book {
         // The lines of the title being read, a body's or a section's.
         private var titleLines: [String]?
         private var titled = ""
+        // The title last added to the chapter being read, the only one a
+        // section joining it keeps: a run of title-only sections stays short.
+        private var lastTitle = ""
 
         private func inside(_ name: String) -> Bool { counts[name, default: 0] > 0 }
         private var reading: Bool { inside("body") && !inside("binary") && !inside("stylesheet") }
@@ -126,6 +129,7 @@ enum FB2Book {
             if blocks.contains(name) { flush() }
             if name == "body" {
                 bodies.append(Body(named: attributes["name"] != nil))
+                lastTitle = ""
             } else if reading {
                 if name == "section" {
                     // A section opens a chapter, unless the one before has nothing
@@ -133,6 +137,7 @@ enum FB2Book {
                     // together.
                     if bodies[bodies.count - 1].chapters.last?.paragraphs.contains(where: { !$0.heading }) == true {
                         bodies[bodies.count - 1].chapters.append(ChapterDraft(title: ""))
+                        lastTitle = ""
                     }
                 } else if name == "title" {
                     if titleLines == nil, let parent = stack.last, parent == "section" || parent == "body" {
@@ -163,7 +168,9 @@ enum FB2Book {
                 if !line.isEmpty, titled == "body" {
                     bodies[bodies.count - 1].title = line
                 } else if !line.isEmpty {
-                    changeChapter { $0.title = $0.title.isEmpty ? line : $0.title + " — " + line }
+                    let title = lastTitle.isEmpty ? line : lastTitle + " — " + line
+                    changeChapter { $0.title = title }
+                    lastTitle = line
                 }
             }
         }

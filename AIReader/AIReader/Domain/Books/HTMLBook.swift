@@ -1,8 +1,9 @@
 import Foundation
 
 /// Reads an HTML book, already decoded: each block element's text is a
-/// paragraph, a heading's a heading, and `<h1>` and `<h2>` open chapters.
-/// Tolerant of what real files carry: unclosed paragraphs, stray end tags,
+/// paragraph, a heading's a heading, and `<h1>`, `<h2>` and `<h3>` open
+/// chapters (Gutenberg often sets parts in `<h2>` and their chapters in
+/// `<h3>`). Tolerant of what real files carry: unclosed paragraphs, stray end tags,
 /// upper-case names, no `<html>` or `<body>`. The same as the Kindle app's
 /// `HtmlBook` and the web app's `HtmlBook.js`.
 enum HTMLBook {
@@ -27,7 +28,7 @@ enum HTMLBook {
             gathered = ""
             if TextChapters.isBlank(paragraph) { return }
             if heading == "h1", firstH1.isEmpty { firstH1 = paragraph }
-            paragraphs.append(.init(text: paragraph, heading: !heading.isEmpty, opens: heading == "h1" || heading == "h2"))
+            paragraphs.append(.init(text: paragraph, heading: !heading.isEmpty, opens: heading == "h1" || heading == "h2" || heading == "h3"))
         }
 
         MarkupScanner.scan(withoutRawText(text), .init(

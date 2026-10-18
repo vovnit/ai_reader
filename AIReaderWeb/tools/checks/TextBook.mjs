@@ -43,13 +43,21 @@ const parts = [
 const opening = [
   "XIV", "12.", "MMMCMXCIX", "CHAPTER I.", "Chapter 12: The Return", "Book IV—The Fall", "Part 3-a", "Глава 1", "ГЛАВА ПЕРВАЯ",
   "BOOK ONE: 1805", "Prologue", "Пролог", "Epilogue.", "Chapter:", "Chapter\u00a09", "\u00a0Chapter 9",
+  "Chapter One", "Глава первая", "Chapitre premier", "Chapter 1805", "Chapter iv", "Book the First", "Book the First--Recalled to Life",
+  "Часть вторая (Окончание журнала Печорина)", `Chapter One ${"x".repeat(68)}`, `Capítulo VI. ${"x".repeat(147)}`,
+  "I. A SCANDAL IN BOHEMIA", "XII—THE COPPER BEECHES",
 ];
 const notOpening = [
-  "1234", "DID", "CIVIL", "IIII", "iv", "1.5", "Part of me wanted to stay.", "Книга лежала на столе.", "Chapter One", "Глава первая",
-  "Chapter: one", "Chapter;", "Chapter 1805", "Chapter iv", "Chapters are not headings.", "Book the First",
+  "1234", "DID", "CIVIL", "IIII", "iv", "1.5", "Part of me wanted to stay.", "Книга лежала на столе.", "Part of me wanted to stay!",
+  "Part of me wanted to stay…", "Part of me said, “Stay.”", "Chapter: one", "Chapter;", "Chapters are not headings.",
+  `Chapter One ${"x".repeat(69)}`, `Capítulo VI. ${"x".repeat(148)}`, "I. A scandal in Bohemia", "I A SCANDAL", "IV-THE END", "1234. THE END",
 ];
 
 const french = ["CHAPITRE PREMIER", "", "Il dit\u00a0: «\u00a0Bonjour\u00a0»", "", "Première partie", "", "\u00a0\u00a0", "", "ÉPILOGUE", "", "\u00a0Fin\u00a0"].join("\n");
+
+// lib.ru sets each paragraph on one line, with a blank line between some:
+// one line in ten longer than 100 code points means nothing was wrapped.
+const lineEach = (long, more) => ["ГЛАВА I.", "", long, "Two.", "Three.", "", "Four.", "Five.", "Six.", "Seven.", "Eight.", "Nine.", ...more].join("\n");
 
 const lengths = [
   "Opening.", `ГЛАВА ${"Ж".repeat(74)}`, "Text.", `ГЛАВА ${"Ж".repeat(75)}`, "e\u0301pilogue", "\u212Aapitel 5",
@@ -75,7 +83,7 @@ export function checkTextBook() {
 
   check("text: Russian and Ukrainian headings, a part's joined to its first chapter's, CR line ends",
     outline(textBook(russian, "Ru")) === "Ru = Предисловие. || ЧАСТЬ ПЕРВАЯ — I = #ЧАСТЬ ПЕРВАЯ / #I / Мой дядя. "
-      + "|| II = #II / Книга лежала на столе. / Глава первая || ЧАСТЬ ВТОРАЯ — I = #ЧАСТЬ ВТОРАЯ / #I / Он уехал. "
+      + "|| II = #II / Книга лежала на столе. || ЧАСТЬ ВТОРАЯ — I = #Глава первая / #ЧАСТЬ ВТОРАЯ / #I / Он уехал. "
       + "|| Пролог = #Пролог / Пришла весна. || Розділ 3 = #Розділ 3 / Кінець.",
     outline(textBook(russian, "Ru")));
 
@@ -89,7 +97,14 @@ export function checkTextBook() {
       + "/ e\u0301pilogue || \u212Aapitel 5 = #\u212Aapitel 5",
     outline(textBook(lengths, "Len")));
 
-  check("text: what opens a chapter and what does not; a no-break space parts words",
+  const long = "Ж".repeat(101);
+  check("text: with one line in ten longer than 100 code points, each line is a paragraph; with fewer, lines are joined",
+    outline(textBook(lineEach(long, []), "W")) === `ГЛАВА I. = #ГЛАВА I. / ${long} / Two. / Three. / Four. / Five. / Six. / Seven. / Eight. / Nine.`
+      && outline(textBook(lineEach(long, ["Ten."]), "W")) === `ГЛАВА I. = #ГЛАВА I. / ${long} Two. Three. / Four. Five. Six. Seven. Eight. Nine. Ten.`
+      && outline(textBook(lineEach(long.slice(1), []), "W")) === `ГЛАВА I. = #ГЛАВА I. / ${long.slice(1)} Two. Three. / Four. Five. Six. Seven. Eight. Nine.`,
+    `${outline(textBook(lineEach(long, []), "W"))} | ${outline(textBook(lineEach(long.slice(1), []), "W"))}`);
+
+  check("text: what opens a chapter and what does not; a no-break space parts words; a chapter word and number may run to 160 code points",
     opening.every(opensChapter) && !notOpening.some(opensChapter),
     [...opening.filter((text) => !opensChapter(text)), ...notOpening.filter(opensChapter)].join(" | "));
 

@@ -87,7 +87,7 @@ BookDraft read(const std::string& text, const std::string& fallbackTitle) {
         gathered.clear();
         if (TextChapters::isBlank(paragraph)) return;
         if (heading == "h1" && firstH1.empty()) firstH1 = paragraph;
-        paragraphs.push_back({paragraph, !heading.empty(), heading == "h1" || heading == "h2"});
+        paragraphs.push_back({paragraph, !heading.empty(), heading == "h1" || heading == "h2" || heading == "h3"});
     };
     auto attribute = [](const XmlScanner::Attributes& attributes, const std::string& name) {
         auto found = attributes.find(name);

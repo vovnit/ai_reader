@@ -1,6 +1,7 @@
 // Reads an HTML book, already decoded, into `{ title, author, language,
 // chapters }`: each block element's text is a paragraph, a heading's a
-// heading, and `<h1>` and `<h2>` open chapters. Tolerant of what real files
+// heading, and `<h1>`, `<h2>` and `<h3>` open chapters (Gutenberg often sets
+// parts in `<h2>` and their chapters in `<h3>`). Tolerant of what real files
 // carry: unclosed paragraphs, stray end tags, upper-case names, no `<html>`
 // or `<body>`. The same as `HtmlBook.cpp` (Kindle) and `HTMLBook.swift`
 // (iOS).
@@ -70,7 +71,7 @@ export function htmlBook(text, fallbackTitle) {
     gathered = "";
     if (isBlank(paragraph)) return;
     if (heading === "h1" && !firstH1) firstH1 = paragraph;
-    paragraphs.push({ text: paragraph, heading: heading !== "", opens: heading === "h1" || heading === "h2" });
+    paragraphs.push({ text: paragraph, heading: heading !== "", opens: heading === "h1" || heading === "h2" || heading === "h3" });
   };
 
   scan(withoutRawText(text), {

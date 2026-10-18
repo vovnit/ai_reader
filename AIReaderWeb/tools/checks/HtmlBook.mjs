@@ -10,7 +10,7 @@ const nested = `<!DOCTYPE html>
 <title>  Le   Petit
   Prince </title></head>
 <body><div>Loose text
-  <div><h1>Le Petit <em>Prince</em></h1><h3>Une histoire</h3>
+  <div><h1>Le Petit <em>Prince</em></h1><h4>Une histoire</h4>
     <div>Lorsque j’avais <i>six</i> ans
       <div>Nested <span>inner</span> div.</div>
       After it.</div>
@@ -38,7 +38,7 @@ const blocks = `<body><h2>Contents</h2><table><caption>Chapters</caption>
 const breaks = `<html><head><title>Breaks</title></head><body>
 <h2><a id="c1"></a>CHAPTER I.<br>
 Down the Rabbit-Hole</h2><p>Line one<br/>Line two<BR>&nbsp;<br />Line three</p>
-<h3>A minor<br>heading</h3><p>Text<br></br>after an end br.</p></body></html>`;
+<h4>A minor<br>heading</h4><p>Text<br></br>after an end br.</p></body></html>`;
 
 const broken = `<?xml version="1.0"?><!DOCTYPE html>
 <P>An unclosed paragraph
@@ -63,6 +63,10 @@ const untitled = `<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="RU"><head
 <body><h1>Мастер<br/>и Маргарита</h1><p>&nbsp;</p><html:p>Однажды весною.</html:p><h2>Глава 1</h2><p>Никогда.</p></body></html>`;
 
 // A head never closed and no body: an element a head cannot hold begins the text.
+// Parts in h2 and their chapters in h3, as Gutenberg sets Anna Karenina.
+const parts = `<h1>ANNA KARENINA</h1><h2>PART ONE</h2><h3>Chapter 1</h3><p>Happy families.</p><h3>Chapter 2</h3><p>Stepan.</p>
+<h4>A note</h4><p>Not a chapter.</p><h2>PART TWO</h2><h3>Chapter 1</h3><p>The princess.</p>`;
+
 const headless = `<html><head><title>Kafka</title><meta name="author" content="Franz Kafka"><link rel="stylesheet" href="a.css"><base href="/">
 <noscript>No script.</noscript>Text in the head is not the book's.
 <span>Erster Teil</span> begins the text, as in a browser.<h1>ERSTER TEIL</h1><h2>Kapitel 1</h2><p>Als Gregor Samsa erwachte.</p>`;
@@ -113,9 +117,16 @@ export function checkHtmlBook() {
       && outline(kafka) === "Kafka = Erster Teil begins the text, as in a browser. || ERSTER TEIL — Kapitel 1 = #ERSTER TEIL / #Kapitel 1 / Als Gregor Samsa erwachte.",
     `${kafka.title} / ${kafka.author} / ${outline(kafka)}`);
 
-  const many = htmlBook(`<p>${Array.from({ length: 130 }, (_, i) => `Paragraph ${i + 1}.`).join("<p>")}<h3>Minor</h3>`, "many");
+  const anna = htmlBook(parts, "parts");
+  check("html: h3 opens a chapter too, as Gutenberg sets chapters in h3 under parts in h2; h4 does not",
+    anna.title === "ANNA KARENINA"
+      && outline(anna) === "PART ONE — Chapter 1 = #ANNA KARENINA / #PART ONE / #Chapter 1 / Happy families. || Chapter 2 = #Chapter 2 / Stepan. "
+        + "/ #A note / Not a chapter. || PART TWO — Chapter 1 = #PART TWO / #Chapter 1 / The princess.",
+    `${anna.title} / ${outline(anna)}`);
+
+  const many = htmlBook(`<p>${Array.from({ length: 130 }, (_, i) => `Paragraph ${i + 1}.`).join("<p>")}<h4>Minor</h4>`, "many");
   const empty = htmlBook("", "empty");
-  check("html: without h1 or h2, every 100 paragraphs make a part; an empty file has no chapters",
+  check("html: without h1, h2 or h3, every 100 paragraphs make a part; an empty file has no chapters",
     many.title === "many" && many.chapters.map((c) => `${c.title}:${c.paragraphs.length}`).join(" ") === "Part 1:100 Part 2:31"
       && empty.title === "empty" && empty.author === "" && empty.language === "" && !empty.chapters.length,
     many.chapters.map((c) => `${c.title}:${c.paragraphs.length}`).join(" "));

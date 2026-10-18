@@ -109,8 +109,8 @@ enum MarkupScanner {
     }
 
     /// What `&entity;` stands for: the character of a known name, or of a
-    /// number that is a Unicode scalar value other than 0; "" for any other
-    /// number; nil for an unknown name, which stays as written.
+    /// number that is a character XML allows; "" for any other number; nil
+    /// for an unknown name, which stays as written.
     private static func replacement(for entity: String) -> String? {
         let scalars = Array(entity.unicodeScalars)
         guard scalars.first == "#" else {
@@ -123,10 +123,16 @@ enum MarkupScanner {
             ("0"..."9").contains(c) || hex && (("a"..."f").contains(c) || ("A"..."F").contains(c))
         }
         guard !digits.isEmpty, digits.allSatisfy(isDigit),
-              let code = UInt32(String(String.UnicodeScalarView(digits)), radix: hex ? 16 : 10), code != 0,
-              let scalar = Unicode.Scalar(code)
+              let code = UInt32(String(String.UnicodeScalarView(digits)), radix: hex ? 16 : 10),
+              isXMLCharacter(code), let scalar = Unicode.Scalar(code)
         else { return "" }
         return String(scalar)
+    }
+
+    /// Tab, line breaks and the rest of Unicode but surrogates, U+FFFE and U+FFFF.
+    private static func isXMLCharacter(_ code: UInt32) -> Bool {
+        code == 0x09 || code == 0x0A || code == 0x0D || (0x20...0xD7FF).contains(code)
+            || (0xE000...0xFFFD).contains(code) || (0x10000...0x10FFFF).contains(code)
     }
 
     // The HTML 4 entities in code-point order from U+00A0, so a name is found

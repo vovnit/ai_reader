@@ -4,7 +4,8 @@
 // the file declares, since declarations are often wrong and a stray bad
 // byte should cost one character, not the book. Otherwise FB2 and XHTML
 // name a single-byte encoding in the XML prolog and HTML in a meta tag, and
-// a file that names none is guessed. Bad input is replaced as the browser's
+// a file that names none is guessed: Western, windows-1251 or, since lib.ru
+// serves it undeclared, KOI8-R. Bad input is replaced as the browser's
 // TextDecoder replaces it, and the tables are the browsers' own, so the
 // Kindle and iOS apps, which carry the same decoders, read a file as a page
 // does. The same as `Support/Charset.cpp` (Kindle) and `Support/Charset.swift`
@@ -57,18 +58,20 @@ const cp1252 = [
 ];
 
 const cyrillicNames = ["windows-1251", "cp1251", "x-cp1251"];
+const koi8Names = ["koi8-r", "koi8-u"];
 const westernNames = ["windows-1252", "cp1252", "iso-8859-1", "latin1", "us-ascii", "ascii"];
 
 /**
  * Adds a decoded character as the EPUB can carry it: a byte-order mark
  * doubled at the start dropped, a form feed or vertical tab a line break (a
  * form-feed line is a page break, so it ends a paragraph), and the other
- * controls XML forbids dropped.
+ * controls and the non-characters U+FFFE and U+FFFF, which XML forbids,
+ * dropped.
  */
 function add(code, codes) {
   if (code === 0xfeff && codes.length === 0) return;
   if (code === 0x0b || code === 0x0c) codes.push(0x0a);
-  else if (code > 0x08 && (code < 0x0e || code > 0x1f) && code !== 0x7f) codes.push(code);
+  else if (code > 0x08 && (code < 0x0e || code > 0x1f) && code !== 0x7f && code !== 0xfffe && code !== 0xffff) codes.push(code);
 }
 
 function text(codes) {
@@ -169,9 +172,10 @@ function singleByte(bytes, high) {
 }
 
 /**
- * UTF-16 without a mark: its zero bytes fall mostly at odd offsets
- * (little-endian) or even ones, in at least one pair in sixteen of the
- * first 1024 bytes, so a stray NUL in a UTF-8 file does not count.
+ * UTF-16 without a mark: its zero bytes fall at odd offsets (little-endian)
+ * or even ones, in at least one pair in sixteen of the first 1024 bytes, and
+ * hardly ever at the others, so a stray NUL in a UTF-8 file does not count,
+ * nor a run of them padding one out.
  */
 function unmarkedUtf16(bytes) {
   const pairs = Math.min(bytes.length, 1024) >> 1;
@@ -181,7 +185,7 @@ function unmarkedUtf16(bytes) {
     if (bytes[i] === 0) i % 2 ? odd++ : even++;
   }
   const zeros = Math.max(even, odd);
-  if (zeros === 0 || zeros * 16 < pairs) return "";
+  if (zeros === 0 || zeros * 16 < pairs || Math.min(even, odd) * 4 >= zeros) return "";
   return odd > even ? "le" : "be";
 }
 
@@ -202,6 +206,20 @@ function looksCyrillic(bytes) {
     else if ((a >= 0xc0 && isLetter(b)) || (b >= 0xc0 && isLetter(a))) mixed++;
   }
   return runs > mixed;
+}
+
+/**
+ * Most letters are lower case, and KOI8-R puts а–я at 0xC0–0xDF where
+ * windows-1251 has А–Я, its own а–я being at 0xE0–0xFF.
+ */
+function looksKoi8(bytes) {
+  let lower = 0;
+  let upper = 0;
+  for (const b of bytes) {
+    if (b >= 0xe0) upper++;
+    else if (b >= 0xc0) lower++;
+  }
+  return lower > upper;
 }
 
 /** The encoding a file names in its first bytes: `<?xml encoding="…"?>` or `<meta charset="…">`, lowercased; "" when none. */
@@ -227,8 +245,10 @@ function codePoints(bytes, declared) {
   if (unicode.valid > unicode.invalid) return unicode.codes;
   const windows1251 = (b) => cp1251[b - 0x80];
   const windows1252 = (b) => (b < 0xa0 ? cp1252[b - 0x80] : b);
+  const koi8 = (b) => koi8r[b - 0x80];
   if (cyrillicNames.includes(declared)) return singleByte(bytes, windows1251);
-  if (declared === "koi8-r") return singleByte(bytes, (b) => koi8r[b - 0x80]);
+  if (koi8Names.includes(declared)) return singleByte(bytes, koi8);
   if (westernNames.includes(declared)) return singleByte(bytes, windows1252);
-  return singleByte(bytes, looksCyrillic(bytes) ? windows1251 : windows1252);
+  if (!looksCyrillic(bytes)) return singleByte(bytes, windows1252);
+  return singleByte(bytes, looksKoi8(bytes) ? koi8 : windows1251);
 }

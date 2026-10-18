@@ -8,7 +8,8 @@
 /// the file declares, since declarations are often wrong and a stray bad
 /// byte should cost one character, not the book. Otherwise FB2 and XHTML
 /// name a single-byte encoding in the XML prolog and HTML in a meta tag, and
-/// a file that names none is guessed. Bad input is replaced as a browser's
+/// a file that names none is guessed: Western, windows-1251 or, since lib.ru
+/// serves it undeclared, KOI8-R. Bad input is replaced as a browser's
 /// TextDecoder replaces it, and the tables are the browsers' own, so a file
 /// reads here as it does in the web app (`Support/Charset.js`) and on iOS
 /// (`Support/Charset.swift`).

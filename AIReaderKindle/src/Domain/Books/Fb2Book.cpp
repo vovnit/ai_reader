@@ -83,6 +83,9 @@ private:
     // The lines of the title being read, a body's or a section's.
     std::optional<std::vector<std::string>> titleLines;
     std::string titled;
+    // The title last added to the chapter being read, the only one a
+    // section joining it keeps: a run of title-only sections stays short.
+    std::string lastTitle;
 
     bool inside(const std::string& name) const {
         auto found = counts.find(name);
@@ -129,6 +132,7 @@ void Reader::start(const std::string& name, const XmlScanner::Attributes& attrib
     if (blocks.count(name)) flush();
     if (name == "body") {
         bodies.push_back({attributes.count("name") > 0, "", std::vector<ChapterDraft>(1)});
+        lastTitle.clear();
     } else if (reading()) {
         if (name == "section") {
             // A section opens a chapter, unless the one before has nothing but
@@ -136,6 +140,7 @@ void Reader::start(const std::string& name, const XmlScanner::Attributes& attrib
             const auto& lines = chapter().paragraphs;
             if (std::any_of(lines.begin(), lines.end(), [](const ChapterDraft::Paragraph& line) { return !line.heading; })) {
                 bodies.back().chapters.push_back({"", {}});
+                lastTitle.clear();
             }
         } else if (name == "title") {
             if (!titleLines && !stack.empty() && (stack.back() == "section" || stack.back() == "body")) {
@@ -163,8 +168,12 @@ void Reader::close(const std::string& name) {
         // A section joining a part's heading adds its title to the part's:
         // "Part One — Chapter 1". An untitled chapter takes the book's title
         // only at the end, so a section's simply names it.
-        if (!line.empty() && titled == "body") bodies.back().title = line;
-        else if (!line.empty()) chapter().title = chapter().title.empty() ? line : chapter().title + " — " + line;
+        if (!line.empty() && titled == "body") {
+            bodies.back().title = line;
+        } else if (!line.empty()) {
+            chapter().title = lastTitle.empty() ? line : lastTitle + " — " + line;
+            lastTitle = line;
+        }
     }
 }
 

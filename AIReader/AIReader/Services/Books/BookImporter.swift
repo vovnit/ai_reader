@@ -72,14 +72,16 @@ enum BookImporter {
     }
 
     /// The format a file's name says it is in, and the name without its
-    /// ending, the title of a book that does not name itself. A name not
-    /// known is read by its type when that is text or HTML, as the picker
-    /// offers them, and is the title whole.
+    /// ending, the title of a book that does not name itself, or "Book" for
+    /// a name that is all ending, as ".txt" is. A name not known is read by
+    /// its type when that is text or HTML, as the picker offers them, and is
+    /// the title whole.
     private static func named(_ url: URL) -> (format: Format, title: String)? {
         let name = url.lastPathComponent
         let lowered = name.lowercased()
         if let match = endings.first(where: { lowered.hasSuffix($0.ending) }) {
-            return (match.format, String(name.dropLast(match.ending.count)))
+            let title = String(name.dropLast(match.ending.count))
+            return (match.format, title.isEmpty ? "Book" : title)
         }
         let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
         if type?.conforms(to: .html) == true { return (.html, name) }
