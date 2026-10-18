@@ -2,10 +2,10 @@ import Foundation
 import PDFKit
 
 /// Makes an EPUB of a PDF, unpacked into its own folder like any imported
-/// book, so it is read, searched and synced the same way: the PDF's text
-/// laid out again as chapters and paragraphs. PDFKit reads the text; the
-/// rules that make it a book are the Kindle and web apps' too. A scanned
-/// PDF has no text to take; ScanTool is for those.
+/// book (`EPUBWriter`), so it is read, searched and synced the same way: the
+/// PDF's text laid out again as chapters and paragraphs. PDFKit reads the
+/// text; the rules that make it a book are the Kindle and web apps' too. A
+/// scanned PDF has no text to take; ScanTool is for those.
 enum PDFImporter {
     enum ImportError: LocalizedError {
         case unreadable
@@ -36,37 +36,12 @@ enum PDFImporter {
             .nonEmpty
         let chapters = PDFLayout.chapters(pages, bookmarks: bookmarks(of: document), title: title)
         guard !chapters.isEmpty else { throw ImportError.noText }
-        let language = TextLanguage.detect(in: chapters.flatMap(\.paragraphs).map(\.text).joined(separator: "\n"))
-        let metadata = EPUBBuilder.Metadata(
+        return try EPUBWriter.write(
             title: title,
             author: author,
-            language: language ?? "und",
-            identifier: identifier(of: data),
-            modified: ISO8601DateFormatter().string(from: Date())
-        )
-
-        let folder = UUID().uuidString
-        let directory = BookStorage.directory(named: folder)
-        do {
-            for file in EPUBBuilder.files(metadata, chapters: chapters) {
-                let destination = directory.appending(path: file.path)
-                try FileManager.default.createDirectory(
-                    at: destination.deletingLastPathComponent(),
-                    withIntermediateDirectories: true
-                )
-                try Data(file.contents.utf8).write(to: destination, options: .atomic)
-            }
-        } catch {
-            try? FileManager.default.removeItem(at: directory)
-            throw error
-        }
-        return EPUBImporter.Result(
-            folder: folder,
-            title: title,
-            author: author,
-            language: language,
-            packagePath: EPUBBuilder.packagePath,
-            coverPath: nil
+            language: EPUBWriter.proseLanguage(chapters),
+            identifier: EPUBWriter.identifier("pdf", of: data),
+            chapters: chapters
         )
     }
 
@@ -132,14 +107,6 @@ enum PDFImporter {
             guard let page = destination?.page else { return nil }
             return PDFBookmark(title: item.label ?? "", page: document.index(for: page))
         }
-    }
-
-    /// The same PDF makes a book with the same identifier, on any device.
-    private static func identifier(of data: Data) -> String {
-        var hash: UInt64 = 0xcbf2_9ce4_8422_2325
-        for byte in data { hash = (hash ^ UInt64(byte)) &* 0x100_0000_01b3 }
-        let hex = String(hash, radix: 16)
-        return "urn:aireader:pdf:" + String(repeating: "0", count: 16 - hex.count) + hex
     }
 }
 

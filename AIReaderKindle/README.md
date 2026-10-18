@@ -19,9 +19,12 @@ The same things as the iOS app, in the same shape.
 partition, one tall row per entry — and copies the `.epub` you choose into
 `/mnt/us/aireader/books`; a `.pdf` is made into an EPUB there instead, its
 text laid out again as chapters and paragraphs (a scanned PDF, with no text,
-is refused). Files copied there (or into the Kindle's own
-`documents` folder) over USB appear after *Refresh*; a PDF copied that way
-is left alone until it is added. Where you stopped is
+is refused). An FB2 (`.fb2`, or zipped: `.fb2.zip`, `.fbz`, `.zip`), a
+plain-text `.txt` or an HTML page (`.html`, `.htm`, `.xhtml`) is made into an
+EPUB too, read into chapters by the same rules as in the other apps, so the
+same file makes the same book on every device. EPUBs copied there (or into the Kindle's own
+`documents` folder) over USB appear after *Refresh*; other files copied that
+way are left alone until they are added. Where you stopped is
 remembered per book. `✕` removes a book and its file.
 
 **Groups.** *Group*, on a book's row, puts it in a group — one of the groups
@@ -267,11 +270,13 @@ The pure logic — prompt building, mock replies, dictionary formatting,
 parameter negotiation, EPUB reading and its table of contents, pagination,
 the database, the sync document and its merge — runs from the command line, no display needed. Give
 it an EPUB to read that too, and a PNG path to draw its first page; given a
-PDF, it makes the EPUB first and shows the start of each chapter:
+PDF, an FB2, a text or an HTML file, it makes the EPUB first and shows the
+start of each chapter:
 
 ```bash
 ./build.sh check book.epub page.png
 ./build.sh check book.pdf page.png
+./build.sh check book.fb2.zip page.png
 ```
 
 With `AIREADER_SYNC_URL` (and `AIREADER_SYNC_USER`, `AIREADER_SYNC_PASSWORD`)

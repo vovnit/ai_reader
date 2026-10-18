@@ -1,6 +1,7 @@
 #include "LibraryView.hpp"
 
 #include "../Common/Navigator.hpp"
+#include "../../Services/BookImporter.hpp"
 #include "../../Services/EpubLoader.hpp"
 #include "../../Services/Paths.hpp"
 #include "../../Support/Files.hpp"
@@ -141,7 +142,9 @@ GtkWidget* heading(Navigator& navigator, LibraryFeature& feature, const BookGrou
 
 void addBook(Navigator& navigator, LibraryFeature& feature) {
     FilePickerView::open(navigator, "Add a book",
-        [](const std::string& path) { return Files::extension(path) == "epub" || Files::extension(path) == "pdf"; },
+        [](const std::string& path) {
+            return Files::extension(path) == "epub" || Files::extension(path) == "pdf" || BookImporter::reads(path);
+        },
         [&navigator, &feature](const std::string& path) {
             std::string error = feature.add(path);
             if (!error.empty()) Widgets::alert(navigator.window(), "Couldn’t add the book", error);
@@ -161,9 +164,9 @@ void open(Env& env, Navigator& navigator) {
         g_list_free(children);
         if (feature->books().empty() && feature->cloudBooks().empty()) {
             gtk_box_pack_start(GTK_BOX(list), Widgets::markup("No books yet.\n\n" + Widgets::small(
-                "Tap Add to pick an <tt>.epub</tt> on this device, "
-                "or copy files into\n<tt>" + Widgets::escape(Paths::books()) + "</tt>\n"
-                "and tap Refresh.")), FALSE, FALSE, Widgets::px(12));
+                "Tap Add to pick a book on this device: <tt>.epub</tt>, <tt>.pdf</tt>, "
+                "<tt>.fb2</tt>, <tt>.txt</tt> or <tt>.html</tt>. Or copy EPUBs into\n<tt>"
+                + Widgets::escape(Paths::books()) + "</tt>\nand tap Refresh.")), FALSE, FALSE, Widgets::px(12));
         }
         auto shelve = [&](const std::vector<Book>& books) {
             for (const auto& book : books) {

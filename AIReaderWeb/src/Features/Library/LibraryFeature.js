@@ -1,14 +1,13 @@
 // The shelf: the books, the groups they are sorted into, the books in the
 // sync folder not fetched yet, and the door into the reader.
 import { bookKey } from "../../Domain/Books/BookKey.js";
+import { bookEpub } from "../../Services/BookImporter.js";
 import { epubCover, epubMetadata } from "../../Services/EpubLoader.js";
 import { deleteRemoteBook, fetchBook } from "../../Services/LibrarySync.js";
-import { pdfToEpub } from "../../Services/PdfImporter.js";
 import { syncConfigured } from "../../Services/Settings.js";
 import { runSync } from "../../Services/Sync.js";
 import { Feature } from "../Common/Feature.js";
 
-const isPdf = (file) => file.type === "application/pdf" || /\.pdf$/i.test(file.name);
 /** A file in the sync folder as the shelf shows it: author and title, without `.epub`. */
 export const remoteTitle = (name) => name.replace(/\.epub$/i, "");
 
@@ -50,7 +49,7 @@ export class LibraryFeature extends Feature {
     return this.books.filter((book) => book.groupId === groupId);
   }
 
-  /** Puts the EPUBs on the shelf, a PDF made into one first; returns the ids of the ones added. */
+  /** Puts the books on the shelf, one in another format made into an EPUB first; returns the ids of the ones added. */
   async add(files) {
     this.isAdding = true;
     this.message = "";
@@ -60,9 +59,7 @@ export class LibraryFeature extends Feature {
     const keys = new Set(this.books.map((book) => bookKey(book.title, book.author)));
     for (const picked of files) {
       try {
-        const file = isPdf(picked)
-          ? await pdfToEpub(new Uint8Array(await picked.arrayBuffer()), picked.name.replace(/\.pdf$/i, ""))
-          : picked;
+        const file = await bookEpub(picked);
         const metadata = await epubMetadata(file, picked.name);
         const key = bookKey(metadata.title, metadata.author);
         if (keys.has(key)) {

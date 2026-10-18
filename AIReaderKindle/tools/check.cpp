@@ -19,8 +19,11 @@
 #include "../src/Domain/Books/BookDocument.hpp"
 #include "../src/Domain/Books/EpubNavigation.hpp"
 #include "../src/Domain/Books/EpubPackage.hpp"
+#include "../src/Domain/Books/Fb2Book.hpp"
+#include "../src/Domain/Books/HtmlBook.hpp"
 #include "../src/Domain/Books/HtmlText.hpp"
 #include "../src/Domain/Books/LanguageDetector.hpp"
+#include "../src/Domain/Books/TextBook.hpp"
 #include "../src/Domain/Cards/AnkiExport.hpp"
 #include "../src/Domain/Cards/Card.hpp"
 #include "../src/Domain/Cards/MatchRound.hpp"
@@ -40,12 +43,14 @@
 #include "../src/Domain/Books/BookKey.hpp"
 #include "../src/Domain/Books/RemoteBookName.hpp"
 #include "../src/Services/BookCorpus.hpp"
+#include "../src/Services/BookImporter.hpp"
 #include "../src/Services/ChatApi.hpp"
 #include "../src/Services/Database.hpp"
 #include "../src/Services/DictionaryDatabase.hpp"
 #include "../src/Services/DictionaryPacks.hpp"
 #include "../src/Services/Env.hpp"
 #include "../src/Services/EpubLoader.hpp"
+#include "../src/Services/EpubWriter.hpp"
 #include "../src/Services/Glossary.hpp"
 #include "../src/Services/LibraryStore.hpp"
 #include "../src/Services/LibrarySync.hpp"
@@ -60,6 +65,8 @@
 #include "../src/Services/WordExplainer.hpp"
 #include "../src/Support/Files.hpp"
 #include "../src/Support/PdfPageText.hpp"
+#include "../src/Support/ZipArchive.hpp"
+#include "../src/Support/ZipWriter.hpp"
 #include "Support/Json.hpp"
 #include "../src/Support/Text.hpp"
 
@@ -602,6 +609,386 @@ static void checkPdf(const std::string& folder) {
                                         {3, "<< /Type /Page /Contents 4 0 R >>"}, {4, pdfStream("", "q 100 0 0 100 0 0 cm /Im1 Do Q")}},
                                        "<< /Root 1 0 R >>"));
     check("a scan without text is sent to ScanTool", Text::contains(scan, "ScanTool"), scan);
+}
+
+/// A book's chapters on one line: `title = #heading / paragraph || …`.
+static std::string draftOutline(const BookDraft& book) {
+    std::string out;
+    for (size_t i = 0; i < book.chapters.size(); ++i) {
+        if (i) out += " || ";
+        out += book.chapters[i].title + " = ";
+        for (size_t j = 0; j < book.chapters[i].paragraphs.size(); ++j) {
+            const auto& paragraph = book.chapters[i].paragraphs[j];
+            out += (j ? " / " : "") + std::string(paragraph.heading ? "#" : "") + paragraph.text;
+        }
+    }
+    return out;
+}
+
+static std::string repeated(const std::string& text, int count) {
+    std::string out;
+    for (int i = 0; i < count; ++i) out += text;
+    return out;
+}
+
+/// The plain-text reader: the same cases as the web app's
+/// `tools/checks/TextBook.mjs`, since the apps must read a text file alike.
+static void checkTextBook() {
+    std::string gutenberg = Text::join({
+        "The Project Gutenberg eBook of A Small Book", "", "Title: A   Small\tBook", "", "Author: Jane  Doe", "",
+        "*** START OF THE PROJECT GUTENBERG EBOOK A SMALL BOOK ***", "", "[Illustration]", "",
+        "CHAPTER I.", "Down the Hole", "", "Alice was beginning to get very", "tired of sitting.", "",
+        "CHAPTER II.", "Up the Hill", "", "So she was considering.", "",
+        "End of the Project Gutenberg EBook of A Small Book, by Jane Doe", "",
+        "*** END OF THE PROJECT GUTENBERG EBOOK A SMALL BOOK ***", "", "The license.", "",
+    }, "\r\n");
+    std::string numbered = Text::join({
+        "", "  A preface that is wrapped", "\tacross two lines.", "", "I", "", "The first.", "", "II.", "",
+        "XIV", "", "12", "", "Twelve.", "", "iv", "", "1.5", "", "",
+    }, "\n");
+    std::string lines = Text::join({
+        "A first line", "Chapter 1", "It was a dark night.", "CHAPTER TWO: THE STORM", "Chapter", "The wind howled.",
+        "Chapters are not headings.", "Chapter: one", "",
+    }, "\n");
+    std::string russian = Text::join({"Предисловие.", "Глава первая", "Мой дядя.", "ГЛАВА 2", "Главная мысль.", "Часть вторая", "Пролог", "Он уехал.", "Розділ 3", "Кінець."}, "\r");
+    std::string french = Text::join({"CHAPITRE PREMIER", "", "Il dit\u00a0: «\u00a0Bonjour\u00a0»", "", "Première partie", "", "\u00a0\u00a0", "", "ÉPILOGUE", "", "\u00a0Fin\u00a0"}, "\n");
+    std::string lengths = Text::join({
+        "Opening.", "Глава " + repeated("ж", 74), "Text.", "Глава " + repeated("ж", 75), "e\u0301pilogue", "Chapter\u00a09", "\u212Aapitel 5",
+    }, "\n");
+
+    BookDraft book = TextBook::read(gutenberg, "fallback");
+    check("text: a Gutenberg file names the book and keeps only what lies between its markers",
+        book.title == "A Small Book" && book.author == "Jane Doe" && book.language.empty()
+            && draftOutline(book) == "A Small Book = [Illustration] || CHAPTER I. Down the Hole = #CHAPTER I. Down the Hole / "
+                "Alice was beginning to get very tired of sitting. || CHAPTER II. Up the Hill = #CHAPTER II. Up the Hill / So she was considering.",
+        book.title + " / " + book.author + " / " + draftOutline(book));
+
+    check("text: wrapped lines joined; numbers and upper-case roman numerals open chapters, other words do not",
+        draftOutline(TextBook::read(numbered, "Numbers")) == "Numbers = A preface that is wrapped across two lines. || I = #I / The first. "
+            "|| II. = #II. / #XIV / #12 / Twelve. / iv / 1.5",
+        draftOutline(TextBook::read(numbered, "Numbers")));
+
+    check("text: one paragraph per line without blank lines; a chapter word must stand alone or before a space",
+        draftOutline(TextBook::read(lines, "Lines")) == "Lines = A first line || Chapter 1 = #Chapter 1 / It was a dark night. "
+            "|| CHAPTER TWO: THE STORM = #CHAPTER TWO: THE STORM / #Chapter / The wind howled. / Chapters are not headings. / Chapter: one",
+        draftOutline(TextBook::read(lines, "Lines")));
+
+    check("text: Russian and Ukrainian headings, CR line ends",
+        draftOutline(TextBook::read(russian, "Ru")) == "Ru = Предисловие. || Глава первая = #Глава первая / Мой дядя. "
+            "|| ГЛАВА 2 = #ГЛАВА 2 / Главная мысль. || Часть вторая = #Часть вторая / #Пролог / Он уехал. || Розділ 3 = #Розділ 3 / Кінець.",
+        draftOutline(TextBook::read(russian, "Ru")));
+
+    check("text: French headings; no-break spaces kept, a line of them blank",
+        draftOutline(TextBook::read(french, "Fr")) == "CHAPITRE PREMIER = #CHAPITRE PREMIER / Il dit\u00a0: «\u00a0Bonjour\u00a0» / Première partie "
+            "|| ÉPILOGUE = #ÉPILOGUE / \u00a0Fin\u00a0",
+        draftOutline(TextBook::read(french, "Fr")));
+
+    check("text: a heading is at most 80 code points, its word spelled alike and followed by a plain space",
+        draftOutline(TextBook::read(lengths, "Len")) == "Len = Opening. || Глава " + repeated("ж", 74) + " = #Глава " + repeated("ж", 74)
+            + " / Text. / Глава " + repeated("ж", 75) + " / e\u0301pilogue / Chapter\u00a09 || \u212Aapitel 5 = #\u212Aapitel 5",
+        draftOutline(TextBook::read(lengths, "Len")));
+
+    auto plain = [](int count) {
+        std::vector<std::string> paragraphs;
+        for (int i = 1; i <= count; ++i) paragraphs.push_back("Paragraph " + std::to_string(i) + ".");
+        return Text::join(paragraphs, "\n\n");
+    };
+    auto sizes = [](const BookDraft& draft) {
+        std::string out;
+        for (const auto& chapter : draft.chapters) out += (out.empty() ? "" : " ") + chapter.title + ":" + std::to_string(chapter.paragraphs.size());
+        return out;
+    };
+    BookDraft parts = TextBook::read(plain(250), "Parts");
+    BookDraft one = TextBook::read(plain(100), "One");
+    check("text: without headings, every 100 paragraphs make a part; 100 or fewer are one chapter named by the book",
+        sizes(parts) == "Part 1:100 Part 2:100 Part 3:50" && parts.chapters[1].paragraphs[0].text == "Paragraph 101."
+            && one.chapters.size() == 1 && one.chapters[0].title == "One",
+        sizes(parts));
+
+    BookDraft empty = TextBook::read("", "Empty");
+    BookDraft startOnly = TextBook::read("Title: Not Taken\n*** START OF SOMETHING ***\nBody.", "Start");
+    check("text: an empty file has no chapters; a start marker without an end is not Gutenberg's",
+        empty.title == "Empty" && empty.author.empty() && empty.chapters.empty()
+            && startOnly.title == "Start" && draftOutline(startOnly) == "Start = Title: Not Taken / *** START OF SOMETHING *** / Body.",
+        draftOutline(startOnly));
+}
+
+/// The HTML reader: the same cases as the web app's
+/// `tools/checks/HtmlBook.mjs`, since the apps must read an HTML file alike.
+static void checkHtmlBook() {
+    std::string nested = R"(<!DOCTYPE html>
+<html lang=" FR-fr "><head><meta charset="utf-8">
+<meta name="Author" content="  Antoine   de Saint-Exupéry "><meta name="author" content="Second">
+<title>  Le   Petit
+  Prince </title></head>
+<body><div>Loose text
+  <div><h1>Le Petit <em>Prince</em></h1><h3>Une histoire</h3>
+    <div>Lorsque j’avais <i>six</i> ans
+      <div>Nested <span>inner</span> div.</div>
+      After it.</div>
+    <p>Il dit&nbsp;: «&nbsp;Dessine-moi un mouton&nbsp;»</p></div>
+  <section><h2>Chapitre II</h2><article><p>J’ai vécu seul.</p></article></section>
+</div></body></html>)";
+
+    std::string scripts = R"(<html><head><title>Scripts</title>
+<style>a < b { }</style><script>if (a < b) { x = "</div>"; }</script></head><body>
+<p>Before.</p><script src="x.js"/><p>After a closed script.</p>
+<SCRIPT>var s = "<h1>Not a heading</h1>";</SCRIPT><p>After an upper-case one.</p>
+<!-- <script> in a comment --><p>After the comment.</p>
+<noscript><p>No.</p></noscript><template><p>No.</p></template>
+<svg><title>No</title><svg><text>No</text></svg><text>No</text></svg><math><mi>x</mi></math>
+<nav><ul><li>No</li><li><nav>No</nav></li><li>No</li></ul></nav><p>Last.</p></body></html>)";
+
+    std::string blocks = R"(<body><h2>Contents</h2><table><caption>Chapters</caption>
+<tr><th>Number</th><th>Title</th></tr><tr><td>I.</td><td>Down the <a href="#1">Hole</a></td></tr></table>
+<ul><li>One</li><li>Two<ul><li>Inner</li></ul></li></ul><dl><dt>Term</dt><dd>Meaning</dd></dl>
+<pre>
+  Some   preformatted
+     text
+</pre>text<hr>after a rule</body>)";
+
+    std::string breaks = R"(<html><head><title>Breaks</title></head><body>
+<h2><a id="c1"></a>CHAPTER I.<br>
+Down the Rabbit-Hole</h2><p>Line one<br/>Line two<BR>&nbsp;<br />Line three</p>
+<h3>A minor<br>heading</h3><p>Text<br></br>after an end br.</p></body></html>)";
+
+    std::string broken = R"(<?xml version="1.0"?><!DOCTYPE html>
+<P>An unclosed paragraph
+<P>Entities: &amp; &eacute;t&eacute; &#233;&#x2014;&unknown; &lt;tag&gt;
+</div></span></p><H2>Upper Case</H2>
+<p>Stray <b>bold</i> end</em> tags.
+<p>A <![CDATA[<b>cdata</b>]]> and a <!-- comment --> inside.
+<div>Unclosed div
+<p>No end tags at all)";
+
+    std::string gutenberg = R"(<html lang="en"><head><title>A Small Book | Project Gutenberg</title></head><body>
+<header><h2>The Project Gutenberg eBook of A Small Book</h2>
+<p><strong>Title</strong>: A Small Book</p><p><strong>Author</strong>: Jane Doe</p>
+<div>*** START OF THE PROJECT GUTENBERG EBOOK A SMALL BOOK ***</div></header>
+<h1>A Small Book</h1><h2>by Jane Doe</h2>
+<div class="chapter"><h2>CHAPTER I.<br>Down the Hole</h2><p>Alice was tired.</p></div>
+<div class="chapter"><h2>CHAPTER II.</h2><p>Up the hill.</p></div>
+<footer><div>*** END OF THE PROJECT GUTENBERG EBOOK A SMALL BOOK ***</div>
+<h2>THE FULL PROJECT GUTENBERG LICENSE</h2><p>The license.</p></footer></body></html>)";
+
+    std::string untitled = R"(<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="RU"><head><title> </title><meta name="author" content=""/></head>
+<body><h1>Мастер<br/>и Маргарита</h1><p>&nbsp;</p><html:p>Однажды весною.</html:p><h2>Глава 1</h2><p>Никогда.</p></body></html>)";
+
+    BookDraft book = HtmlBook::read(nested, "nested");
+    check("html: the title, the first author, the language lowercased; nested blocks each end a paragraph",
+        book.title == "Le Petit Prince" && book.author == "Antoine de Saint-Exupéry" && book.language == "fr-fr"
+            && draftOutline(book) == "Le Petit Prince = Loose text || Le Petit Prince = #Le Petit Prince / #Une histoire / Lorsque j’avais six ans "
+                "/ Nested inner div. / After it. / Il dit\u00a0: «\u00a0Dessine-moi un mouton\u00a0» || Chapitre II = #Chapitre II / J’ai vécu seul.",
+        book.title + " / " + book.author + " / " + book.language + " / " + draftOutline(book));
+
+    check("html: scripts, styles and other hidden elements say nothing, whatever they hold",
+        draftOutline(HtmlBook::read(scripts, "scripts")) == "Scripts = Before. / After a closed script. / After an upper-case one. / After the comment. / Last.",
+        draftOutline(HtmlBook::read(scripts, "scripts")));
+
+    check("html: table cells, list items, definitions, preformatted text and a rule each end a paragraph",
+        draftOutline(HtmlBook::read(blocks, "blocks")) == "Contents = #Contents / Chapters / Number / Title / I. / Down the Hole / One / Two / Inner "
+            "/ Term / Meaning / Some preformatted text / text / after a rule",
+        draftOutline(HtmlBook::read(blocks, "blocks")));
+
+    check("html: a break ends a paragraph, but in a heading it is a space",
+        draftOutline(HtmlBook::read(breaks, "breaks")) == "CHAPTER I. Down the Rabbit-Hole = #CHAPTER I. Down the Rabbit-Hole / Line one / Line two "
+            "/ Line three / #A minor heading / Text / after an end br.",
+        draftOutline(HtmlBook::read(breaks, "breaks")));
+
+    check("html: unclosed paragraphs, stray end tags, entities, CDATA, comments, upper case, no html or body",
+        draftOutline(HtmlBook::read(broken, "broken")) == "broken = An unclosed paragraph / Entities: & été é—&unknown; <tag> "
+            "|| Upper Case = #Upper Case / Stray bold end tags. / A <b>cdata</b> and a inside. / Unclosed div / No end tags at all",
+        draftOutline(HtmlBook::read(broken, "broken")));
+
+    BookDraft pg = HtmlBook::read(gutenberg, "pg");
+    check("html: a Gutenberg book is named by its header and keeps only what lies between its markers; a run of h1 and h2 opens one chapter",
+        pg.title == "A Small Book" && pg.author == "Jane Doe" && pg.language == "en"
+            && draftOutline(pg) == "A Small Book = #A Small Book / #by Jane Doe / #CHAPTER I. Down the Hole / Alice was tired. "
+                "|| CHAPTER II. = #CHAPTER II. / Up the hill.",
+        pg.title + " / " + pg.author + " / " + draftOutline(pg));
+
+    BookDraft first = HtmlBook::read(untitled, "untitled");
+    check("html: without a title the first h1 names the book; xml:lang; a no-break space alone is no paragraph",
+        first.title == "Мастер и Маргарита" && first.author.empty() && first.language == "ru"
+            && draftOutline(first) == "Мастер и Маргарита = #Мастер и Маргарита / Однажды весною. || Глава 1 = #Глава 1 / Никогда.",
+        first.title + " / " + first.language + " / " + draftOutline(first));
+
+    std::string paragraphs;
+    for (int i = 1; i <= 130; ++i) paragraphs += "<p>Paragraph " + std::to_string(i) + ".";
+    BookDraft many = HtmlBook::read(paragraphs + "<h3>Minor</h3>", "many");
+    BookDraft empty = HtmlBook::read("", "empty");
+    std::string sizes;
+    for (const auto& chapter : many.chapters) sizes += (sizes.empty() ? "" : " ") + chapter.title + ":" + std::to_string(chapter.paragraphs.size());
+    check("html: without h1 or h2, every 100 paragraphs make a part; an empty file has no chapters",
+        many.title == "many" && sizes == "Part 1:100 Part 2:31"
+            && empty.title == "empty" && empty.author.empty() && empty.language.empty() && empty.chapters.empty(),
+        sizes);
+}
+
+/// The FB2 reader: the same cases as the web app's `tools/checks/Fb2.mjs`,
+/// since the apps must read a FictionBook alike.
+static void checkFb2() {
+    std::string novel = R"fb2(<?xml version="1.0" encoding="utf-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0" xmlns:l="http://www.w3.org/1999/xlink">
+<description>
+<title-info><author><first-name>Lev</first-name><middle-name></middle-name><last-name>Tolstoy</last-name><nickname>LNT</nickname></author>
+<author><first-name>Second</first-name></author><book-title>War and
+  Peace</book-title><annotation><p>Not read.</p></annotation><lang>RU</lang></title-info>
+<src-title-info><book-title>Война и мир</book-title><lang>ru</lang></src-title-info>
+<document-info><author><nickname>scanner</nickname></author></document-info>
+</description>
+<body>
+<title><p>Leo Tolstoy</p></title>
+<epigraph><p>An epigraph.</p></epigraph>
+<section><title><p>Part One</p></title>
+<section><title><p>Chapter 1</p></title><p>Well, <emphasis>Prince</emphasis>.<a l:href="#n1" type="note">[1]</a></p><empty-line/><image l:href="#pic"/></section>
+<section><p>An untitled section.</p></section>
+</section>
+</body>
+<body name="notes"><title><p>Notes</p></title><section id="n1"><title><p>1</p></title><p>A note.</p></section></body>
+<binary id="pic" content-type="image/png">iVBORw0KGgo=</binary>
+</FictionBook>)fb2";
+    BookDraft book = Fb2Book::read(novel, "novel");
+    check("fb2 reads title-info: the first author, the title, the language lowercased",
+          book.title == "War and Peace" && book.author == "Lev Tolstoy" && book.language == "ru",
+          book.title + " / " + book.author + " / " + book.language);
+    check("fb2 chapters: the opening before the sections, a part with its first chapter, an untitled section, the notes",
+          draftOutline(book) == "War and Peace = #Leo Tolstoy / An epigraph. || Chapter 1 = #Part One / #Chapter 1 / Well, Prince.[1] "
+                              "|| War and Peace = An untitled section. || Notes = #Notes / #1 / A note.",
+          draftOutline(book));
+
+    std::string verses = R"fb2(<FictionBook><description><title-info><author><nickname>Anon</nickname></author><book-title>Verses</book-title></title-info></description>
+<body><section><title><p>Poems</p></title>
+<poem><title><p>A Song</p></title><stanza><v>First line,</v><v>second line.</v></stanza><text-author>Anon</text-author><date>1805</date></poem>
+<subtitle>* * *</subtitle>
+<table><tr><th>Name</th><th>Age</th></tr><tr><td>Pierre</td><td></td><td>20</td></tr></table>
+)fb2" "<p>Il dit\xC2\xA0: «\xC2\xA0" "Bonjour\xC2\xA0»\t et\r\n  part.</p>" R"fb2(
+</section></body>
+<body><section><p>A body with no title.</p></section></body></FictionBook>)fb2";
+    BookDraft poems = Fb2Book::read(verses, "verses");
+    check("fb2 verse lines, subtitles and table rows, a no-break space kept, an untitled later body as Notes",
+          poems.author == "Anon" && poems.language.empty()
+              && draftOutline(poems) == "Poems = #Poems / #A Song / First line, / second line. / Anon / 1805 / #* * * / Name | Age / Pierre | 20 "
+                                      "/ Il dit\xC2\xA0: «\xC2\xA0" "Bonjour\xC2\xA0» et part. || Notes = A body with no title.",
+          draftOutline(poems));
+
+    std::string broken = R"fb2(<FictionBook><description><title-info><book-title>Broken</book-title></title-info></description>
+<body><section><title>Loose title</title><p>Unclosed<p>Stray</emphasis> end.</p><empty-line><p>After &amp; <![CDATA[<raw>]]></p>
+<section><title><p>Cut</p></title><p>Short)fb2";
+    check("fb2 tolerates unclosed and stray tags and a file cut short",
+          draftOutline(Fb2Book::read(broken, "broken")) == "Loose title = #Loose title / Unclosed / Stray end. / After & <raw> || Cut = #Cut / Short",
+          draftOutline(Fb2Book::read(broken, "broken")));
+
+    BookDraft bodiless = Fb2Book::read(R"fb2(<FictionBook><description><title-info><author><last-name>Nobody</last-name></author>
+<book-title>No Body</book-title></title-info></description></FictionBook>)fb2", "bodiless");
+    BookDraft empty = Fb2Book::read("", "fallback");
+    check("fb2 without a body has no chapters; an empty file takes the fallback title",
+          bodiless.title == "No Body" && bodiless.author == "Nobody" && bodiless.chapters.empty()
+              && empty.title == "fallback" && empty.author.empty() && empty.language.empty() && empty.chapters.empty());
+
+    BookDraft plain = Fb2Book::read("<FictionBook><body><p>One.</p><p>Two.</p></body></FictionBook>", "plain");
+    check("fb2 without sections is one chapter titled by the book", draftOutline(plain) == "plain = One. / Two.", draftOutline(plain));
+}
+
+/// Cyrillic text, as UTF-8, in windows-1251, where А–я are 0xC0–0xFF.
+static std::string windows1251(const std::string& text) {
+    std::string out;
+    for (const char* p = text.c_str(); *p; p = g_utf8_next_char(p)) {
+        gunichar c = g_utf8_get_char(p);
+        out += static_cast<char>(c < 0x80 ? c : c - 0x410 + 0xC0);
+    }
+    return out;
+}
+
+/// The importer as the library runs it: a file of each format made into an
+/// EPUB in the books folder, and read back as a book.
+static void checkBookImporter(const std::string& folder) {
+    std::string picked = Files::join(folder, "picked");
+    std::string books = Files::join(folder, "books");
+    Files::ensureDirectory(picked);
+    Files::ensureDirectory(books);
+    auto convert = [&](const std::string& name, const std::string& contents, std::string* error) {
+        Files::write(Files::join(picked, name), contents);
+        return BookImporter::convert(Files::join(picked, name), books, error);
+    };
+    // The shelf's metadata, the contents, and the first chapter's text.
+    auto summary = [](const std::string& epub) {
+        std::string error;
+        auto metadata = EpubLoader::metadata(epub, &error);
+        auto book = EpubLoader::load(epub, &error, false);
+        if (!metadata || !book) return error;
+        std::vector<std::string> titles;
+        for (const auto& entry : book->contents) titles.push_back(entry.title);
+        return metadata->title + " / " + metadata->author + " / " + metadata->language + " / " + Text::join(titles, " | ")
+            + " / " + Text::replaceAll(book->chapters[0].text, "\n", " ¶ ");
+    };
+
+    check("the importer knows a book by its name's ending, in any case",
+          BookImporter::reads("a/War.FB2.ZIP") && BookImporter::reads("b.fbz") && BookImporter::reads("c.zip") && BookImporter::reads("d.Txt")
+              && BookImporter::reads("e.xhtml") && BookImporter::reads("f.HTM") && !BookImporter::reads("g.epub")
+              && !BookImporter::reads("h.pdf") && !BookImporter::reads("i.docx") && !BookImporter::reads("fb2"));
+    check("a converted book is named by FNV-1a 64 of its file, as in the other apps",
+          EpubWriter::identifier("pdf", "hello") == "urn:aireader:pdf:a430d84680aabd0b"
+              && EpubWriter::identifier("txt", "") == "urn:aireader:txt:cbf29ce484222325",
+          EpubWriter::identifier("pdf", "hello"));
+
+    std::string error;
+    std::string fb2 = convert("tolstoy.fb2", windows1251(R"(<?xml version="1.0" encoding="windows-1251"?>
+<FictionBook><description><title-info><author><first-name>Лев</first-name><last-name>Толстой</last-name></author>
+<book-title>Война и мир</book-title><lang>ru</lang></title-info></description>
+<body><section><title><p>Глава первая</p></title><p>Ну что, князь.</p></section>
+<section><title><p>Глава вторая</p></title><p>Анна Павловна кашляла.</p></section></body></FictionBook>)"), &error);
+    check("an fb2 in windows-1251 becomes an epub named after the file, its language the book's own",
+          Text::endsWith(fb2, "/tolstoy.epub")
+              && summary(fb2) == "Война и мир / Лев Толстой / ru / Глава первая | Глава вторая / Глава первая ¶ Ну что, князь.",
+          error.empty() ? summary(fb2) : error);
+    check("converting again finds the epub made before", convert("tolstoy.fb2", "changed", &error) == fb2 && !fb2.empty());
+
+    // The archive lists the book before the resource fork a Mac adds, which
+    // would come first in alphabetical order.
+    ZipWriter zipped;
+    zipped.add("readme.txt", "Read me.");
+    zipped.add("book.FB2", R"(<FictionBook><description><title-info><author><first-name>Иван</first-name><last-name>Тургенев</last-name></author>
+<book-title>Отцы и дети</book-title></title-info></description><body><section><title><p>I</p></title><p>— Что, Петр, не видать еще?</p></section></body></FictionBook>)");
+    zipped.add("__MACOSX/._book.FB2", std::string("\0\5\26\7", 4));
+    std::string zip = zipped.finished();
+    std::string fbz = convert("Kniga.fb2.zip", zip, &error);
+    auto archive = ZipArchive::open(fbz);
+    std::string package = archive ? archive->contents("OEBPS/content.opf").value_or("") : "";
+    check("a zipped fb2: the first fb2 the archive lists, named by the zip's bytes; no language read is und",
+          Text::endsWith(fbz, "/Kniga.epub") && summary(fbz) == "Отцы и дети / Иван Тургенев / und / I / I ¶ — Что, Петр, не видать еще?"
+              && Text::contains(package, ">" + EpubWriter::identifier("fb2", zip) + "<"),
+          error.empty() ? summary(fbz) : error);
+
+    std::string txt = convert("Le Petit Prince.TXT", "CHAPITRE PREMIER\r\n\r\nLorsque j'avais six ans j'ai vu, une fois, une magnifique image, "
+        "dans un livre sur la forêt vierge qui s'appelait « Histoires vécues ». Ça représentait un serpent boa qui avalait un fauve.\r\n\r\n"
+        "CHAPITRE II\r\n\r\nJ'ai ainsi vécu seul, sans personne avec qui parler véritablement, jusqu'à une panne dans le désert du Sahara, "
+        "il y a six ans.\r\n", &error);
+    check("a text file: titled by its name, its language read off the prose",
+          Text::endsWith(txt, "/Le Petit Prince.epub") && summary(txt) == "Le Petit Prince /  / fr / CHAPITRE PREMIER | CHAPITRE II / "
+              "CHAPITRE PREMIER ¶ Lorsque j'avais six ans j'ai vu, une fois, une magnifique image, dans un livre sur la forêt vierge "
+              "qui s'appelait « Histoires vécues ». Ça représentait un serpent boa qui avalait un fauve.",
+          error.empty() ? summary(txt) : error);
+
+    std::string html = convert("kafka.htm", "<html lang=\"de\"><head><meta charset=\"windows-1252\"><title>Die Verwandlung</title>"
+        "<meta name=\"author\" content=\"Franz Kafka\"></head><body><h1>Erstes Kapitel</h1>"
+        "<p>Als Gregor Samsa eines Morgens aus unruhigen Tr\xE4umen erwachte.</p>"
+        "<h2>Zweites Kapitel</h2><p>Erst in der Abendd\xE4mmerung erwachte Gregor.</p></body></html>", &error);
+    check("an html page in the encoding it names",
+          Text::endsWith(html, "/kafka.epub") && summary(html) == "Die Verwandlung / Franz Kafka / de / Erstes Kapitel | Zweites Kapitel / "
+              "Erstes Kapitel ¶ Als Gregor Samsa eines Morgens aus unruhigen Träumen erwachte.",
+          error.empty() ? summary(html) : error);
+
+    ZipWriter notes;
+    notes.add("notes.txt", "Not a book.");
+    std::string noFb2, notZip, noText;
+    convert("notes.zip", notes.finished(), &noFb2);
+    convert("broken.fbz", "not a zip", &notZip);
+    convert("empty.txt", "\n \t\n", &noText);
+    check("refused, writing nothing: a zip with no fb2, a file that is no zip, a file with no text",
+          noFb2 == "The ZIP holds no FB2 book." && notZip == "The file is not a ZIP archive." && noText == "The file has no text to read."
+              && !Files::exists(Files::join(books, "notes.epub")) && !Files::exists(Files::join(books, "empty.epub")),
+          noFb2 + " | " + notZip + " | " + noText);
 }
 
 static void checkWordContext() {
@@ -1446,13 +1833,14 @@ static void checkBundledDictionary(const std::string& folder) {
     check("x-ray answers from the passages read so far", Text::contains(known.content.value_or(""), "1 отрывках"), known.content.value_or(""));
 }
 
-/// Makes an EPUB of a PDF given on the command line, shows what came of it,
-/// and hands back the EPUB for the checks an EPUB gets.
-static std::string checkPdfFile(const std::string& path, const std::string& folder) {
+/// Makes an EPUB of a PDF, FB2, text or HTML file given on the command line,
+/// shows what came of it, and hands back the EPUB for the checks an EPUB gets.
+static std::string checkConvertedFile(const std::string& path, const std::string& folder) {
     Files::ensureDirectory(folder);
     std::string error;
-    std::string epub = PdfImporter::convert(path, folder, &error);
-    check("pdf becomes an epub", !epub.empty(), error.empty() ? epub : error);
+    std::string epub = Files::extension(path) == "pdf" ? PdfImporter::convert(path, folder, &error)
+                                                       : BookImporter::convert(path, folder, &error);
+    check("the file becomes an epub", !epub.empty(), error.empty() ? epub : error);
     if (epub.empty()) return path;
     auto document = EpubLoader::load(epub, &error, false);
     if (!document) return epub;
@@ -1537,7 +1925,6 @@ static void checkGlossary() {
     BookWord chat = BookWords::collect({"Le chat un.\nLe chat deux.", "Le chat trois.\nLe chat quatre."}, "fr")[1];
     check("a form keeps its first three places", Text::join(chat.examples, " | ") == "Le chat un. | Le chat deux. | Le chat trois.",
           Text::join(chat.examples, " | "));
-    auto repeated = [](const std::string& text, int times) { std::string out; for (int i = 0; i < times; ++i) out += text; return out; };
     BookWord around = BookWords::collect({repeated("mot ", 10) + "chat" + repeated(" mot", 10) + "."}, "fr")[1];
     check("an example is the words around it", around.examples.size() == 1
           && around.examples[0] == "…" + repeated("mot ", 8) + "chat" + repeated(" mot", 8) + "…", around.examples.empty() ? "" : around.examples[0]);
@@ -1599,6 +1986,9 @@ int main(int argc, char** argv) {
     checkEpubPackage();
     checkEpubNavigation();
     checkHtmlText();
+    checkTextBook();
+    checkHtmlBook();
+    checkFb2();
     checkLanguage();
     checkDictionaryLookup();
     checkMock();
@@ -1627,10 +2017,11 @@ int main(int argc, char** argv) {
     checkAddFile(Files::join(scratch, "home"));
     checkGlossaryList(Files::join(scratch, "glossary"));
     checkPdf(Files::join(scratch, "pdf-sample"));
+    checkBookImporter(Files::join(scratch, "import"));
     checkBundledDictionary(Files::join(scratch, "bundled"));
-    // A PDF is checked as the EPUB the library makes of it.
+    // A PDF, FB2, text or HTML file is checked as the EPUB the library makes of it.
     std::string book = argc > 1 ? argv[1] : "";
-    if (Files::extension(book) == "pdf") book = checkPdfFile(book, Files::join(scratch, "pdf"));
+    if (Files::extension(book) == "pdf" || BookImporter::reads(book)) book = checkConvertedFile(book, Files::join(scratch, "converted"));
     if (argc > 1) checkLibraryServer(Files::join(scratch, "library"), book);
     if (argc > 1) checkEpub(book);
     if (argc > 2) renderPage(book, argv[2], argc > 3 ? std::atoi(argv[3]) : 0, argc > 4 ? std::atoi(argv[4]) : 0);

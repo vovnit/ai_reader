@@ -23,7 +23,7 @@ struct LibraryView: View {
                     ContentUnavailableView(
                         "No books yet",
                         systemImage: "books.vertical",
-                        description: Text("Add an EPUB or a PDF to start reading.")
+                        description: Text("Add an EPUB, PDF, FB2, text or HTML file to start reading.")
                     )
                 } else {
                     shelf
@@ -51,7 +51,7 @@ struct LibraryView: View {
             }
             .fileImporter(
                 isPresented: $store.isImporterPresented,
-                allowedContentTypes: [.epub, .pdf],
+                allowedContentTypes: bookTypes,
                 allowsMultipleSelection: true
             ) { store.send(.filesPicked($0)) }
             .alert($store.scope(state: \.alert, action: \.alert))
@@ -169,6 +169,13 @@ struct LibraryView: View {
                 }
             }
         }
+    }
+
+    /// What the picker offers. The system knows no FB2, and need not count
+    /// XHTML as HTML, so their endings name types, as subtitles' do; any ZIP
+    /// may hold an FB2.
+    private var bookTypes: [UTType] {
+        [.epub, .pdf, .zip, .plainText, .html] + ["fb2", "fbz", "xhtml"].compactMap { UTType(filenameExtension: $0) }
     }
 
     /// A book in the sync folder only: fetched when tapped.

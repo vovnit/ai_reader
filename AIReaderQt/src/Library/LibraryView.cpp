@@ -69,8 +69,8 @@ void LibraryView::render() {
     Ui::clear(list_);
     if (feature_.books().empty() && feature_.cloudBooks().empty()) {
         list_->addWidget(Ui::rich("No books yet.<br><br>" + Ui::small(
-            "Choose Add to pick an <tt>.epub</tt>, or copy files into<br><tt>" + Ui::escape(Paths::books())
-            + "</tt><br>and choose Refresh.")));
+            "Choose Add to pick a book: <tt>.epub</tt>, <tt>.pdf</tt>, <tt>.fb2</tt>, <tt>.txt</tt> or <tt>.html</tt>. "
+            "Or copy EPUBs into<br><tt>" + Ui::escape(Paths::books()) + "</tt><br>and choose Refresh.")));
     }
     auto shelve = [this](const std::vector<Book>& books) {
         for (const auto& book : books) {
@@ -206,7 +206,8 @@ void LibraryView::pickGroup(const Book& book, QWidget* anchor) {
 }
 
 void LibraryView::addBook() {
-    QString path = QFileDialog::getOpenFileName(this, "Add a book", Ui::q(Paths::browseRoot()), "Books (*.epub *.pdf)");
+    QString path = QFileDialog::getOpenFileName(this, "Add a book", Ui::q(Paths::browseRoot()),
+                                                "Books (*.epub *.pdf *.fb2 *.fbz *.zip *.txt *.html *.htm *.xhtml)");
     if (path.isEmpty()) return;
     std::string error = feature_.add(Ui::s(path));
     if (!error.empty()) Ui::alert(this, "Couldn’t add the book", error);

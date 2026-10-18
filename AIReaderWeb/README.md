@@ -1,6 +1,6 @@
 # AIReader for the web
 
-[AIReader](../README.md) in a browser: an EPUB reader for reading in a
+[AIReader](../README.md) in a browser: an e-book reader for reading in a
 language you are still learning. Click a word and it is looked up in an
 offline dictionary, and a model turns those entries into a short
 explanation of what the word means *in that sentence*.
@@ -10,16 +10,17 @@ the reader, the dictionaries; only the model, sync and the first photo in a
 language need the network, and without the model a clicked word shows what
 the dictionaries say — and
 it can be installed from the browser's menu as an app of its own, which then
-opens `.epub` files from the system's file manager (Chrome and Edge).
+opens books from the system's file manager (Chrome and Edge).
 
 It does what the [Linux](../AIReaderQt/README.md) and [Kindle](../AIReaderKindle/README.md)
 apps do, and syncs with them and the iOS app through the same WebDAV folder.
 
 ## Screens
 
-- **Library** — the shelf, each group under its name. *Add…* picks `.epub`
-  files, or drop them on the window; a `.pdf` is made into an EPUB as it is
-  added, the same way the other apps make one. *Group…* puts a book in a group (books
+- **Library** — the shelf, each group under its name. *Add…* picks books,
+  or drop them on the window: EPUB, and PDF, FB2 (also zipped, `.fb2.zip`,
+  `.fbz`), plain text and HTML, each made into an EPUB as it is added, the
+  same way the other apps make one. *Group…* puts a book in a group (books
   in one are searched together); *Remove* takes it off this device, or out of
   the sync folder too. Books in the sync folder that are not here are listed
   below the shelf, with *Download*. *Photo* is for a book on paper.
@@ -160,8 +161,8 @@ everything below runs under Node, which is how it is checked.
 | Folder | What lives there |
 | --- | --- |
 | `src/Support` | A tolerant XML scanner, ZIP reading and inflating through the browser's own `DecompressionStream`, text files in any encoding, a read-only SQLite reader, and IndexedDB with promises. |
-| `src/Domain` | Books (package, navigation, chapter text, language, reading place, book key, file names), the AI prompts and the mock, the dictionary shape and formats, search, cards, reading style and word boundaries, and the sync document with the files it is kept in. |
-| `src/Services` | The stores over IndexedDB, settings, the dictionaries, the EPUB loader, the corpus, the chat API and the tool-calling loop, web search, speech, WebDAV and sync. |
+| `src/Domain` | Books (package, navigation, chapter text, language, reading place, book key, file names, and reading PDF, FB2, plain text and HTML into chapters), the AI prompts and the mock, the dictionary shape and formats, search, cards, reading style and word boundaries, and the sync document with the files it is kept in. |
+| `src/Services` | The stores over IndexedDB, settings, the dictionaries, the EPUB loader, the importer that makes other formats into EPUBs, the corpus, the chat API and the tool-calling loop, web search, speech, WebDAV and sync. |
 | `src/Features` | One folder per screen: a feature holding its state and actions, and a view that renders it. |
 | `src/App` | `main.js`, which opens the library and the shelf, and `Env.js`, which makes the stores. |
 | `relay.js` | The Cloudflare Worker's script: relays requests to the hosts in `RELAY_HOSTS`. Not served; Cloudflare runs it. |
@@ -179,14 +180,15 @@ other apps.
 
 ```sh
 ./build.sh check ["../References/Reader/Reader/Le Petit Prince (Saint-Exupéry, Antoine de).epub"]
-./build.sh check book.pdf
+./build.sh check book.pdf    # or .fb2, .fb2.zip, .txt, .html
 ```
 
 runs the Kindle check's cases against this code under Node 22.12 or later —
 the HTML reduction, places, search, the mock, the prompts, cards, the sync
 document and its merge, the stores, the dictionary converters, the bundled
 dictionary through the SQLite reader, removed and restored, an EPUB through
-the loader, a PDF made into an EPUB, given or put together by the check —
+the loader, a PDF, an FB2, a text file and an HTML page made into EPUBs,
+given or put together by the check —
 and fails if the service worker's file list misses a file. With a WebDAV
 server named:
 

@@ -15,8 +15,9 @@ density, so a page breaks the same way on both.
 ## Screens
 
 - **Library** — the shelf, each group under its name. *Add…* copies an
-  `.epub` into `~/.aireader/books`, or makes an EPUB there of a `.pdf`;
-  files copied there appear on *Refresh*.
+  `.epub` into `~/.aireader/books`, or makes an EPUB there of a `.pdf`, an
+  FB2 (`.fb2`, `.fb2.zip`, `.fbz`, `.zip`), a `.txt` or an HTML page
+  (`.html`, `.htm`, `.xhtml`); EPUBs copied there appear on *Refresh*.
   *Group* puts a book in a group (books in one are searched together); `✕`
   removes a book — from this device, or from the sync folder too — or
   dissolves a group. Books in the sync folder that are not here are listed

@@ -32,6 +32,13 @@ to take; [`ScanTool/`](ScanTool/README.md) is for those. The text comes from
 PDFKit here, and from the apps' own reader on the Kindle, on Linux and on the
 web, which take PDFs too; the rules that make it a book are the same in all.
 
+**FB2, text, HTML.** An FB2 — bare, or zipped as `.fb2.zip`, `.fbz` or any
+`.zip` holding one — a `.txt` and an HTML page (`.html`, `.htm`, `.xhtml`)
+are made into an EPUB the same way, in whatever encoding they came in: an
+FB2's sections, a text's chapter headings and a page's `<h1>` and `<h2>`
+become its chapters. Every app reads them by the same rules, so a file
+makes the same book on each.
+
 **Groups.** A group is for books that belong together, a series or a course:
 the shelf lists each group under its name, and a search from any of its
 books, the reader's or the model's, covers them all. The group's menu
@@ -196,8 +203,8 @@ the rest would port to another UI layer unchanged.
 | `App` | The entry point: prepares the database and the root store. |
 | `Database` | `appDatabase()` — connection, configuration, migrations. |
 | `Support` | Inflate and deflate, an XML scanner, a ZIP reader, text files, image loading, a small RGB image for looking at pixels, and the keychain. |
-| `Domain` | The material and pure logic over it: books (the package, the document with its chapters, the reading place, the book key, groups), the dictionary shape and formats, search (a phrase in a text, and the sentence around it), the AI prompts — explanation, chat, X-ray — the tools the model may call and the mock, cards (a flash card from a lookup, a round of the matching game, the Anki file), a photographed page (its lines, the finger in it when Vision sees no hand, and the word it points at) and the sync document with its merge and the files it is kept in. |
-| `Services` | Anything reaching disk, network, database or keychain: the library, groups and cards in SQLite, the lookup cache, the corpus (the open book and its group, searched from any task), the chat API and the tool-calling loop, the dictionary packs, speech, reading a photo's text and fingers with Vision, and sync (the WebDAV client, the store that turns the database into a document and back, and the exchange of the books themselves). |
+| `Domain` | The material and pure logic over it: books (the package, the document with its chapters, the reading place, the book key, groups, and reading PDF, FB2, plain text and HTML into chapters), the dictionary shape and formats, search (a phrase in a text, and the sentence around it), the AI prompts — explanation, chat, X-ray — the tools the model may call and the mock, cards (a flash card from a lookup, a round of the matching game, the Anki file), a photographed page (its lines, the finger in it when Vision sees no hand, and the word it points at) and the sync document with its merge and the files it is kept in. |
+| `Services` | Anything reaching disk, network, database or keychain: the library, groups and cards in SQLite, the importers that make PDF, FB2, text and HTML files into EPUBs, the lookup cache, the corpus (the open book and its group, searched from any task), the chat API and the tool-calling loop, the dictionary packs, speech, reading a photo's text and fingers with Vision, and sync (the WebDAV client, the store that turns the database into a document and back, and the exchange of the books themselves). |
 | `Features` | One folder per screen: a reducer and its views — library and group picker, reader, lookup with the dictionary entry, menu, search, X-ray, chat, words and practice, photo of a page, settings, dictionaries. |
 | `App` | The entry point: prepares the database and the root store. |
 

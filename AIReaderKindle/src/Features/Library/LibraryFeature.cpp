@@ -1,5 +1,6 @@
 #include "LibraryFeature.hpp"
 
+#include "../../Services/BookImporter.hpp"
 #include "../../Services/EpubLoader.hpp"
 #include "../../Services/LibrarySync.hpp"
 #include "../../Services/Paths.hpp"
@@ -106,9 +107,13 @@ void LibraryFeature::download(const std::string& name) {
 
 std::string LibraryFeature::add(const std::string& path) {
     std::string error;
-    // A PDF becomes an EPUB in the books folder, and is shelved as one.
-    if (Files::extension(path) == "pdf") {
-        if (PdfImporter::convert(path, Paths::books(), &error).empty()) return error;
+    // A PDF, an FB2, a text or an HTML file becomes an EPUB in the books
+    // folder, and is shelved as one.
+    bool pdf = Files::extension(path) == "pdf";
+    if (pdf || BookImporter::reads(path)) {
+        std::string epub = pdf ? PdfImporter::convert(path, Paths::books(), &error)
+                               : BookImporter::convert(path, Paths::books(), &error);
+        if (epub.empty()) return error;
         refresh();
         return "";
     }
