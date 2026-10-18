@@ -16,13 +16,19 @@ size_t collect(char* data, size_t size, size_t count, void* target) {
 }  // namespace
 
 Response send(const std::string& url, const std::string& apiKey, const std::string* body, long timeout) {
+    std::vector<std::string> headers;
+    if (!apiKey.empty()) headers.push_back("Authorization: Bearer " + apiKey);
+    return send(url, headers, body, timeout);
+}
+
+Response send(const std::string& url, const std::vector<std::string>& extraHeaders, const std::string* body, long timeout) {
     CURL* curl = curl_easy_init();
     if (!curl) throw Error("The HTTP client could not be started.");
 
     struct curl_slist* headers = nullptr;
     headers = curl_slist_append(headers, "Content-Type: application/json");
     headers = curl_slist_append(headers, "Accept: application/json");
-    if (!apiKey.empty()) headers = curl_slist_append(headers, ("Authorization: Bearer " + apiKey).c_str());
+    for (const auto& header : extraHeaders) headers = curl_slist_append(headers, header.c_str());
 
     Response response;
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());

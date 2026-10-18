@@ -1,9 +1,11 @@
 // One message in a chat completion exchange:
-// `{ role, content, toolCalls: [{ id, name, arguments }], toolCallId }`,
-// where `arguments` is a JSON object encoded as a string, as the API returns it.
+// `{ role, content, toolCalls: [{ id, name, arguments }], toolCallId, blocks }`,
+// where `arguments` is a JSON object encoded as a string, as the API returns it,
+// and `blocks` a reply's content as Anthropic's API sent it
+// (`AnthropicMessages.js`), null otherwise.
 
 export function message(role, content, extra = {}) {
-  return { role, content, toolCalls: [], toolCallId: "", ...extra };
+  return { role, content, toolCalls: [], toolCallId: "", blocks: null, ...extra };
 }
 
 export const system = (content) => message("system", content);

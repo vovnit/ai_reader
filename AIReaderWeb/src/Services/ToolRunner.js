@@ -12,13 +12,13 @@ import { lookupSummary } from "../Domain/Dictionary/DictionaryLookup.js";
 import { mockWebSearch } from "../Domain/AI/MockAI.js";
 import { passageLimit, passagesSummary, webSummary } from "../Domain/AI/SearchSummary.js";
 import { argument, contextToolName, dictionaryToolName, searchToolName, webSearchTool, webSearchToolName } from "../Domain/AI/Tools.js";
-import { chat } from "./ChatApi.js";
+import { chat, lookupTokens } from "./ChatApi.js";
 import { usesMock, webConfigured } from "./Settings.js";
 import { searchWeb } from "./WebSearch.js";
 
 /**
  * How many rounds of tool calls the model gets before it must answer. The
- * request after them offers no tools, so it answers from what it found,
+ * request after them lets it call none, so it answers from what it found,
  * guessing if it must, rather than the lookup failing.
  */
 export const budget = 3;
@@ -65,7 +65,7 @@ export async function converse(settings, messages, tools, jsonMode, available) {
   const passage = available.scope?.passage;
   const window = passage ? { ...passage } : null;
   for (let round = 0; round <= budget; round++) {
-    const reply = await chat(settings, messages, round < budget ? offered : [], jsonMode);
+    const reply = await chat(settings, messages, offered, jsonMode, lookupTokens, round < budget);
     if (!reply.toolCalls.length) return reply;
     messages.push(reply);
     for (const call of reply.toolCalls) messages.push(toolResult(await answer(call, settings, available, window), call.id));

@@ -64,9 +64,11 @@ these, open every copy:
 - **What the model is asked, and how a chapter becomes text.** The prompts,
   tool descriptions and the mock are word for word alike in
   `AIReader/AIReader/Domain/AI`, `AIReaderKindle/src/Domain/AI` and
-  `AIReaderWeb/src/Domain/AI`. `HtmlText` decides which chapters are kept, so
-  chapter numbers agree between devices: `HtmlText.cpp`, `HtmlText.js`, and
-  the iOS loader.
+  `AIReaderWeb/src/Domain/AI`. The translation into Anthropic's Messages
+  API, `AnthropicMessages`, is alike in all three, as is the tool loop's last
+  request, which keeps the tools listed but forbids their use (`ToolRunner`).
+  `HtmlText` decides which chapters are kept, so chapter numbers agree
+  between devices: `HtmlText.cpp`, `HtmlText.js`, and the iOS loader.
 - **The database schema.** iOS migrations in `App/AppDatabase.swift`, Kindle
   and Qt in `AIReaderKindle/src/Services/Migrations.cpp`. Migrations are
   additive: an existing library must survive an update. The Kindle check
@@ -208,9 +210,11 @@ dependencies, kept unchanged in `vendor/`; what only some photos or PDFs
 need — a language's model, a font's data — is fetched from jsDelivr when
 first needed.
 
-**AI endpoints.** The apps talk to any OpenAI-compatible endpoint. Do not
-special-case a provider; if a service rejects a parameter, negotiate from the
-error it returns (`Domain/AI/RequestQuirks.swift`).
+**AI endpoints.** The apps talk to any OpenAI-compatible endpoint, and to
+Anthropic's, whose address names it, in its own Messages API
+(`Domain/AI/AnthropicMessages.swift`). Do not special-case a provider beyond
+that; if a service rejects a parameter, negotiate from the error it returns
+(`Domain/AI/RequestQuirks.swift`).
 
 ## Verifying a change
 

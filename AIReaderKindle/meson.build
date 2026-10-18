@@ -64,6 +64,7 @@ support = files(
 )
 
 domain = files(
+  'src/Domain/AI/AnthropicMessages.cpp',
   'src/Domain/AI/ChatMessage.cpp',
   'src/Domain/AI/ChatPrompt.cpp',
   'src/Domain/AI/ContextTool.cpp',

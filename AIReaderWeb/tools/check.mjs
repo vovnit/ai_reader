@@ -3,6 +3,7 @@
 // an EPUB or any other file the library takes in; with AIREADER_SYNC_URL
 // set, a WebDAV server too.
 import { checkAi } from "./checks/Ai.mjs";
+import { checkAnthropic } from "./checks/Anthropic.mjs";
 import { checkBooks } from "./checks/Books.mjs";
 import { checkCards } from "./checks/Cards.mjs";
 import { checkContext } from "./checks/Context.mjs";
@@ -34,6 +35,7 @@ const importPath = ["fb2", "fb2.zip", "txt", "html"].includes(format) ? given : 
 const bookPath = pdfPath || importPath ? undefined : given;
 checkBooks();
 await checkAi();
+await checkAnthropic();
 await checkContext();
 checkCards();
 await checkSync();

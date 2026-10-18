@@ -6,7 +6,8 @@
 
 /// Which model answers word lookups, and where to reach it. Any
 /// OpenAI-compatible endpoint works: the base URL is extended with
-/// `/chat/completions` and `/models`.
+/// `/chat/completions` and `/models`. Anthropic's is extended with
+/// `/messages` and `/models` and spoken to in its own API.
 struct AiSettings {
     std::string endpoint;
     /// The token for the endpoint above.
@@ -22,6 +23,9 @@ struct AiSettings {
     /// The token to send to the current endpoint.
     std::string token() const;
     bool isOpenAI() const;
+    /// An endpoint whose address names Anthropic — its own, or a gateway's
+    /// to it — speaks its Messages API (`AnthropicMessages`).
+    bool usesAnthropic() const;
 
     /// Not a real address. Pointing the app here answers lookups from
     /// `MockAI` instead of the network, which is how the app is tested

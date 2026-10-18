@@ -269,6 +269,13 @@ the model. Any OpenAI-compatible service works: the base URL is extended with
 `/chat/completions` and `/models`, and **Load models** fills the picker from
 whatever that endpoint offers. Changes save as they are made.
 
+Anthropic's API works too. An endpoint whose address names Anthropic —
+`https://api.anthropic.com/v1`, or a gateway's address for it — is spoken to in
+its own Messages API: the token goes as its `x-api-key`, and each reply,
+thinking included, is sent back unchanged while the model is still using
+tools, as that API requires. Its models think before answering, and the
+thinking counts against the answer's length, so lookups ask for low effort.
+
 The endpoint and model are kept in `UserDefaults`; the token is a secret, so it
 lives in the keychain instead — one left in preferences by an earlier build is
 migrated on first read. Clearing the token is respected rather than treated as
@@ -279,11 +286,12 @@ unset, since a locally run endpoint usually wants no authorization at all.
 Services disagree about request parameters. Newer OpenAI reasoning models reject
 `max_tokens` in favour of `max_completion_tokens`, accept only their default
 temperature, and refuse function tools unless `reasoning_effort` is `none`.
-Rather than special-casing a provider, a rejected request is read for the
-parameter it names, adjusted, and sent again. The adjustment is remembered for
-that endpoint and model across launches, in the suite the app shares with the
-Explain extension, so only the first request ever made to a model pays for the
-discovery — not every launch, nor every Explain, which starts afresh each time.
+Anthropic's older models refuse `effort`. Rather than special-casing a
+provider, a rejected request is read for the parameter it names, adjusted, and
+sent again. The adjustment is remembered for that endpoint and model across
+launches, in the suite the app shares with the Explain extension, so only the
+first request ever made to a model pays for the discovery — not every launch,
+nor every Explain, which starts afresh each time.
 Should the service later refuse something already adjusted, what was remembered
 is forgotten and the next request finds out again. See `AI/RequestQuirks.swift`
 and `Services/AI/RequestQuirkStore.swift`.

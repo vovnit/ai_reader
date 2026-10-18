@@ -31,8 +31,8 @@ density, so a page breaks the same way on both.
   on to the dictionary's own entry, to what the book says about the word
   (X-ray), and to a conversation about it.
 - **Words** — every word looked up, the practice game, and export for Anki.
-- **Settings** — the OpenAI-compatible endpoint and model, web search, and
-  WebDAV sync with the iOS, Kindle and web apps; **Dictionaries** adds packs, word
+- **Settings** — the endpoint and model (OpenAI-compatible, or Anthropic's),
+  web search, and WebDAV sync with the iOS, Kindle and web apps; **Dictionaries** adds packs, word
   lists, Lingvo DSL, StarDict and XDXF, and `✕` removes one. Removing the
   bundled one only takes it off the list, since the install keeps its file;
   *Restore built-in dictionary* lists it again.

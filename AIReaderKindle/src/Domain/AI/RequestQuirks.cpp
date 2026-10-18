@@ -15,6 +15,8 @@ std::optional<RequestQuirk> requestQuirkNamed(const std::string& errorBody) {
     }
     if (parameter == "temperature") return RequestQuirk::DefaultTemperature;
     if (parameter == "reasoning_effort") return RequestQuirk::NoReasoning;
+    // Anthropic names no parameter; its message says what it refused.
+    if (Text::contains(message, "effort") || Text::contains(message, "output_config")) return RequestQuirk::NoEffort;
     return std::nullopt;
 }
 
@@ -23,12 +25,13 @@ const char* requestQuirkName(RequestQuirk quirk) {
         case RequestQuirk::CompletionTokens: return "completionTokens";
         case RequestQuirk::DefaultTemperature: return "defaultTemperature";
         case RequestQuirk::NoReasoning: return "noReasoning";
+        case RequestQuirk::NoEffort: return "noEffort";
     }
     return "";
 }
 
 std::optional<RequestQuirk> requestQuirkCalled(const std::string& name) {
-    for (auto quirk : {RequestQuirk::CompletionTokens, RequestQuirk::DefaultTemperature, RequestQuirk::NoReasoning}) {
+    for (auto quirk : {RequestQuirk::CompletionTokens, RequestQuirk::DefaultTemperature, RequestQuirk::NoReasoning, RequestQuirk::NoEffort}) {
         if (name == requestQuirkName(quirk)) return quirk;
     }
     return std::nullopt;

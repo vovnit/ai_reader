@@ -3,9 +3,9 @@
 #include <optional>
 #include <string>
 
-/// Parameters that some OpenAI-compatible services reject while others require
-/// them. A service names the offending parameter in its error, so a request can
-/// be adjusted and tried again.
+/// Parameters that some services reject while others require them. A service
+/// names the offending parameter in its error, so a request can be adjusted
+/// and tried again.
 enum class RequestQuirk {
     /// Newer OpenAI reasoning models take `max_completion_tokens` in place of `max_tokens`.
     CompletionTokens,
@@ -13,9 +13,11 @@ enum class RequestQuirk {
     DefaultTemperature,
     /// Some of them refuse function tools unless reasoning is switched off.
     NoReasoning,
+    /// Anthropic's older models take no `effort` (`AnthropicMessages`).
+    NoEffort,
 };
 
-constexpr int requestQuirkCount = 3;
+constexpr int requestQuirkCount = 4;
 
 /// Reads the quirk a failed request's error body is describing, if any.
 std::optional<RequestQuirk> requestQuirkNamed(const std::string& errorBody);

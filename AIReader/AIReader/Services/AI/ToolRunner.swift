@@ -22,7 +22,7 @@ enum ToolRunner {
     }
 
     /// How many rounds of tool calls the model gets before it must answer.
-    /// The request after them offers no tools, so it answers from what it
+    /// The request after them lets it call none, so it answers from what it
     /// found, guessing if it must, rather than the lookup failing.
     static let budget = 3
 
@@ -39,7 +39,8 @@ enum ToolRunner {
             let reply = try await ChatAPI.chat(
                 settings: settings,
                 messages: messages,
-                tools: round < budget ? offered : [],
+                tools: offered,
+                toolsAllowed: round < budget,
                 jsonMode: jsonMode
             )
             guard let calls = reply.toolCalls, !calls.isEmpty else { return reply }

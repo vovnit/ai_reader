@@ -170,8 +170,9 @@ devices that already have it keep their copy. Web pages saved with the
 [browser extension](../BrowserExtension/README.md) land in the same folder
 and are listed the same way.
 
-**Settings.** Endpoint, token and model of any OpenAI-compatible service, with
-*Load models* to fill the picker. A second token is kept for OpenAI and used
+**Settings.** Endpoint, token and model of any OpenAI-compatible service, or of
+Anthropic's when the endpoint's address names it (`https://api.anthropic.com/v1`),
+with *Load models* to fill the picker. A second token is kept for OpenAI and used
 whenever the endpoint is `api.openai.com`, so switching services does not mean
 retyping. A Monid token, with the search provider, endpoint and input,
 lets the model search the web (above). *Dictionaries* lists the packs and
