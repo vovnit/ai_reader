@@ -1,9 +1,8 @@
 import Foundation
 
-/// Parameters that some OpenAI-compatible services reject while others require
-/// them. A service names the offending parameter in its error, so a request can
-/// be adjusted and tried again; what a model needed is remembered by
-/// `RequestQuirkStore`.
+/// Parameters that some services reject while others require them. A service
+/// names the offending parameter in its error, so a request can be adjusted
+/// and tried again; what a model needed is remembered by `RequestQuirkStore`.
 enum RequestQuirk: String, CaseIterable, Sendable {
     /// Newer OpenAI reasoning models take `max_completion_tokens` in place of
     /// `max_tokens`.
@@ -12,6 +11,8 @@ enum RequestQuirk: String, CaseIterable, Sendable {
     case defaultTemperature
     /// Some of them refuse function tools unless reasoning is switched off.
     case noReasoning
+    /// Anthropic's older models take no `effort` (`AnthropicMessages`).
+    case noEffort
 
     /// Reads the quirk a failed request's error body is describing, if any.
     static func named(inErrorBody body: String) -> RequestQuirk? {
@@ -29,6 +30,10 @@ enum RequestQuirk: String, CaseIterable, Sendable {
         }
         if parameter == "reasoning_effort" {
             return .noReasoning
+        }
+        // Anthropic names no parameter; its message says what it refused.
+        if message.contains("effort") || message.contains("output_config") {
+            return .noEffort
         }
         return nil
     }

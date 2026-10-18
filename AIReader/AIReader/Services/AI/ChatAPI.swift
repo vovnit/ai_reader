@@ -1,7 +1,8 @@
 import Foundation
 
-/// Chat completions and the model list, against any OpenAI-compatible service.
-/// Request bodies are assembled as plain JSON so tool schemas stay readable.
+/// Chat completions and the model list, against any OpenAI-compatible service,
+/// or Anthropic's in its own Messages API. Request bodies are assembled as
+/// plain JSON so tool schemas stay readable.
 enum ChatAPI {
     enum APIError: LocalizedError {
         case invalidEndpoint(String)
@@ -20,10 +21,13 @@ enum ChatAPI {
     }
 
     /// `maxTokens` bounds the answer: enough for a lookup unless said otherwise.
+    /// `toolsAllowed` false keeps the tools listed but lets the model only
+    /// answer, for the last request of a conversation that has used them.
     static func chat(
         settings: AISettings,
         messages: [ChatMessage],
         tools: [[String: Any]] = [],
+        toolsAllowed: Bool = true,
         jsonMode: Bool = false,
         maxTokens: Int = 700
     ) async throws -> ChatMessage {
@@ -44,21 +48,31 @@ enum ChatAPI {
             request.timeoutInterval = TimeInterval(max(45, maxTokens / 20))
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try JSONSerialization.data(
-                withJSONObject: body(
-                    settings: settings,
-                    messages: messages,
-                    tools: tools,
-                    jsonMode: jsonMode,
-                    maxTokens: maxTokens,
-                    quirks: quirks
-                )
+                withJSONObject: settings.usesAnthropic
+                    ? AnthropicMessages.body(
+                        model: settings.model,
+                        messages: messages,
+                        tools: tools,
+                        toolsAllowed: toolsAllowed,
+                        maxTokens: maxTokens,
+                        quirks: quirks
+                    )
+                    : body(
+                        settings: settings,
+                        messages: messages,
+                        tools: toolsAllowed ? tools : [],
+                        jsonMode: jsonMode,
+                        maxTokens: maxTokens,
+                        quirks: quirks
+                    )
             )
 
             do {
-                let data = try await send(request, apiKey: settings.apiKey)
-                guard let message = try JSONDecoder().decode(Completion.self, from: data)
-                    .choices.first?.message
-                else { throw APIError.noChoices }
+                let data = try await send(request, settings: settings)
+                let reply = try settings.usesAnthropic
+                    ? AnthropicMessages.reply(from: data)
+                    : JSONDecoder().decode(Completion.self, from: data).choices.first?.message
+                guard let message = reply else { throw APIError.noChoices }
                 return message
             } catch let APIError.http(status, body) where status == 400 {
                 guard let quirk = RequestQuirk.named(inErrorBody: body) else {
@@ -118,15 +132,23 @@ enum ChatAPI {
         request.timeoutInterval = 20
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        let data = try await send(request, apiKey: settings.apiKey)
+        let data = try await send(request, settings: settings)
         let list = try JSONDecoder().decode(ModelList.self, from: data)
         return Set(list.data.map(\.id)).sorted()
     }
 
-    private static func send(_ request: URLRequest, apiKey: String) async throws -> Data {
+    private static func send(_ request: URLRequest, settings: AISettings) async throws -> Data {
         var request = request
-        if !apiKey.isEmpty {
-            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        // Anthropic takes the token in a header of its own, with the API version.
+        if settings.usesAnthropic {
+            request.setValue(AnthropicMessages.version, forHTTPHeaderField: "anthropic-version")
+        }
+        if !settings.apiKey.isEmpty {
+            if settings.usesAnthropic {
+                request.setValue(settings.apiKey, forHTTPHeaderField: "x-api-key")
+            } else {
+                request.setValue("Bearer \(settings.apiKey)", forHTTPHeaderField: "Authorization")
+            }
         }
 
         let (data, response) = try await URLSession.shared.data(for: request)

@@ -19,6 +19,9 @@ struct ChatMessage {
     std::optional<std::string> content;
     std::vector<ToolCall> toolCalls;
     std::string toolCallId;
+    /// A reply's content as Anthropic's API sent it (`AnthropicMessages`),
+    /// null otherwise.
+    Json blocks = nullptr;
 
     static ChatMessage system(const std::string& content) { return {"system", content, {}, ""}; }
     static ChatMessage user(const std::string& content) { return {"user", content, {}, ""}; }

@@ -22,9 +22,13 @@ export const usesMock = (ai) => ai.endpoint.trim() === mockEndpoint;
 /** The token for the current endpoint: OpenAI's own is kept apart, so switching services means no retyping. */
 export const aiToken = (ai) => (isOpenAI(ai) && ai.openAIKey ? ai.openAIKey : ai.apiKey);
 
+/** An endpoint whose address names Anthropic — its own, or a gateway's to it — speaks its Messages API (`AnthropicMessages.js`). */
+export const usesAnthropic = (ai) => ai.endpoint.toLowerCase().includes("anthropic");
+
 const base = (url) => url.trim().replace(/\/+$/, "");
-export const chatUrl = (ai) => `${base(ai.endpoint)}/chat/completions`;
-export const modelsUrl = (ai) => `${base(ai.endpoint)}/models`;
+export const chatUrl = (ai) => `${base(ai.endpoint)}/${usesAnthropic(ai) ? "messages" : "chat/completions"}`;
+// Anthropic lists twenty models at a time unless asked for more.
+export const modelsUrl = (ai) => `${base(ai.endpoint)}/models${usesAnthropic(ai) ? "?limit=1000" : ""}`;
 
 export const syncConfigured = (sync) => sync.url.trim() !== "";
 /** The folder of record files (`SyncParts.js`), and the one file older versions kept the records in. */

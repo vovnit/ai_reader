@@ -3,7 +3,8 @@ import Foundation
 
 /// Which model answers word lookups, and where to reach it. Any
 /// OpenAI-compatible endpoint works: the base URL is extended with
-/// `/chat/completions` and `/models`.
+/// `/chat/completions` and `/models`. Anthropic's is extended with
+/// `/messages` and `/models` and spoken to in its own API.
 struct AISettings: Equatable, Sendable {
     var endpoint: String
     var apiKey: String
@@ -28,8 +29,15 @@ struct AISettings: Equatable, Sendable {
         endpoint.trimmingCharacters(in: .whitespacesAndNewlines) == Self.mockEndpoint
     }
 
-    var chatURL: URL? { url(forPath: "chat/completions") }
-    var modelsURL: URL? { url(forPath: "models") }
+    /// An endpoint whose address names Anthropic — its own, or a gateway's
+    /// to it — speaks its Messages API (`AnthropicMessages`).
+    var usesAnthropic: Bool {
+        endpoint.lowercased().contains("anthropic")
+    }
+
+    var chatURL: URL? { url(forPath: usesAnthropic ? "messages" : "chat/completions") }
+    // Anthropic lists twenty models at a time unless asked for more.
+    var modelsURL: URL? { url(forPath: usesAnthropic ? "models?limit=1000" : "models") }
 
     private func url(forPath path: String) -> URL? {
         var base = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -4,6 +4,7 @@
 //
 //   AIREADER_DATA_DIR=../AIReader/AIReader/Resources ./aireader-check [book.epub [page.png [chapter [page]]]]
 
+#include "../src/Domain/AI/AnthropicMessages.hpp"
 #include "../src/Domain/AI/ChatPrompt.hpp"
 #include "../src/Domain/AI/ContextTool.hpp"
 #include "../src/Domain/AI/DictionaryTool.hpp"
@@ -346,6 +347,55 @@ static void checkQuirks() {
     store.keepIn(file);
     check("a model's quirks can be forgotten", store.quirks("https://api.example/v1|luna").empty() && store.quirks("https://api.example/v1|other").size() == 1);
     store.keepIn("");
+}
+
+/// Anthropic's Messages API: the request made from chat messages and the
+/// reply read back — the web check's cases, with the same expectations.
+static void checkAnthropic() {
+    AiSettings anthropic{"https://api.anthropic.com/v1/", "", "", "claude-x"};
+    check("anthropic: an endpoint naming it speaks its API", anthropic.usesAnthropic() && anthropic.chatUrl() == "https://api.anthropic.com/v1/messages"
+          && anthropic.modelsUrl() == "https://api.anthropic.com/v1/models?limit=1000"
+          && !AiSettings::defaults().usesAnthropic() && AiSettings::defaults().chatUrl() == "https://api.mistral.ai/v1/chat/completions");
+
+    ChatMessage call = ChatMessage::assistant("");
+    call.content = std::nullopt;
+    call.toolCalls.push_back({"c1", "search_book", R"({"query":"Meaulnes"})"});
+    std::vector<ChatMessage> messages{ChatMessage::system("Be brief."), ChatMessage::user("Who?"), call,
+                                      ChatMessage::toolResult("Two passages.", "c1"), ChatMessage::toolResult("Nothing.", "c1"), ChatMessage::user("And?")};
+    Json tools = ExplanationPrompt::tools();
+    Json body = AnthropicMessages::body("claude-x", messages, tools, true, 700, {});
+    const Json& turns = body.at("messages");
+    check("anthropic: the system prompt stands apart", body.at("system").string() == "Be brief." && turns.at(0).at("role").string() == "user"
+          && turns.at(0).at("content").at(0).at("text").string() == "Who?");
+    check("anthropic: a tool call becomes a tool_use", turns.at(1).at("content").size() == 1
+          && turns.at(1).at("content").at(0).at("type").string() == "tool_use"
+          && turns.at(1).at("content").at(0).at("input").at("query").string() == "Meaulnes");
+    check("anthropic: neighbouring user messages are one turn", turns.size() == 3 && turns.at(2).at("content").size() == 3
+          && turns.at(2).at("content").at(2).at("text").string() == "And?", turns.dump());
+    check("anthropic: tools in its shape, effort low, no temperature",
+          body.at("tools").at(0).at("name").string() == tools.at(0).at("function").at("name").string()
+          && body.at("tools").at(0).at("input_schema").at("required").size() == 1 && body.at("output_config").at("effort").string() == "low"
+          && !body.has("temperature") && !body.has("tool_choice") && body.at("max_tokens").number() == 700);
+    check("anthropic: the last request keeps the tools but forbids them",
+          AnthropicMessages::body("m", messages, tools, false, 1, {}).at("tool_choice").at("type").string() == "none");
+    check("anthropic: no effort once refused", !AnthropicMessages::body("m", messages, Json::array(), true, 1, {RequestQuirk::NoEffort}).has("output_config"));
+    check("anthropic: a refused effort is read from the message",
+          requestQuirkNamed(R"({"type":"error","error":{"type":"invalid_request_error","message":"output_config.effort: not supported"}})") == RequestQuirk::NoEffort
+          && !requestQuirkNamed(R"({"type":"error","error":{"type":"invalid_request_error","message":"max_tokens: too large"}})"));
+
+    auto content = Json::parse(R"({"content":[{"type":"thinking","thinking":"","signature":"x"},{"type":"text","text":"Un "},{"type":"text","text":"mot."},)"
+                               R"({"type":"tool_use","id":"t1","name":"lookup_dictionary","input":{"word":"mot"}}]})");
+    auto read = AnthropicMessages::reply(*content);
+    check("anthropic: a reply's text, calls and blocks", read && read->content == "Un mot." && read->toolCalls.size() == 1
+          && read->toolCalls[0].arguments == R"({"word":"mot"})" && read->blocks.size() == 4
+          && AnthropicMessages::body("m", {*read}, Json::array(), true, 1, {}).at("messages").at(0).at("content").dump() == read->blocks.dump());
+    std::string declined;
+    try {
+        AnthropicMessages::reply(*Json::parse(R"({"content":[],"stop_reason":"refusal"})"));
+    } catch (const std::exception& error) {
+        declined = error.what();
+    }
+    check("anthropic: a refusal is told", declined == "The model declined to answer." && !AnthropicMessages::reply(Json::object()));
 }
 
 static void checkChatPrompt() {
@@ -1604,6 +1654,7 @@ int main(int argc, char** argv) {
     checkMock();
     checkGlossary();
     checkQuirks();
+    checkAnthropic();
     checkChatPrompt();
     checkWebSearch();
     checkBookSearch();
