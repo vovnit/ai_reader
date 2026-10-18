@@ -114,6 +114,18 @@ these, open every copy:
   is the browser extension's `lib/zip.js`. The two checks put together the
   same sample PDF; given the same real one, the Kindle and web apps should
   write the same EPUB.
+- **How an FB2, a text file or an HTML page becomes a book.** Each is
+  decoded by `Support/Charset`, read into chapters by `Fb2Book`, `TextBook`
+  and `HtmlBook` with `TextChapters` and `Gutenberg` (Kindle `.cpp`, web
+  `.js`, iOS `.swift` — `FB2Book`, `HTMLBook`), and written as an EPUB by
+  `BookImporter` and `EpubWriter` (`EPUBWriter.swift`), which the PDF
+  importer shares. They read markup with the tolerant scanner,
+  `XmlScanner.cpp`, `XmlScanner.js` and its Swift port `MarkupScanner.swift`
+  (iOS's `XMLScanner` is Foundation's strict parser, for the OPF, the
+  navigation and WebDAV). A file imported on two devices must make the same
+  chapters and the same title and author, so the three are byte for byte
+  alike, ZIP entries included: each `ZipArchive` lists them in archive order,
+  the first of a name winning.
 - **A book's offline glossary.** Its prompt is `GlossaryPrompt` in each
   app's `Domain/AI` and `DictionaryTool/glossary_prompt.py`, word for word,
   with the mock's answer to it; the words come from `BookWords`, by each app's
@@ -204,6 +216,7 @@ conclusive than driving a UI, and cost nothing.
 | Anything that talks to a WebDAV server | The same check with `AIREADER_SYNC_URL` (and `AIREADER_SYNC_USER`, `AIREADER_SYNC_PASSWORD`) set and a book given, against a local server: `rclone serve webdav <dir> --addr 127.0.0.1:8765`. |
 | An EPUB, from any source | `AIReaderKindle/build.sh check book.epub page.png` also loads it and renders a page. |
 | PDF import | `AIReaderKindle/build.sh check book.pdf page.png` and `AIReaderWeb/build.sh check book.pdf` make the EPUB and load it; the two should agree. |
+| FB2, text or HTML import | The same, given a `.fb2`, `.fb2.zip`, `.txt` or `.html`; the iOS readers by compiling them with a `main.swift` and comparing the chapters with the other two. |
 | Qt views | `AIReaderQt/build.sh` (Docker); `AIReaderQt/build.sh script tools/smoke.txt <book.epub>` (written for the Le Petit Prince in `References/`) walks every screen against the mock and saves snapshots. |
 | The Qt AppImage | `AIReaderQt/build.sh appimage`; test it in a clean container of another distribution, which needs `shared-mime-info` and a desktop's X/GL libraries (see `AIReaderQt/README.md`). |
 | The browser extension | Load it unpacked in Chrome, or in Playwright's Chromium with `--load-extension`, against a local WebDAV server and page. `lib/zip.js`, `lib/epub.js` and `lib/names.js` also run under Node; the rest need a browser. |
