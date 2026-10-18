@@ -1,7 +1,7 @@
 // The shelf: the books, the groups they are sorted into, the books in the
 // sync folder not fetched yet, and the door into the reader.
 import { bookKey } from "../../Domain/Books/BookKey.js";
-import { bookEpub } from "../../Services/BookImporter.js";
+import { bookEpub, isPdfFile } from "../../Services/BookImporter.js";
 import { epubCover, epubMetadata } from "../../Services/EpubLoader.js";
 import { deleteRemoteBook, fetchBook } from "../../Services/LibrarySync.js";
 import { syncConfigured } from "../../Services/Settings.js";
@@ -67,7 +67,8 @@ export class LibraryFeature extends Feature {
           continue;
         }
         keys.add(key);
-        added.push(await this.#env.library.add(metadata, file, await epubCover(file).catch(() => null)));
+        const original = isPdfFile(picked) ? picked : null;
+        added.push(await this.#env.library.add(metadata, file, await epubCover(file).catch(() => null), original));
       } catch (error) {
         problems.push(`${picked.name}: ${error.message}`);
       }

@@ -5,7 +5,8 @@
 // in the form another device can use — pending when it came from one and
 // the offset has not been worked out yet, which the reader does on opening.
 // `updatedAt` is empty for a book never read here, which any other
-// device's record outranks. Its EPUB and cover are kept beside it.
+// device's record outranks. Its EPUB and cover are kept beside it, and for
+// a book made from a PDF here, the PDF.
 import { now } from "../Support/Text.js";
 
 const newestFirst = (a, b) => (a.addedAt < b.addedAt ? 1 : a.addedAt > b.addedAt ? -1 : b.id - a.id);
@@ -30,14 +31,15 @@ export class LibraryStore {
     return (await this.all()).filter((book) => book.groupId === groupId).reverse();
   }
 
-  /** Shelves a book with its EPUB and, if it has one, its cover. Returns its id. */
-  async add({ title, author, language, remoteName = "" }, file, cover) {
+  /** Shelves a book with its EPUB and, if it has one, its cover and the PDF it was made from. Returns its id. */
+  async add({ title, author, language, remoteName = "" }, file, cover, original = null) {
     const id = await this.#db.put("books", {
       title, author, language, addedAt: now(), readingChapter: 0, readingOffset: 0,
       groupId: 0, place: null, placePending: false, updatedAt: "", remoteName,
     });
     await this.#db.put("bookFiles", file, id);
     if (cover) await this.#db.put("covers", cover, id);
+    if (original) await this.#db.put("originals", original, id);
     // A browser may clear a site's storage when space runs short, unless
     // asked to keep it; a library is worth asking for.
     globalThis.navigator?.storage?.persist?.().catch(() => {});
@@ -49,6 +51,7 @@ export class LibraryStore {
     await this.#db.delete("books", id);
     await this.#db.delete("bookFiles", id);
     await this.#db.delete("covers", id);
+    await this.#db.delete("originals", id);
     for (const lookup of await this.#db.getAll("lookups", "bookId", id)) {
       await this.#db.put("lookups", { ...lookup, bookId: null });
     }
@@ -60,6 +63,11 @@ export class LibraryStore {
 
   cover(id) {
     return this.#db.get("covers", id);
+  }
+
+  /** The PDF the book was made from, for its page view; undefined for any other book. */
+  original(id) {
+    return this.#db.get("originals", id);
   }
 
   async #update(id, changes) {

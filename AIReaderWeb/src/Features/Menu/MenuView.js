@@ -6,6 +6,7 @@ import { Screen } from "../Common/Screen.js";
 import { button, h } from "../Common/Ui.js";
 import { ContentsView } from "../Contents/ContentsView.js";
 import { GlossaryView } from "../Glossary/GlossaryView.js";
+import { PagesView } from "../Pages/PagesView.js";
 import { SearchView } from "../Search/SearchView.js";
 import { WordsView } from "../Words/WordsView.js";
 import { XRayView } from "../XRay/XRayView.js";
@@ -23,6 +24,11 @@ export class MenuView extends Screen {
     };
     this.setBody(h("nav", { class: "menu" },
       button("Contents", () => open(new ContentsView(navigator, reader))),
+      // The pages as the PDF draws them, on the device that imported it.
+      feature.hasPages ? button("PDF pages", () => {
+        navigator.popTo(reader);
+        navigator.push(new PagesView(env, navigator, reader));
+      }) : null,
       button("Lookups", () => open(new WordsView(env, navigator, feature.book))),
       button("Search", () => open(new SearchView(navigator, reader.link, feature))),
       button("X-ray", () => open(new XRayView(env, navigator, "", reader.link))),

@@ -19,6 +19,10 @@ export class ReaderFeature extends Feature {
   pageCount = 0;
   /** Counts up whenever the chapter must be laid out again: another chapter, another style. */
   layoutVersion = 0;
+  /** Whether the PDF the book was made from is on this device, for its page view. */
+  hasPages = false;
+  /** The page the page view was last left on while the book is open; null before it is opened. */
+  pdfPage = null;
   #env;
   #layout = null;
   /** The offset the next layout lands on; after it, where the page on screen starts. */
@@ -58,6 +62,7 @@ export class ReaderFeature extends Feature {
     this.chapter = Math.min(Math.max(this.chapter, 0), this.document.chapters.length - 1);
     // A place that came from another device is found in this text now that it is here.
     if (!this.start && this.book.placePending && this.book.place) this.#anchor = resolvePlace(this.book.place, this.chapterText);
+    this.hasPages = Boolean(await library.original(this.book.id));
     this.status = "loaded";
     this.#relayout();
   }
@@ -86,6 +91,14 @@ export class ReaderFeature extends Feature {
   /** The end of the page on screen: how far the reader has got. */
   get position() {
     return { bookId: this.book.id, chapter: this.chapter, offset: this.pageEnd };
+  }
+
+  /** How far through the book the page on screen starts, from 0 to 1: where its page view first opens. */
+  get fraction() {
+    const lengths = this.document?.chapters.map((chapter) => chapter.text.length) ?? [];
+    const total = lengths.reduce((sum, length) => sum + length, 0);
+    const before = lengths.slice(0, this.chapter).reduce((sum, length) => sum + length, 0);
+    return total ? (before + this.pageStart) / total : 0;
   }
 
   /** The corpus with the position: what lookups and conversations search, around the page on screen. */

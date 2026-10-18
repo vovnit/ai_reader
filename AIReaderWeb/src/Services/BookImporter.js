@@ -33,6 +33,9 @@ export function bookFormat(name) {
 
 export const isBookFile = (name) => bookFormat(name).format !== "";
 
+/** Whether the file is a PDF, which the library keeps beside its EPUB for the page view. */
+export const isPdfFile = (file) => bookFormat(file.name).format === "pdf" || file.type === "application/pdf";
+
 /** A file's text in the encoding it names, if it names one. */
 const declaredText = (bytes) => decodeBook(bytes, declaredCharset(bytes));
 
@@ -78,7 +81,7 @@ const typeFormats = { "text/plain": "txt", "text/html": "html" };
 export async function bookEpub(file) {
   const named = bookFormat(file.name);
   const format = named.format || typeFormats[file.type] || "";
-  const isPdf = format === "pdf" || file.type === "application/pdf";
+  const isPdf = isPdfFile(file);
   if (!isPdf && (format === "epub" || format === "")) return file;
   const bytes = new Uint8Array(await file.arrayBuffer());
   if (isPdf) return pdfToEpub(bytes, named.title);
