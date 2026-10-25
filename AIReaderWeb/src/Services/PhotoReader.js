@@ -136,13 +136,14 @@ async function upright(file) {
   const context = canvas.getContext("2d");
   context.imageSmoothingQuality = "high";
   context.drawImage(bitmap, 0, 0, width, height);
-  bitmap.close();
   const pixels = context.getImageData(0, 0, width, height).data;
   const smallScale = Math.min(1, scatteredLongSide / Math.max(width, height));
   const small = new OffscreenCanvas(Math.max(1, Math.round(width * smallScale)), Math.max(1, Math.round(height * smallScale)));
   const smallContext = small.getContext("2d");
   smallContext.imageSmoothingQuality = "high";
-  smallContext.drawImage(canvas, 0, 0, small.width, small.height);
+  // From the photo itself: shrunk twice, thin strokes blur into the paper.
+  smallContext.drawImage(bitmap, 0, 0, small.width, small.height);
+  bitmap.close();
   return {
     width, height, pixels,
     png: await canvas.convertToBlob({ type: "image/png" }),
