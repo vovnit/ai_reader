@@ -6,6 +6,7 @@ import { photoPassage } from "../../src/Domain/Photo/PhotoPassage.js";
 import { photoWords } from "../../src/Domain/Photo/PhotoWord.js";
 import { pointedWord } from "../../src/Domain/Photo/PointedWord.js";
 import { tesseractLines } from "../../src/Domain/Photo/TesseractPage.js";
+import { mergedLines, scaledLine } from "../../src/Domain/Photo/TesseractReadings.js";
 import { PhotoFeature } from "../../src/Features/Photo/PhotoFeature.js";
 import { defaultAi, mockEndpoint } from "../../src/Services/Settings.js";
 import { RgbImage } from "../../src/Support/RgbImage.js";
@@ -160,6 +161,30 @@ function checkDomain() {
     && quoted.text.startsWith("Bonjour", quoted.pointedOffset), JSON.stringify(quoted));
 }
 
+function checkReadings() {
+  // A column whose lines' left halves the layout lost beside a finger: the
+  // scattered reading finds them, the line above read again, and a mark.
+  const [top, , , last] = layout(["Chaque Français consomme en", "moyenne", "de pommes", "par an."]);
+  const rights = layout(["", "48 kg de", "de terre", ""], { x: 220 }).slice(1, 3);
+  const lefts = layout(["", "moyenne", "de pommes", ""]).slice(1, 3);
+  // Its baseline slanted: rows are measured along the page's axes, not its own.
+  const slanted = { ...top, up: { dx: 0.1, dy: -0.995 } };
+  const merged = mergedLines([top, ...rights, last], [lefts[1], slanted, lefts[0], ...layout(["", "", "", "", "|"], { x: 400 }).slice(4)]);
+  check("lines the layout lost are put back in reading order", merged.map((line) => line.text).join(" / ") === "Chaque Français consomme en / moyenne / 48 kg de / de pommes / de terre / par an.",
+    merged.map((line) => line.text).join(" / "));
+
+  const left = layout(["Il était une", "fois une"]);
+  const right = layout(["vieille maison", "au bord"], { x: 400 });
+  const lost = layout(["", "", "de la forêt"])[2];
+  const columns = mergedLines([...left, ...right], [lost]);
+  check("a line lost at a column's foot stays in its column", columns.map((line) => line.text).join(" / ") === "Il était une / fois une / de la forêt / vieille maison / au bord",
+    columns.map((line) => line.text).join(" / "));
+
+  const [small] = scaledLine(layout(["titre"], { x: 10, y: 20, height: 30 })[0], 0.5).words;
+  check("a line read from a smaller copy is placed in the full photo", small.box.x === 20 && small.box.y === 40 && small.box.height === 60 && small.box.width === 110,
+    JSON.stringify(small.box));
+}
+
 class StandInReader {
   asked = [];
   closed = false;
@@ -256,5 +281,6 @@ async function checkFeature() {
 
 export async function checkPhoto() {
   checkDomain();
+  checkReadings();
   await checkFeature();
 }

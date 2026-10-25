@@ -68,6 +68,7 @@ const files = [
   "./src/Domain/Photo/PointedWord.js",
   "./src/Domain/Photo/SkinMask.js",
   "./src/Domain/Photo/TesseractPage.js",
+  "./src/Domain/Photo/TesseractReadings.js",
   "./src/Domain/Reading/BookWords.js",
   "./src/Domain/Reading/ChapterParagraphs.js",
   "./src/Domain/Reading/ReadingStyle.js",

@@ -5,20 +5,25 @@
 import { median } from "./SkinMask.js";
 
 // Below this Tesseract is guessing, at a finger's edge or a picture, and a
-// word it invents could be taken for the one pointed at.
-const leastConfidence = 30;
+// word it invents could be taken for the one pointed at — and a blanket's
+// weave read as small print makes the finger finder look for a finger the
+// size of those letters.
+const leastConfidence = 50;
+// Read without a layout, a picture, a blanket or the room are read as
+// text too, and guessed at more confidently.
+export const scatteredConfidence = 60;
 
 /**
  * The lines of `blocks`, `recognize(image, {}, { blocks: true }).data.blocks`,
  * in the pixels of the image that was read. Words Tesseract is unsure of are
- * left out, and a line left with none.
+ * left out, below `least`, and a line left with none.
  */
-export function tesseractLines(blocks) {
+export function tesseractLines(blocks, least = leastConfidence) {
   const lines = [];
   for (const block of blocks) {
     for (const paragraph of block.paragraphs) {
       for (const found of paragraph.lines) {
-        const line = photoLine(found);
+        const line = photoLine(found, least);
         if (line) lines.push(line);
       }
     }
@@ -26,13 +31,13 @@ export function tesseractLines(blocks) {
   return lines;
 }
 
-function photoLine(found) {
+function photoLine(found, least) {
   let text = "";
   const words = [];
   for (const word of found.words) {
     // A word's text can begin with a space Tesseract read as a letter.
     const spelling = word.text.trim();
-    if (!spelling || word.confidence < leastConfidence) continue;
+    if (!spelling || word.confidence < least) continue;
     if (text) text += " ";
     words.push({ location: text.length, length: spelling.length, box: box(word.bbox) });
     text += spelling;

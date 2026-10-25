@@ -2,8 +2,11 @@
 // its text with Tesseract.js, kept in vendor/ and run in a worker of its
 // own, and a finger pointing into it, found in its pixels. A language's
 // model is fetched the first time a photo needs it, and the browser keeps it.
+// The photo is read twice, as `TesseractReadings` puts together: laid out
+// as a page, then as scattered text for what the layout left out.
 import { findFinger } from "../Domain/Photo/FingerFinder.js";
-import { tesseractLines } from "../Domain/Photo/TesseractPage.js";
+import { scatteredConfidence, tesseractLines } from "../Domain/Photo/TesseractPage.js";
+import { mergedLines, scaledLine } from "../Domain/Photo/TesseractReadings.js";
 import { RgbImage } from "../Support/RgbImage.js";
 
 const vendor = new URL("../../vendor/tesseract/", import.meta.url).href;
@@ -12,10 +15,27 @@ const models = { en: "eng", fr: "fra", de: "deu", es: "spa", it: "ita", pt: "por
 // A phone's photo is 4000 pixels long; Tesseract reads a page's print as
 // well at 1600, in a fraction of the time (measured on the finder's cases).
 const longSide = 1600;
+// The scattered text is read at half the size, in half the time; titles
+// and headlines there read better than at full size (measured on a
+// magazine's cover and its editorial, a title photographed on a blanket).
+const scatteredLongSide = 800;
 const lstmOnly = 1;
 // Columns, captions and a page's edge are found as Vision finds them;
 // Tesseract.js's own default reads the photo as one block of text.
 const automaticLayout = "3";
+// Text wherever it is, without a layout: what the layout takes for part of
+// a picture — print beside a finger, on a photo, in a coloured box.
+const scatteredText = "11";
+// A letter's outline with more holes than this is taken for a picture;
+// photographed, a title's letters are speckled with far more than the 45
+// Tesseract allows, and are left out.
+const holesInLetters = "1000";
+// The page's paper and ink told apart across the whole photo, as the
+// layout needs; the scattered reading tells them apart around each place
+// (Sauvola's), which keeps a title in the light of a lamp and print in the
+// shadow of a hand.
+const layoutReading = { tessedit_pageseg_mode: automaticLayout, thresholding_method: "0", edges_children_count_limit: holesInLetters };
+const scatteredReading = { tessedit_pageseg_mode: scatteredText, thresholding_method: "2", edges_children_count_limit: holesInLetters };
 
 /** Whether a page in `language`, a two-letter code, can be read. */
 export const canRead = (language) => Object.hasOwn(models, language);
@@ -49,8 +69,9 @@ export class PhotoReader {
       throw new Error(`The text reader couldn’t be started — the first photo in a language needs the network: ${why}`);
     }
     onStatus("reading");
-    const { data } = await worker.recognize(page.png, {}, { blocks: true, text: false });
-    const lines = tesseractLines(data.blocks ?? []);
+    const laidOut = await recognized(worker, page.png, layoutReading);
+    const scattered = await recognized(worker, page.small, scatteredReading, scatteredConfidence);
+    const lines = mergedLines(laidOut, scattered.map((line) => scaledLine(line, page.smallScale)));
     const size = { width: page.width, height: page.height };
     const finger = findFinger(RgbImage.fromRgba(page.pixels, page.width, page.height).shrunk(256), lines, size);
     return { lines, fingers: finger ? [finger] : [], size };
@@ -61,6 +82,13 @@ export class PhotoReader {
     this.#current?.worker.then((worker) => worker.terminate(), () => {});
     this.#current = null;
   }
+}
+
+/** The lines Tesseract reads in `image` with `parameters`, words below `least` left out. */
+async function recognized(worker, image, parameters, least) {
+  await worker.setParameters(parameters);
+  const { data } = await worker.recognize(image, {}, { blocks: true, text: false });
+  return tesseractLines(data.blocks ?? [], least);
 }
 
 let failedImports = 0;
@@ -77,7 +105,7 @@ async function start(model) {
   // finishes starting, so the report ends the wait.
   let failed;
   const failure = new Promise((resolve, reject) => (failed = reject));
-  const worker = await Promise.race([
+  return Promise.race([
     createWorker(model, lstmOnly, {
       // Loaded from its own address, the worker finds the core's .wasm beside it.
       workerPath: `${vendor}worker.min.js`,
@@ -87,11 +115,13 @@ async function start(model) {
     }),
     failure,
   ]);
-  await worker.setParameters({ tessedit_pageseg_mode: automaticLayout });
-  return worker;
 }
 
-/** The photo turned upright and shrunk to at most `longSide`: its RGBA pixels, and the same as a PNG for Tesseract. */
+/**
+ * The photo turned upright and shrunk to at most `longSide`: its RGBA
+ * pixels, and the same as a PNG for Tesseract; and `small`, a PNG
+ * `smallScale` times its size, for the scattered reading.
+ */
 async function upright(file) {
   let bitmap;
   try {
@@ -108,5 +138,15 @@ async function upright(file) {
   context.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
   const pixels = context.getImageData(0, 0, width, height).data;
-  return { width, height, pixels, png: await canvas.convertToBlob({ type: "image/png" }) };
+  const smallScale = Math.min(1, scatteredLongSide / Math.max(width, height));
+  const small = new OffscreenCanvas(Math.max(1, Math.round(width * smallScale)), Math.max(1, Math.round(height * smallScale)));
+  const smallContext = small.getContext("2d");
+  smallContext.imageSmoothingQuality = "high";
+  smallContext.drawImage(canvas, 0, 0, small.width, small.height);
+  return {
+    width, height, pixels,
+    png: await canvas.convertToBlob({ type: "image/png" }),
+    small: await small.convertToBlob({ type: "image/png" }),
+    smallScale: small.width / width,
+  };
 }
