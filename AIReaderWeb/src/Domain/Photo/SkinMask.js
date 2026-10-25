@@ -102,7 +102,8 @@ function textureOf(rgb, width, height) {
   return averaged;
 }
 
-function cover(boxes, width, height) {
+/** 1 for each pixel inside one of `boxes`, `{ x, y, width, height }`. */
+export function cover(boxes, width, height) {
   const covered = new Uint8Array(width * height);
   for (const box of boxes) {
     const x0 = Math.max(0, Math.trunc(box.x)), x1 = Math.min(width, Math.ceil(box.x + box.width));

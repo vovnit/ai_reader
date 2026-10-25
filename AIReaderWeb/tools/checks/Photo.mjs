@@ -124,6 +124,20 @@ function checkDomain() {
   const seen = found && pointedWord({ lines, fingers: [found] });
   check("and points at the word above it", seen && wordAt(photo, seen) === "lentilles", JSON.stringify(seen));
   check("no finger is made up on a page without one", !findFinger(drawn(size.width, size.height, lines).shrunk(256), lines, size));
+  // Skin colour painted over the paper where `where` says, the print and the finger left.
+  const painted = (where) => {
+    const image = drawn(size.width, size.height, lines, finger);
+    for (let y = 0; y < size.height; y++) {
+      for (let x = 0; x < size.width; x++) {
+        const i = 3 * (y * size.width + x);
+        if (where(x, y) && image.values[i] === paper[0] && image.values[i + 1] === paper[1]) image.values.set(skin, i);
+      }
+    }
+    return image.shrunk(256);
+  };
+  const box = target.box;
+  check("no finger is trusted pointing at print on a skin-coloured patch",
+    !findFinger(painted((x, y) => x >= box.x - 20 && x < box.x + box.width + 20 && y >= box.y - 10 && y < box.y + box.height + 2), lines, size));
 
   const word = (text, x0, y0, x1, y1, confidence = 90) => ({ text, confidence, bbox: { x0, y0, x1, y1 } });
   const blocks = [{ paragraphs: [{ lines: [

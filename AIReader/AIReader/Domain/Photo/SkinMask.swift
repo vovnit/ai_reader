@@ -82,7 +82,8 @@ struct SkinMask {
         return averaged
     }
 
-    private static func cover(_ boxes: [CGRect], width: Int, height: Int) -> [Bool] {
+    /// True for each pixel inside one of `boxes`.
+    static func cover(_ boxes: [CGRect], width: Int, height: Int) -> [Bool] {
         var covered = [Bool](repeating: false, count: width * height)
         for box in boxes {
             let x0 = max(0, Int(box.minX)), x1 = min(width, Int(box.maxX.rounded(.up)))

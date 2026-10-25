@@ -6,7 +6,7 @@
 // `FingerFinder`. Masks are `Uint8Array`s, 1 for a pixel in them.
 import { fingerShape } from "./FingerShape.js";
 import { aim } from "./PointedWord.js";
-import { skinMask } from "./SkinMask.js";
+import { cover, skinMask } from "./SkinMask.js";
 
 /**
  * The finger, `{ tip, direction }` in the full photo's pixels, or null.
@@ -38,19 +38,68 @@ export function findFinger(image, lines, photoSize) {
       const shape = fingerShape(region, mask.width, mask.height, {
         fit, lineHeight: lineHeight * scale, up: { dx: up.dx / length, dy: up.dy / length },
       });
-      if (!shape) continue;
+      if (!shape || surroundsPrint(region, boxes, mask.width, mask.height, area)) continue;
       const finger = {
         tip: { x: (shape.tip.x + 0.5) / scale, y: (shape.tip.y + 0.5) / scale },
         direction: shape.direction,
       };
       // A finger pointing at a word rests within a line and a half of it.
-      const score = aim(finger, text)?.score;
+      const pointed = aim(finger, text);
+      const score = pointed?.score;
       if (score === undefined || !(score <= 1.5 * lineHeight) || !(score < (best?.score ?? Infinity))) continue;
+      // Print on a skin-coloured page joins the page to the finger, and
+      // the page's own edge can pass for one: a finger is told from the
+      // paper by the word it points at, printed on something else.
+      const { box } = lines[pointed.place.line].words[pointed.place.word];
+      if (onSkin(mask, { x: box.x * scale, y: box.y * scale, width: box.width * scale, height: box.height * scale })) continue;
       best = { finger, score };
     }
     if (best) return best.finger;
   }
   return null;
+}
+
+/**
+ * Whether the region closes around a patch of print wider than a finger,
+ * as a skin-coloured page does around a white box and a finger never does;
+ * paper in a hand's shadow, skin-coloured too, closes only around a word's
+ * ink. `boxes` are the words', in the shrunk photo's pixels, and
+ * `fingerArea` the least a finger covers.
+ */
+function surroundsPrint(region, boxes, width, height, fingerArea) {
+  const count = width * height;
+  const inRegion = new Uint8Array(count);
+  for (const i of region) inRegion[i] = 1;
+  const outsideRegion = inRegion.map((value) => 1 - value);
+  // What can be reached from the photo's edge without crossing the region.
+  const edge = new Uint8Array(count);
+  for (let i = 0; i < count; i++) {
+    const x = i % width, y = (i - x) / width;
+    edge[i] = x === 0 || y === 0 || x === width - 1 || y === height - 1 ? 1 : 0;
+  }
+  const outside = flood(outsideRegion, edge, width, height);
+  const hole = outsideRegion.map((value, i) => value & (1 - outside[i]));
+  return boxes.some((box) => {
+    // Halfway between the edges, as Foundation's `CGRect.midX` is.
+    const x = Math.min(width - 1, Math.max(0, Math.trunc((box.x + box.x + box.width) / 2)));
+    const y = Math.min(height - 1, Math.max(0, Math.trunc((box.y + box.y + box.height) / 2)));
+    if (!hole[y * width + x]) return false;
+    const seed = new Uint8Array(count);
+    seed[y * width + x] = 1;
+    return flood(hole, seed, width, height).reduce((sum, value) => sum + value, 0) > 4 * fingerArea;
+  });
+}
+
+/** Whether most of `box`, in the shrunk photo's pixels, is skin-coloured. */
+function onSkin(mask, box) {
+  const covered = cover([box], mask.width, mask.height);
+  let inside = 0, skin = 0;
+  for (let i = 0; i < covered.length; i++) {
+    if (!covered[i]) continue;
+    inside++;
+    skin += mask.skin[i];
+  }
+  return skin > inside / 2;
 }
 
 /**

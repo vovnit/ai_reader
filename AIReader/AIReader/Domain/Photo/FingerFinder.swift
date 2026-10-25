@@ -33,20 +33,62 @@ enum FingerFinder {
                 guard let shape = FingerShape(
                     pixels: region, width: mask.width, height: mask.height, fit: fit,
                     lineHeight: Double(lineHeight * scale), up: CGVector(dx: up.dx / length, dy: up.dy / length)
-                ) else { continue }
+                ), !surroundsPrint(region, boxes: boxes, mask.width, mask.height, fingerArea: area) else { continue }
                 let finger = PhotoText.Finger(
                     tip: CGPoint(x: (shape.tip.x + 0.5) / scale, y: (shape.tip.y + 0.5) / scale),
                     direction: shape.direction
                 )
                 // A finger pointing at a word rests within a line and a half of it.
-                guard let aim = PointedWord.aim(of: finger, in: text)?.score, aim <= 1.5 * lineHeight,
-                      aim < best?.aim ?? .infinity
+                guard let pointed = PointedWord.aim(of: finger, in: text), pointed.score <= 1.5 * lineHeight,
+                      pointed.score < best?.aim ?? .infinity
                 else { continue }
-                best = (finger, aim)
+                // Print on a skin-coloured page joins the page to the finger,
+                // and the page's own edge can pass for one: a finger is told
+                // from the paper by the word it points at, printed on
+                // something else.
+                let box = lines[pointed.place.line].words[pointed.place.word].box
+                guard !onSkin(mask, CGRect(x: box.minX * scale, y: box.minY * scale, width: box.width * scale, height: box.height * scale))
+                else { continue }
+                best = (finger, pointed.score)
             }
             if let best { return best.finger }
         }
         return nil
+    }
+
+    /// Whether the region closes around a patch of print wider than a
+    /// finger, as a skin-coloured page does around a white box and a finger
+    /// never does; paper in a hand's shadow, skin-coloured too, closes only
+    /// around a word's ink. `boxes` are the words', in the shrunk photo's
+    /// pixels, and `fingerArea` the least a finger covers.
+    private static func surroundsPrint(
+        _ region: [(x: Int, y: Int)], boxes: [CGRect], _ width: Int, _ height: Int, fingerArea: Int
+    ) -> Bool {
+        var inRegion = [Bool](repeating: false, count: width * height)
+        for point in region { inRegion[point.y * width + point.x] = true }
+        let outsideRegion = inRegion.map { !$0 }
+        // What can be reached from the photo's edge without crossing the region.
+        let edge = (0..<(width * height)).map { i in
+            let x = i % width, y = i / width
+            return x == 0 || y == 0 || x == width - 1 || y == height - 1
+        }
+        let outside = flood(outsideRegion, from: edge, width, height)
+        let hole = zip(outsideRegion, outside).map { $0 && !$1 }
+        return boxes.contains { box in
+            let x = min(width - 1, max(0, Int(box.midX))), y = min(height - 1, max(0, Int(box.midY)))
+            guard hole[y * width + x] else { return false }
+            var seed = [Bool](repeating: false, count: width * height)
+            seed[y * width + x] = true
+            return flood(hole, from: seed, width, height).filter { $0 }.count > 4 * fingerArea
+        }
+    }
+
+    /// Whether most of `box`, in the shrunk photo's pixels, is skin-coloured.
+    private static func onSkin(_ mask: SkinMask, _ box: CGRect) -> Bool {
+        let covered = SkinMask.cover([box], width: mask.width, height: mask.height)
+        let inside = covered.filter { $0 }.count
+        let skin = zip(covered, mask.skin).filter { $0 && $1 }.count
+        return 2 * skin > inside
     }
 
     /// The smooth skin-coloured regions, each cut from its neighbours where
